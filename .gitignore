@@ -1,4 +1,8 @@
-*.py[co]
+# Django stuff
+*.log
+*.pot
+*.pyc
+local_settings.py
 
 # Packages
 *.egg
@@ -20,8 +24,13 @@ pip-log.txt
 .coverage
 .tox
 
-#Translations
+# Translations
 *.mo
 
-#Mr Developer
-.mr.developer.cfg
+# Eclipse
+.project
+.pydevproject
+
+# OS files
+.DS_Store
+*.swp
