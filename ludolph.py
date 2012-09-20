@@ -17,7 +17,9 @@ class RPI(JabberBot):
     def __init__(self):
         super(RPI, self).__init__(JID, PWD, RES)
         # create console handler
-        chandler = logging.StreamHandler()
+        # chandler = logging.StreamHandler()
+        # create file handler
+        chandler = logging.FileHandler(LOG)
         # create formatter
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         # add formatter to handler
