@@ -3,6 +3,7 @@
 *.pot
 *.pyc
 local_settings.py
+config.py
 
 # Packages
 *.egg
@@ -16,6 +17,7 @@ var
 sdist
 develop-eggs
 .installed.cfg
+MANIFEST
 
 # Installer logs
 pip-log.txt

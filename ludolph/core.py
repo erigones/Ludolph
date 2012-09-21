@@ -9,7 +9,7 @@ import logging
 import os
 
 try:
-    from local_settings import *
+    from config import *
 except ImportError:
     pass
 
@@ -65,7 +65,7 @@ class RPI(JabberBot):
                 if self.thread_killed:
                     return
 
-def main():
+def start():
     rpi = RPI()
     th = threading.Thread(target = rpi.thread_proc)
     rpi.serve_forever(connect_callback = lambda: th.start())
@@ -74,6 +74,6 @@ def main():
 if __name__ == '__main__':
     os.mkfifo(PIPE, 0600)
     try:
-        main()
+        start()
     finally:
         os.remove(PIPE)
