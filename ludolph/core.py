@@ -1,6 +1,15 @@
 #!/usr/bin/python
 
-from jabberbot import JabberBot, botcmd
+import sys
+try:
+#    import jabberbot
+    from jabberbot import JabberBot, botcmd
+except ImportError:
+    print >> sys.stderr, """
+    You need to install jabberbot from http://thp.io/2007/python-jabberbot.
+    On Debian-based systems, install the python-jabberbot package.
+    """
+    sys.exit(-1)
 
 import subprocess
 import threading
@@ -11,7 +20,11 @@ import os
 try:
     from config import *
 except ImportError:
-    pass
+    print >> sys.stderr, """
+    You need to create a config file. You can rename config.example.py and
+    update required variables. 
+    File is located: """ + os.getcwd() +"\n"
+    sys.exit(-1)
 
 class RPI(JabberBot):
     def __init__(self):
