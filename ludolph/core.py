@@ -22,15 +22,15 @@ try:
 except ImportError:
     print >> sys.stderr, """
     You need to create a config file. You can rename config.example.py and
-    update required variables. 
+    update required variables.
     File is located: """ + os.getcwd() +"\n"
     sys.exit(-1)
 
 class RPI(JabberBot):
+    __version__ = '0.1.1a'
+
     def __init__(self):
         super(RPI, self).__init__(JID, PWD, RES)
-        # create console handler
-        # chandler = logging.StreamHandler()
         # create file handler
         chandler = logging.FileHandler(LOG)
         # create formatter
@@ -51,6 +51,23 @@ class RPI(JabberBot):
         Server uptime
         """
         return subprocess.check_output('uptime')
+
+    @botcmd
+    def about(self, mess, args):
+        """
+        Information about bot
+        """
+        return """
+        Ludolph - Zabbix monitoring Jabber bot
+        Version: """+ self.__version__ +"""
+        Homepage: https://github.com/ricco386/Ludolph
+
+        Copyright (C) 2012 Richard Kellner & Daniel Kontsek
+        This program comes with ABSOLUTELY NO WARRANTY.
+        This is free software, and you are welcome to redistribute it under
+        certain conditions.
+        """
+
 
     def idle_proc(self):
         if not len(self.message_queue):
