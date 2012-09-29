@@ -27,7 +27,6 @@ except ImportError:
     sys.exit(-1)
 
 class RPI(JabberBot):
-    __version__ = '0.1.1a'
 
     def __init__(self):
         super(RPI, self).__init__(JID, PWD, RES)

@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 from distutils.core import setup
-from ludolph.core import RPI
+from ludolph.version import VERSION
 
 setup(name = 'ludolph',
-    version = RPI.__version__,
+    version = VERSION,
     description = 'Zabbix monitoring Jabber bot',
-    author = 'Richard Kellner, Daniel Kontsek',
+    author = 'Richard Kellner & Daniel Kontsek',
     author_email = 'richard.kellner@ajty.info, daniel.kontsek@gmail.com',
-    url = 'https://github.com/ricco386/Ludolph/downloads',
+    url = 'https://github.com/ricco386/Ludolph/',
     license = 'GPLv3',
     packages = ['ludolph'],
     scripts = ['bin/ludolph'],
