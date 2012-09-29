@@ -95,16 +95,16 @@ class RPI(JabberBot):
                     return
 
 def start():
-    rpi = RPI()
-    th = threading.Thread(target = rpi.thread_proc)
-    #set thread as daemon so it is terminated once main program ends
-    th.daemon = True
-    rpi.serve_forever(connect_callback = lambda: th.start())
-    rpi.thread_killed = True
-
-if __name__ == '__main__':
     os.mkfifo(PIPE, 0600)
     try:
-        start()
+        rpi = RPI()
+        th = threading.Thread(target = rpi.thread_proc)
+        #set thread as daemon so it is terminated once main program ends
+        th.daemon = True
+        rpi.serve_forever(connect_callback = lambda: th.start())
+        rpi.thread_killed = True
     finally:
         os.remove(PIPE)
+
+if __name__ == '__main__':
+    start()
