@@ -56,9 +56,10 @@ class RPI(JabberBot):
         """
         Information about bot
         """
+        from version import VERSION
         return """
         Ludolph - Zabbix monitoring Jabber bot
-        Version: """+ self.__version__ +"""
+        Version: """+ VERSION +"""
         Homepage: https://github.com/ricco386/Ludolph
 
         Copyright (C) 2012 Richard Kellner & Daniel Kontsek
