@@ -16,6 +16,7 @@ import threading
 import time
 import logging
 import os
+import plugins
 
 try:
     from config import *
@@ -46,10 +47,7 @@ class RPI(JabberBot):
 
     @botcmd
     def uptime(self, mess, args):
-        """
-        Server uptime
-        """
-        return subprocess.check_output('uptime')
+        return plugins.uptime()
 
     @botcmd
     def about(self, mess, args):
