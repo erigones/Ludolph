@@ -14,9 +14,9 @@ def who():
     """
     return subprocess.check_output('who')
 
-def set_status(rpi, args):
+def set_status(bot, args):
     """
     Set status to jabberbot
     """
-    rpi.status_message = args
+    bot.status_message = args
     return

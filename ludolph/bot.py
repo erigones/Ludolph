@@ -37,6 +37,13 @@ class Bot(LudolphCore):
         else:
             return plugins.about()
 
+   @botcmd
+   def who(self, mess, args):
+        """
+        Users logged in on server
+        """
+        return plugins.who()
+
 def start():
     config = RawConfigParser()
     path = os.path.dirname(os.path.abspath(__file__))
