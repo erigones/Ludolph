@@ -3,7 +3,7 @@
 *.pot
 *.pyc
 local_settings.py
-config.py
+config.cfg
 
 # Packages
 *.egg

@@ -5,6 +5,6 @@
 #
 # So, you don't need anything special - no fancy path tricks.
 
-import ludolph.core
+import ludolph.bot
 
-ludolph.core.start()
+ludolph.bot.start()

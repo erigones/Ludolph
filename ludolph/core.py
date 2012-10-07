@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-import sys
+import time
+import logging
 try:
-#    import jabberbot
     from jabberbot import JabberBot, botcmd
 except ImportError:
     print >> sys.stderr, """
@@ -11,28 +11,15 @@ except ImportError:
     """
     sys.exit(-1)
 
-import subprocess
-import threading
-import time
-import logging
-import os
-import plugins
+class LudolphCore(JabberBot):
+    def __init__(self, config):
+        self.config = config
+        super(LudolphCore, self).__init__(config.get('ludolph','username'),
+                config.get('ludolph','password'),
+                config.get('ludolph','resource'))
 
-try:
-    from config import *
-except ImportError:
-    print >> sys.stderr, """
-    You need to create a config file. You can rename config.example.py and
-    update required variables.
-    File is located: """ + os.getcwd() +"\n"
-    sys.exit(-1)
-
-class RPI(JabberBot):
-
-    def __init__(self):
-        super(RPI, self).__init__(JID, PWD, RES)
         # create file handler
-        chandler = logging.FileHandler(LOG)
+        chandler = logging.FileHandler(config.get('ludolph','log_file'))
         # create formatter
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         # add formatter to handler
@@ -44,28 +31,6 @@ class RPI(JabberBot):
 
         self.message_queue = []
         self.thread_killed = False
-
-    @botcmd
-    def uptime(self, mess, args):
-        return plugins.uptime()
-
-    @botcmd
-    def about(self, mess, args):
-        """
-        Information about bot
-        """
-        from version import VERSION
-        return """
-        Ludolph - Zabbix monitoring Jabber bot
-        Version: """+ VERSION +"""
-        Homepage: https://github.com/ricco386/Ludolph
-
-        Copyright (C) 2012 Richard Kellner & Daniel Kontsek
-        This program comes with ABSOLUTELY NO WARRANTY.
-        This is free software, and you are welcome to redistribute it under
-        certain conditions.
-        """
-
 
     def idle_proc(self):
         if not len(self.message_queue):
@@ -93,17 +58,3 @@ class RPI(JabberBot):
                 if self.thread_killed:
                     return
 
-def start():
-    os.mkfifo(PIPE, 0600)
-    try:
-        rpi = RPI()
-        th = threading.Thread(target = rpi.thread_proc)
-        #set thread as daemon so it is terminated once main program ends
-        th.daemon = True
-        rpi.serve_forever(connect_callback = lambda: th.start())
-        rpi.thread_killed = True
-    finally:
-        os.remove(PIPE)
-
-if __name__ == '__main__':
-    start()
