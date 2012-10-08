@@ -3,6 +3,7 @@
 import os
 import sys
 import threading
+import plugins
 from core import LudolphCore
 from jabberbot import botcmd
 from ConfigParser import RawConfigParser
@@ -37,8 +38,8 @@ class Bot(LudolphCore):
         else:
             return plugins.about()
 
-   @botcmd
-   def who(self, mess, args):
+    @botcmd
+    def who(self, mess, args):
         """
         Users logged in on server
         """

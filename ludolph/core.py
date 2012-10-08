@@ -45,7 +45,7 @@ class LudolphCore(JabberBot):
             self.send(message[0], message[1])
 
     def thread_proc(self):
-        with open(PIPE, 'r') as fifo:
+        with open(self.config.get('ludolph','pipe_file'), 'r') as fifo:
             while not self.thread_killed:
                 line = fifo.readline().strip()
                 if line:
