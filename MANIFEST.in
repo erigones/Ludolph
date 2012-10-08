@@ -1,3 +1,5 @@
 include README.txt
 recursive-include bin *
 recursive-include init.d *
+recursive-include ludolph/plugins *
+include ludolph/config.example.cfg

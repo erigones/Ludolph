@@ -13,7 +13,7 @@ setup(name = 'ludolph',
     packages = ['ludolph'],
     scripts = ['bin/ludolph'],
     data_files = [('/etc/init.d', ['init.d/ludolph'])],
-    requires = ['jabberbot (>=0.15)', 'xmpppy'],
+    install_requires = ['jabberbot (>=0.15)', 'xmpppy'],
     classifiers = [
         'Environment :: Console',
         'Intended Audience :: System Administrators',
