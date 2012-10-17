@@ -4,7 +4,7 @@ import logging
 
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
-
+from version import __version__
 # In order to make sure that Unicode is handled properly
 # in Python 2.x, reset the default encoding.
 if sys.version_info < (3, 0):
@@ -16,8 +16,8 @@ else:
 class EchoBot(ClientXMPP):
 
     def __init__(self, config):
-        ClientXMPP.__init__(self, 
-                config.get('ludolph','username'), 
+        ClientXMPP.__init__(self,
+                config.get('ludolph','username'),
                 config.get('ludolph','password'))
 
         self.add_event_handler("session_start", self.session_start)
@@ -54,11 +54,36 @@ class EchoBot(ClientXMPP):
 
     def message(self, msg):
         if msg['type'] in ('chat', 'normal'):
-            if msg == 'help':
-                msg.reply("this is help text").send()
+            if msg['body'] == 'help':
+                self.help(msg)
+            elif msg['body'] == 'version':
+                self.version(msg)
+            elif msg['body'] == 'about':
+                self.about(msg)
             else:
-                msg.reply("Thanks for sending\n%(body)s" % msg).send()
+                msg.reply("I dont understand %(body)s.\
+                        Please type help for more info" % msg).send()
 
+    def help(self, msg):
+        msg.reply("""List of known commands:
+            help - disply available commands
+            version - show current version
+            about - dispaly more information about Ludolph
+                """).send()
+
+    def version(self, msg):
+        msg.reply('Version: '+ __version__).send()
+
+    def about(self, msg):
+        msg.reply("""
+            Ludolph - Monitoring Jabber bot
+            Version: """+ __version__ +"""
+            Homepage: https://github.com/ricco386/Ludolph
+            Copyright (C) 2012 Richard Kellner & Daniel Kontsek
+            This program comes with ABSOLUTELY NO WARRANTY. For details type
+            'about'.
+            This is free software, and you are welcome to redistribute it under
+            certain conditions.""").send()
 
 def start():
     logging.basicConfig(level=logging.DEBUG,
