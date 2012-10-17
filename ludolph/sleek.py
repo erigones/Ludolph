@@ -13,7 +13,7 @@ else:
     from configparser import RawConfigParser
 
 
-class EchoBot(ClientXMPP):
+class LudolphBot(ClientXMPP):
 
     def __init__(self, config):
         ClientXMPP.__init__(self,
@@ -54,25 +54,41 @@ class EchoBot(ClientXMPP):
 
     def message(self, msg):
         if msg['type'] in ('chat', 'normal'):
-            if msg['body'] == 'help':
-                self.help(msg)
-            elif msg['body'] == 'version':
-                self.version(msg)
-            elif msg['body'] == 'about':
-                self.about(msg)
+            # Seek received text in available commands
+            if msg['body'] in self.available_commands():
+                # transform string into executable function
+                function = getattr(self, msg['body'])
+                function(msg)
             else:
-                msg.reply("I dont understand %(body)s.\
-                        Please type help for more info" % msg).send()
+                # Send message that command was not understod and what to do
+                self.send_message(mto=msg['from'],
+                                mbody="I dont understand %(body)s." % msg,
+                                mtype='chat')
+                self.send_message(mto=msg['from'],
+                                mbody="Please type help for more info",
+                                mtype='chat')
+
+    def available_commands(self):
+        return {'help' : 'disply available commands',
+                'version' : 'show current version',
+                'about' : 'dispaly more information about Ludolph'
+                }
+        # List of all available commands for bot
 
     def help(self, msg):
-        msg.reply("""List of known commands:
-            help - disply available commands
-            version - show current version
-            about - dispaly more information about Ludolph
-                """).send()
+        self.send_message(mto=msg['from'],
+                        mbody='List of known commands:',
+                        mtype='chat')
+        all_commands = self.available_commands()
+        for command in all_commands:
+            self.send_message(mto=msg['from'],
+                    mbody=str(command) +" - "+ str(all_commands[command]),
+                    mtype='chat')
+        # Function to send out available commands if called
 
     def version(self, msg):
         msg.reply('Version: '+ __version__).send()
+        # pely with a Ludolph version to user
 
     def about(self, msg):
         msg.reply("""
@@ -84,6 +100,7 @@ class EchoBot(ClientXMPP):
             'about'.
             This is free software, and you are welcome to redistribute it under
             certain conditions.""").send()
+        # details about what is this project aobut
 
 def start():
     logging.basicConfig(level=logging.DEBUG,
@@ -102,7 +119,7 @@ def start():
         File is located: """+ path +"\n"
         sys.exit(-1)
 
-    xmpp = EchoBot(config)
+    xmpp = LudolphBot(config)
     xmpp.connect()
     xmpp.process(block=True)
 
