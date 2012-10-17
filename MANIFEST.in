@@ -1,5 +1,5 @@
-include README.txt
+include README.rst
+include LICENSE
+include ludolph/config.example.cfg
 recursive-include bin *
 recursive-include init.d *
-recursive-include ludolph/plugins *
-include ludolph/config.example.cfg
