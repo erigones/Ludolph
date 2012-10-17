@@ -1,7 +1,7 @@
 import sys
 import os
 import logging
-
+import subprocess
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 from version import __version__
@@ -71,9 +71,21 @@ class LudolphBot(ClientXMPP):
     def available_commands(self):
         return {'help' : 'disply available commands',
                 'version' : 'show current version',
-                'about' : 'dispaly more information about Ludolph'
+                'about' : 'dispaly more information about Ludolph',
+                'uptime' : 'display result of uptime command',
+                'who' : 'display result of who command',
                 }
         # List of all available commands for bot
+
+    def who(self, msg):
+        self.send_message(mto=msg['from'],
+                    mbody=str(subprocess.check_output('who')),
+                    mtype='chat')
+
+    def uptime(self, msg):
+        self.send_message(mto=msg['from'],
+                    mbody=str(subprocess.check_output('uptime')),
+                    mtype='chat')
 
     def help(self, msg):
         self.send_message(mto=msg['from'],
