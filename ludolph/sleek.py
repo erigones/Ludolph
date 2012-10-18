@@ -2,6 +2,8 @@ import sys
 import os
 import logging
 import subprocess
+import threading
+import time
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 from version import __version__
@@ -12,6 +14,7 @@ if sys.version_info < (3, 0):
 else:
     from configparser import RawConfigParser
 
+log = logging.getLogger(__name__)
 
 class LudolphBot(ClientXMPP):
 
@@ -20,9 +23,10 @@ class LudolphBot(ClientXMPP):
                 config.get('ludolph','username'),
                 config.get('ludolph','password'))
 
+        self.config = config
         self.add_event_handler("session_start", self.session_start)
         self.add_event_handler("message", self.message)
-
+        self.thread_killed = False
         # If you wanted more functionality, here's how to register plugins:
         # self.register_plugin('xep_0030') # Service Discovery
         # self.register_plugin('xep_0199') # XMPP Ping
@@ -114,6 +118,23 @@ class LudolphBot(ClientXMPP):
             certain conditions.""").send()
         # details about what is this project aobut
 
+    def thread_proc(self):
+        with open(self.config.get('ludolph','pipe_file'), 'r') as fifo:
+            while not self.thread_killed:
+                line = fifo.readline().strip()
+                if line:
+                    data = line.split(';', 1)
+                    if len(data) == 2:
+                        self.send_message(mto=data[0],
+                                mbody=data[1],
+                                mtype='chat')
+                    else:
+                        log.warning('bad message format ("%s")' % (line))
+                time.sleep(1)
+                if self.thread_killed:
+                    return
+
+
 def start():
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)-8s %(message)s')
@@ -131,9 +152,18 @@ def start():
         File is located: """+ path +"\n"
         sys.exit(-1)
 
-    xmpp = LudolphBot(config)
-    xmpp.connect()
-    xmpp.process(block=True)
+    os.mkfifo(config.get('ludolph','pipe_file'), 0600)
+    try:
+        xmpp = LudolphBot(config)
+        th = threading.Thread(target = lambda: xmpp.thread_proc())
+        #set thread as daemon so it is terminated once main program ends
+        th.daemon = True
+        th.start()
+        xmpp.connect()
+        xmpp.process(block=True)
+        xmpp.thread_killed = True
+    finally:
+        os.remove(config.get('ludolph','pipe_file'))
 
 if __name__ == '__main__':
     start()
