@@ -152,7 +152,7 @@ def start():
         File is located: """+ path +"\n"
         sys.exit(-1)
 
-    os.mkfifo(config.get('ludolph','pipe_file'), 0600)
+    os.mkfifo(config.get('ludolph','pipe_file'), 0o600)
     try:
         xmpp = LudolphBot(config)
         th = threading.Thread(target = lambda: xmpp.thread_proc())
