@@ -7,6 +7,7 @@
 # This software is licensed as described in the README.rst and LICENSE
 # file, which you should have received as part of this distribution.
 
+import codecs
 try:
     from setuptools import setup, Command
 except ImportError:
@@ -16,7 +17,7 @@ from ludolph.version import __version__
 
 VERSION = __version__
 DESCRIPTION = 'Monitoring Jabber bot'
-with codecs.open('README.txt', 'r', encoding='UTF-8') as readme:
+with codecs.open('README.rst', 'r', encoding='UTF-8') as readme:
     LONG_DESCRIPTION = ''.join(readme)
 
 CLASSIFIERS = [
@@ -31,14 +32,13 @@ CLASSIFIERS = [
 
 packages = [
     'ludolph',
-    'ludolph/plugins',
 ]
 
 setup(
     name = 'ludolph',
     version = VERSION,
     description = DESCRIPTION,
-    long_description = LONG_DESCRIPTION
+    long_description = LONG_DESCRIPTION,
     author = 'Richard Kellner & Daniel Kontsek',
     author_email = 'richard.kellner [at] ajty.info, daniel.kontsek [at] gmail.com',
     url = 'https://github.com/ricco386/Ludolph/',
