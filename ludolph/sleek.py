@@ -136,9 +136,6 @@ class LudolphBot(ClientXMPP):
 
 
 def start():
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(levelname)-8s %(message)s')
-
     config = RawConfigParser()
     path = os.path.dirname(os.path.abspath(__file__))
 
@@ -151,6 +148,10 @@ def start():
         details.
         File is located: """+ path +"\n"
         sys.exit(-1)
+
+    logging.basicConfig(filename=config.get('ludolph','log_file'),
+                        level=logging.DEBUG,
+                        format='%(levelname)-8s %(message)s')
 
     os.mkfifo(config.get('ludolph','pipe_file'), 0o600)
     try:
