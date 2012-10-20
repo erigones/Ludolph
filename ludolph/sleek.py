@@ -150,8 +150,8 @@ def start():
         sys.exit(-1)
 
     logging.basicConfig(filename=config.get('ludolph','log_file'),
-                        level=logging.DEBUG,
-                        format='%(levelname)-8s %(message)s')
+                        level=config.get('ludolph','log_level'),
+                        format='%(asctime)s %(levelname)-8s %(message)s')
 
     os.mkfifo(config.get('ludolph','pipe_file'), 0o600)
     try:
