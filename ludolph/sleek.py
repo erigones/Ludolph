@@ -26,7 +26,7 @@ class LudolphBot(ClientXMPP):
         self.config = config
         self.add_event_handler("session_start", self.session_start)
         self.add_event_handler("message", self.message)
-        self.thread_killed = False
+        self._start_thread('thread_proc', self._thread_proc)
         # If you wanted more functionality, here's how to register plugins:
         # self.register_plugin('xep_0030') # Service Discovery
         # self.register_plugin('xep_0199') # XMPP Ping
@@ -118,9 +118,9 @@ class LudolphBot(ClientXMPP):
             certain conditions.""").send()
         # details about what is this project aobut
 
-    def thread_proc(self):
+    def _thread_proc(self):
         with open(self.config.get('ludolph','pipe_file'), 'r') as fifo:
-            while not self.thread_killed:
+            while not self.stop.is_set():
                 line = fifo.readline().strip()
                 if line:
                     data = line.split(';', 1)
@@ -129,9 +129,10 @@ class LudolphBot(ClientXMPP):
                                 mbody=data[1],
                                 mtype='chat')
                     else:
-                        log.warning('bad message format ("%s")' % (line))
+                        log.warning('Bad message format ("%s")' % (line))
                 time.sleep(1)
-                if self.thread_killed:
+                if self.stop.is_set():
+                    self._end_thread('thread_proc')
                     return
 
 
@@ -156,13 +157,8 @@ def start():
     os.mkfifo(config.get('ludolph','pipe_file'), 0o600)
     try:
         xmpp = LudolphBot(config)
-        th = threading.Thread(target = lambda: xmpp.thread_proc())
-        #set thread as daemon so it is terminated once main program ends
-        th.daemon = True
-        th.start()
         xmpp.connect()
         xmpp.process(block=True)
-        xmpp.thread_killed = True
     finally:
         os.remove(config.get('ludolph','pipe_file'))
 
