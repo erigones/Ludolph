@@ -24,8 +24,11 @@ CLASSIFIERS = [
     'Environment :: Console',
     'Intended Audience :: System Administrators',
     'Operating System :: Unix',
+    'Operating System :: POSIX :: Linux',
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     'Programming Language :: Python',
+    'Programming Language :: Python :: 2',
+    'Programming Language :: Python :: 3',
     'Topic :: Communications :: Chat',
     'Topic :: Utilities'
 ]
@@ -45,7 +48,7 @@ setup(
     license = 'GPLv3',
     packages = packages,
     scripts = ['bin/ludolph'],
-    data_files = [('/etc/init.d', ['init.d/ludolph'])],
     install_requires = ['sleekxmpp'],
+    platforms = 'Linux',
     classifiers = CLASSIFIERS
 )
