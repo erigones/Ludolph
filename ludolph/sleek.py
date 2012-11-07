@@ -2,7 +2,6 @@ import sys
 import os
 import logging
 import subprocess
-import threading
 import time
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
@@ -20,8 +19,8 @@ class LudolphBot(ClientXMPP):
 
     def __init__(self, config):
         ClientXMPP.__init__(self,
-                config.get('ludolph','username'),
-                config.get('ludolph','password'))
+                config.get('login','username'),
+                config.get('login','password'))
 
         self.config = config
         self.add_event_handler("session_start", self.session_start)
@@ -73,13 +72,11 @@ class LudolphBot(ClientXMPP):
                                 mtype='chat')
 
     def available_commands(self):
-        return {'help' : 'disply available commands',
-                'version' : 'show current version',
-                'about' : 'dispaly more information about Ludolph',
-                'uptime' : 'display result of uptime command',
-                'who' : 'display result of who command',
-                }
         # List of all available commands for bot
+        config_commands = {}
+        for command in self.config.items('available_commands'):
+            config_commands[command[0]] = command[1]
+        return config_commands
 
     def who(self, msg):
         self.send_message(mto=msg['from'],
@@ -98,7 +95,7 @@ class LudolphBot(ClientXMPP):
         all_commands = self.available_commands()
         for command in all_commands:
             self.send_message(mto=msg['from'],
-                    mbody=str(command) +" - "+ str(all_commands[command]),
+                    mbody=command +" - "+ all_commands[command],
                     mtype='chat')
         # Function to send out available commands if called
 
@@ -119,7 +116,7 @@ class LudolphBot(ClientXMPP):
         # details about what is this project aobut
 
     def _thread_proc(self):
-        with open(self.config.get('ludolph','pipe_file'), 'r') as fifo:
+        with open(self.config.get('zabbix','pipe_file'), 'r') as fifo:
             while not self.stop.is_set():
                 line = fifo.readline().strip()
                 if line:
@@ -150,17 +147,17 @@ def start():
         File is located: """+ path +"\n"
         sys.exit(-1)
 
-    logging.basicConfig(filename=config.get('ludolph','log_file'),
-                        level=config.get('ludolph','log_level'),
+    logging.basicConfig(filename=config.get('loging','filename'),
+                        level=config.get('loging','level'),
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
-    os.mkfifo(config.get('ludolph','pipe_file'), 0o600)
+    os.mkfifo(config.get('zabbix','pipe_file'), 0o600)
     try:
         xmpp = LudolphBot(config)
         xmpp.connect()
         xmpp.process(block=True)
     finally:
-        os.remove(config.get('ludolph','pipe_file'))
+        os.remove(config.get('zabbix','pipe_file'))
 
 if __name__ == '__main__':
     start()
