@@ -6,4 +6,4 @@
     See the file LICENSE for copying permission.
 """
 
-__version__ = '0.2.1a'
+__version__ = '0.2.1'
