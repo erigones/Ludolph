@@ -6,4 +6,4 @@
     See the file LICENSE for copying permission.
 """
 
-from version import __version__
+from zabbix import *
