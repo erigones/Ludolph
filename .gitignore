@@ -25,9 +25,6 @@ pip-log.txt
 .coverage
 .tox
 
-# Translations
-*.mo
-
 # Eclipse
 .project
 .pydevproject
