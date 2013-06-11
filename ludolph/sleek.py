@@ -1,3 +1,11 @@
+"""
+Ludolph: Monitoring Jabber bot
+Copyright (C) 2012-13 Erigones s.r.o.
+This file is part of Ludolph.
+
+See the file LICENSE for copying permission.
+"""
+
 import sys
 import os
 import logging
@@ -6,6 +14,7 @@ import time
 from sleekxmpp import ClientXMPP
 from sleekxmpp.exceptions import IqError, IqTimeout
 from version import __version__
+
 # In order to make sure that Unicode is handled properly
 # in Python 2.x, reset the default encoding.
 if sys.version_info < (3, 0):

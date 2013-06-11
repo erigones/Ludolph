@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2012 Richard Kellner & Daniel Kontsek
+# Copyright (C) 2012-13 Erigones s.r.o.
 # All Rights Reserved
 #
 # This software is licensed as described in the README.rst and LICENSE
@@ -42,8 +42,8 @@ setup(
     version = VERSION,
     description = DESCRIPTION,
     long_description = LONG_DESCRIPTION,
-    author = 'Richard Kellner & Daniel Kontsek',
-    author_email = 'richard.kellner [at] ajty.info, daniel.kontsek [at] gmail.com',
+    author = 'Erigones',
+    author_email = 'erigones [at] erigones.com',
     url = 'https://github.com/ricco386/Ludolph/',
     license = 'GPLv3',
     packages = packages,
