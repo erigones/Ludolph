@@ -5,19 +5,20 @@ This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
 """
-
 from zabbixAPI.zabbix_api import ZabbixAPI
 
-class zabbixConnect():
+class Zabbix():
+    """
+    Zabbix API connector for LudolphBot.
+    """
+    zapi = None
 
     def __init__(self, config):
         self.config = config
-        zapi = ZabbixAPI(server = config.get('zabbix','server'),
-                path="",
-                log_level=30)
-        zapi.login(config.get('zabbix','username'),
+        self.zapi = ZabbixAPI(server = config.get('zabbix','server'),
+                path='', log_level=30)
+        self.zapi.login(config.get('zabbix','username'),
                 config.get('zabbix','password'))
-        self.zapi = zapi
 
     def testLogin(self):
         return str(self.zapi.test_login())

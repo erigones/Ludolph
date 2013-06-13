@@ -1,28 +1,30 @@
 Ludolph
 #######
 
-Zabbix monitoring Jabber bot
+Monitoring Jabber Bot
 
 Installation Notes
 ------------------
 
-Installation have to be done as root. Download the latest release from 
-`Github <https://github.com/ricco386/Ludolph/downloads>`_ uncompress and 
-install with command: python setup.py.install
-Make sure all dependencies (listed below) are installed. You also
-need to create a config file, you can rename and amend  example file. 
-Debian: /usr/local/lib/python2.7/dist-packages/ludolph
-Fedora: /usr/lib/python2.7/site-packages/ludolph
-There is also a init script installed in /etc/init.d for service
-command, unfortunatelly it is for DEBIAN based systems only.
-Admin can run the bot by calling command ludolph, script is in
-Debian: /usr/local/bin/
-Fedora: /usr/bin
+ - Install the latest version by using pip::
+
+    pip install https://github.com/ricco386/Ludolph/tarball/master
+
+ - Make sure all dependencies (listed below) are installed.
+
+ - Create and edit the config file::
+
+    cp /usr/lib/python2.7/site-packages/ludolph/ludolph.cfg.example /etc/ludolph.cfg
+
+ - The ludolph command should be already installed somewhere in ``PATH``. Or an init script for Debian and RHEL based distributions is available somewhere in your installation prefix (probably: ``/usr/lib/python2.7/site-packages/ludolph/``).
+
 
 **Dependencies:**
-sleekxmpp
+ - sleekxmpp
+ - dnspython
+
 
 License
 -------
 
-For more informations see LICENSE file
+For more informations see the LICENSE file.

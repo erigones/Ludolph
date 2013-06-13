@@ -1,5 +1,5 @@
 include README.rst
 include LICENSE
-include ludolph/config.example.cfg
+include ludolph/ludolph.cfg.example
 recursive-include bin *
 recursive-include init.d *

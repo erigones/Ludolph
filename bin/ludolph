@@ -5,6 +5,6 @@
 #
 # So, you don't need anything special - no fancy path tricks.
 
-import ludolph.sleek
+import ludolph.bot
 
-ludolph.sleek.start()
+ludolph.bot.main()

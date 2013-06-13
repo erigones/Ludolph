@@ -5,18 +5,18 @@
 # All Rights Reserved
 #
 # This software is licensed as described in the README.rst and LICENSE
-# file, which you should have received as part of this distribution.
+# files, which you should have received as part of this distribution.
 
 import codecs
 try:
-    from setuptools import setup, Command
+    from setuptools import setup
 except ImportError:
-    from distutils.core import setup, Command
+    from distutils.core import setup
 
-from ludolph.version import __version__
+from ludolph.__init__ import __version__ as VERSION
 
-VERSION = __version__
-DESCRIPTION = 'Monitoring Jabber bot'
+DESCRIPTION = 'Monitoring Jabber Bot'
+
 with codecs.open('README.rst', 'r', encoding='UTF-8') as readme:
     LONG_DESCRIPTION = ''.join(readme)
 
@@ -48,7 +48,7 @@ setup(
     license = 'GPLv3',
     packages = packages,
     scripts = ['bin/ludolph'],
-    install_requires = ['sleekxmpp'],
+    install_requires = ['sleekxmpp', 'dnspython'],
     platforms = 'Linux',
     classifiers = CLASSIFIERS
 )

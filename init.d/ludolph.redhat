@@ -1,0 +1,70 @@
+#!/bin/sh
+#
+# chkconfig:   345 99 1
+#
+### BEGIN INIT INFO
+# Provides:          ludolph
+# Required-Start:    $all
+# Required-Stop:    
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Ludolph
+# Description:       Monitoring Jabber Bot
+### END INIT INFO
+ 
+NAME=ludolph
+USER=zabbixsrv
+PIDFILE=/var/run/${NAME}.pid
+DAEMON="/usr/bin/${NAME}"
+DESC="Ludolph - Monitoring Jabber Bot"
+
+test -x ${DAEMON} || exit 0
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+rh_start() {
+    echo -n "Starting ${DESC}: "
+    runuser -s /bin/bash ${USER} -c ${DAEMON} > /dev/null 2> /dev/null &
+    pid=$(pidofproc ${NAME})
+    if [ -n "${pid}" ]; then
+        echo ${pid} > ${PIDFILE}
+        echo_success
+    else
+        echo_failure
+    fi
+    echo
+}
+
+rh_stop() {
+    echo -n "Stopping ${DESC}: "
+    killproc -p ${PIDFILE} ${NAME}
+    echo
+}
+
+rh_status () {
+    status -p ${PIDFILE} ${NAME}
+}
+
+case "$1" in
+    start)
+        rh_start
+        ;;
+    stop)
+        rh_stop
+        ;;
+    restart)
+        rh_stop
+        sleep 1
+        rh_start
+        ;;
+    status)
+        rh_status
+        ;;
+    *)
+        echo "Usage: ${0} {start|stop|restart}" >&2
+        exit 64
+        ;;
+esac
+
+exit 0

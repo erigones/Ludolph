@@ -1,0 +1,47 @@
+[global]
+# Log file (required)
+logfile = /tmp/ludolph.log
+
+# Log level (required)
+loglevel = INFO
+
+# Pipe file processed by bot and used by external apps to send messages.
+# The monitoring server should have permission to write here and
+# Ludolph should be able to read from it. (required)
+pipe_file = /tmp/ludolph.msg
+
+# Pipe file permissions in numeric format. The default is appropriate when 
+# running the bot under the same user as the monitoringserver.
+#pipe_mode = 0600
+
+[xmpp]
+# Username used for jabberbot to login (required)
+username = user@example.com
+
+# Password used for jabberbot to login (required)
+password = secretPassw0rd
+
+# Jabber server address (default: using SRV DNS lookup to determine the host)
+#host = xmpp.example.com
+
+# Jabber server port (default: 5222)
+#port = 5222
+
+# Use TLS (default: true)
+#tls = true
+
+# Use SSL (default: false)
+#ssl = false
+
+# Using OpenFire server with SSL (disabled by default)
+#sslv3 = false
+
+# Comma-separated list of user jabber IDs.
+# Users are authorized to run regular Ludolph commands.
+# Leaving this option empty means that everybody is allowed to run Ludolph commands.
+users =
+
+# Comma-separated list of admin jabber IDs.
+# Only admin is authorized to remove other users from Ludolph's roster.
+# Leave this option empty to grant roster operations to everybody.
+admins =
