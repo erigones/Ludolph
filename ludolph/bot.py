@@ -10,6 +10,7 @@ import os
 import sys
 import ssl
 import time
+import signal
 import logging
 import subprocess
 
@@ -203,6 +204,14 @@ class LudolphBot(ClientXMPP):
                 msg.reply('Sorry, I don\'t understand "%s"\n'
                         'Please type "help" for more info' % msg['body']).send()
 
+    def shutdown(self, signalnum, handler):
+        """
+        Shutdown signal handler.
+        """
+        logger.info('Requested shutdown (%s)', signalnum)
+
+        return self.abort()
+
     def mon_thread(self):
         """
         Processing input from the monitoring pipe file.
@@ -234,7 +243,7 @@ class LudolphBot(ClientXMPP):
         """
         out = ['List of available Ludolph commands:']
 
-        for cmd, info in self.commands.iteritems():
+        for cmd, info in self.commands.items():
             # First line of __doc__
             desc = info.split('\n')[0]
             # Lowercase first char and remove trailing dot
@@ -295,10 +304,64 @@ class LudolphBot(ClientXMPP):
         msg.reply(cmd.communicate()[0]).send()
 
 
+def daemonize():
+    """
+    http://code.activestate.com/recipes/278731-creating-a-daemon-the-python-way/
+    http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
+    """
+    try:
+        pid = os.fork() # Fork #1
+        if pid > 0:
+            sys.exit(0) # Exit first parent
+    except OSError as e:
+        sys.stderr.write('Fork #1 failed: %d (%s)\n' % (e.errno, e.strerror))
+        sys.exit(1)
+
+    # The first child. Decouple from parent environment
+    # Become session leader of this new session.
+    # Also be guaranteed not to have a controlling terminal
+    os.chdir('/')
+    os.setsid()
+    os.umask(0)
+
+    try:
+        pid = os.fork() # Fork #2
+        if pid > 0:
+            sys.exit(0) # Exit from second parent
+    except OSError as e:
+        sys.stderr.write('Fork #2 failed: %d (%s)\n' % (e.errno, e.strerror))
+        sys.exit(1)
+
+    # Close all open file descriptors
+    import resource # Resource usage information
+    maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+    if (maxfd == resource.RLIM_INFINITY):
+        maxfd = 1024
+
+    # Iterate through and close all file descriptors
+    for fd in range(0, maxfd):
+        try:
+            os.close(fd)
+        except OSError: # ERROR, fd wasn't open (ignored)
+            pass
+
+    # Redirect standard file descriptors to /dev/null
+    sys.stdout.flush()
+    sys.stderr.flush()
+    si = open(os.devnull, 'r')
+    so = open(os.devnull, 'a+')
+    se = open(os.devnull, 'a+')
+    os.dup2(si.fileno(), sys.stdin.fileno())
+    os.dup2(so.fileno(), sys.stdout.fileno())
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+    return(0)
+
 def main():
     """
     Start the daemon.
     """
+    ret = 0
     cfg = 'ludolph.cfg'
     cfg_fp = None
     cfg_lo = ((os.path.expanduser('~'), '.'+ cfg),
@@ -317,21 +380,46 @@ def main():
     if cfg_fp:
         config.readfp(cfg_fp)
     else:
-        print >> sys.stderr, """Ludolph can't start!\n
+        sys.stderr.write("""\nLudolph can't start!\n
 You need to create a config file in one this locations: \n%s\n
 You can rename ludolph.cfg.example and update the required variables.
-The example file is located in: %s\n""" % (
+The example file is located in: %s\n\n""" % (
         '\n'.join([os.path.join(*i) for i in cfg_lo]),
-        os.path.dirname(os.path.abspath(__file__)))
+        os.path.dirname(os.path.abspath(__file__))))
         sys.exit(1)
 
+    # Prepare logging configuration
+    logconfig = {
+        'level': logging.getLevelName(config.get('global','loglevel')),
+        'format': '%(asctime)s %(levelname)-8s %(message)s',
+    }
+
+    if config.has_option('global', 'logfile'):
+        logfile = config.get('global','logfile').strip()
+        if logfile:
+            logconfig['filename'] = logfile
+
+    # Daemonize
+    if config.has_option('global', 'daemon'):
+        if config.getboolean('global', 'daemon'):
+            ret = daemonize()
+            # Save pid file
+            try:
+                with open(config.get('global', 'pidfile'), 'w') as fp:
+                    fp.write('%s' % os.getpid())
+            except Exception as ex:
+                # Setup logging just to show this error
+                logging.basicConfig(**logconfig)
+                logger.critical('Could not write to pidfile (%s)\n', ex)
+                sys.exit(1)
+
     # Setup logging
-    logging.basicConfig(filename=config.get('global','logfile'),
-                        level=config.get('global','loglevel'),
-                        format='%(asctime)s %(levelname)-8s %(message)s')
+    logging.basicConfig(**logconfig)
+
     # All exceptions will be logged
     def log_except_hook(*exc_info):
         logger.critical('Unhandled exception!', exc_info=exc_info)
+        sys.exit(99)
     sys.excepthook = log_except_hook
 
     # Default configuration
@@ -365,13 +453,21 @@ The example file is located in: %s\n""" % (
         pipe_mode = config.get('global', 'pipe_mode')
 
     logger.info('Creating pipe file %s', pipe_file)
+    try:
+        os.remove(pipe_file)
+    except:
+        pass
+
     os.mkfifo(pipe_file, int(pipe_mode, 8))
 
     # Here we go
     try:
         xmpp = LudolphBot(config)
+        signal.signal(signal.SIGINT, xmpp.shutdown)
+        signal.signal(signal.SIGTERM, xmpp.shutdown)
         if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):
             xmpp.process(block=True)
+            sys.exit(ret)
         else:
             logger.error('Ludolph is unable to connect to jabber server')
             sys.exit(2)

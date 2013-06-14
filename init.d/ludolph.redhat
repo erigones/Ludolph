@@ -14,7 +14,7 @@
  
 NAME=ludolph
 USER=zabbixsrv
-PIDFILE=/var/run/${NAME}.pid
+PIDFILE=/var/run/zabbix/${NAME}.pid
 DAEMON="/usr/bin/${NAME}"
 DESC="Ludolph - Monitoring Jabber Bot"
 
@@ -25,14 +25,7 @@ test -x ${DAEMON} || exit 0
 
 rh_start() {
     echo -n "Starting ${DESC}: "
-    runuser -s /bin/bash ${USER} -c ${DAEMON} > /dev/null 2> /dev/null &
-    pid=$(pidofproc ${NAME})
-    if [ -n "${pid}" ]; then
-        echo ${pid} > ${PIDFILE}
-        echo_success
-    else
-        echo_failure
-    fi
+    daemon --pidfile=${PIDFILE} --user=${USER} ${DAEMON}
     echo
 }
 

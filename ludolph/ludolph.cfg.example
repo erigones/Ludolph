@@ -1,5 +1,12 @@
 [global]
+# Run in background as daemon
+daemon = false
+
+# PID file location. Required in daemon mode.
+#pidfile = /var/run/zabbix/ludolph.pid
+
 # Log file (required)
+# Empty value means logging to stdout
 logfile = /tmp/ludolph.log
 
 # Log level (required)

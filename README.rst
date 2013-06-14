@@ -1,3 +1,4 @@
+
 Ludolph
 #######
 
@@ -21,7 +22,7 @@ Installation Notes
 
 **Dependencies:**
  - sleekxmpp
- - dnspython
+ - dnspython (or dnspython3 when using Python 3)
 
 
 License
