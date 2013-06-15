@@ -238,7 +238,7 @@ class ZabbixAPI(object):
         hours, rem = divmod(delta.seconds, 3600)
         minutes, seconds = divmod(rem, 60)
         if days:
-            return '%dd %dh %dm' % (dats, hours, minutes)
+            return '%dd %dh %dm' % (days, hours, minutes)
         else:
             return '%dh %dm %ds' % (hours, minutes, seconds)
 
