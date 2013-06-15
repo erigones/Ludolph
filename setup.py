@@ -48,7 +48,7 @@ setup(
     license = 'GPLv3',
     packages = packages,
     scripts = ['bin/ludolph'],
-    install_requires = ['sleekxmpp>=1.1.11', 'dnspython'],
+    install_requires = ['sleekxmpp>=1.1.11', 'dnspython', 'tabulate'],
     platforms = 'Linux',
     classifiers = CLASSIFIERS,
     include_package_data = True

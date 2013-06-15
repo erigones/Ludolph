@@ -5,3 +5,10 @@ This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
 """
+
+class LudolphPlugin(object):
+    """
+    Ludolph plugin base class.
+    """
+    def __init__(self, config, *args, **kwargs):
+        pass

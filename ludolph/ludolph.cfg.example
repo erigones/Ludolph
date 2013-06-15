@@ -2,7 +2,7 @@
 # Run in background as daemon
 daemon = false
 
-# PID file location. Required in daemon mode.
+# PID file location. Required in daemon mode
 #pidfile = /var/run/zabbix/ludolph.pid
 
 # Log file (required)
@@ -52,3 +52,20 @@ users =
 # Only admin is authorized to remove other users from Ludolph's roster.
 # Leave this option empty to grant roster operations to everybody.
 admins =
+
+
+###############################################################################
+# Ludolph Plugins. You can enable plugins by uncommenting a configuration section.
+###############################################################################
+
+#[zabbix]
+# Zabbix server URI
+#server = https://zabbix.example.com/zabbix
+
+# Zabbix credentials
+#username = ludolph
+#password =
+
+# HTTP authetication
+#httpuser =
+#httppasswd =

@@ -13,10 +13,8 @@ import time
 import signal
 import logging
 import subprocess
-
 from sleekxmpp import ClientXMPP
-from __init__ import __doc__ as ABOUT
-from __init__ import __version__ as VERSION
+from tabulate import tabulate
 
 # In order to make sure that Unicode is handled properly
 # in Python 2.x, reset the default encoding.
@@ -25,60 +23,14 @@ if sys.version_info < (3, 0):
 else:
     from configparser import RawConfigParser
 
+from ludolph.command import COMMANDS, command, parameter_required, admin_required
+from ludolph.__init__ import __doc__ as ABOUT
+from ludolph.__init__ import __version__ as VERSION
+
+LOGFORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
+TABLEFMT = 'simple'
+
 logger = logging.getLogger(__name__)
-
-COMMANDS = {}
-
-def command(f):
-    """
-    Decorator for registering available commands.
-    """
-    COMMANDS[f.__name__] = f.__doc__.strip()
-
-    def wrap(obj, msg, *args, **kwargs):
-        if not obj.users or msg['from'].bare in obj.users:
-            logger.info('User "%s" requested command "%s"' % (msg['from'],msg['body']))
-            return f(obj, msg, *args, **kwargs)
-        else:
-            logger.warning('Unauthorized command "%s" from "%s"' % (
-                msg['body'], msg['from']))
-            msg.reply('Permission denied').send()
-
-        return f(obj, msg, *args, **kwargs)
-
-    return wrap
-
-def parameter_required(count=1):
-    """
-    Decorator for required command parameters.
-    """
-    def parameter_required_decorator(f):
-        def wrap(obj, msg, *args, **kwargs):
-            #Try to get command parameter
-            params = msg['body'].strip().split()[1:]
-            if len(params) != count:
-                logger.warning('Missing parameter in command "%s" from user "%s"' % (
-                    msg['body'], msg['from']))
-                msg.reply('Missing parameter').send()
-            else:
-                params.extend(args)
-                return f(obj, msg, *params, **kwargs)
-        return wrap
-    return parameter_required_decorator
-
-def admin_required(f):
-    """
-    Decorator for admin only commands.
-    """
-    def wrap(obj, msg, *args, **kwargs):
-        if not obj.admins or msg['from'].bare in obj.admins:
-            return f(obj, msg, *args, **kwargs)
-        else:
-            logger.warning('Unauthorized command "%s" from user "%s"' % (
-                msg['body'], msg['from']))
-            msg.reply('Permission denied').send()
-
-    return wrap
 
 class LudolphBot(ClientXMPP):
     """
@@ -88,7 +40,7 @@ class LudolphBot(ClientXMPP):
     users = []
     admins = []
 
-    def __init__(self, config):
+    def __init__(self, config, *args, **kwargs):
         # Initialize the SleeXMPP client
         ClientXMPP.__init__(self,
                 config.get('xmpp','username'),
@@ -157,7 +109,7 @@ class LudolphBot(ClientXMPP):
         self.send_presence()
         self.get_roster()
         self.roster_cleanup()
-        logger.info('Registered commands: %s', ', '.join(self.commands))
+        logger.info('Registered commands: %s', ', '.join(self.available_commands()))
 
     def roster_cleanup(self):
         """
@@ -241,31 +193,39 @@ class LudolphBot(ClientXMPP):
         """
         Show this help.
         """
-        out = ['List of available Ludolph commands:']
+        # Global help or command help?
+        cmdline = msg['body'].strip().split()
+        if len(cmdline) > 1 and cmdline[1] in self.available_commands():
+            out = ['* ' + cmdline[1], '', self.commands[cmdline[1]]]
+        else:
+            out = ['List of available Ludolph commands:']
 
-        for cmd, info in self.commands.items():
-            # First line of __doc__
-            desc = info.split('\n')[0]
-            # Lowercase first char and remove trailing dot
-            desc = desc[0].lower() + desc[1:].rstrip('.')
-            # Append line of command + description
-            out.append('\t* %s - %s' % (cmd, desc))
+            for cmd, info in self.commands.items():
+                try:
+                    # First line of __doc__
+                    desc = info.split('\n')[0]
+                    # Lowercase first char and remove trailing dot
+                    desc = desc[0].lower() + desc[1:].rstrip('.')
+                except IndexError:
+                    desc = ''
+                # Append line of command + description
+                out.append('\t* %s - %s' % (cmd, desc))
 
-        msg.reply('\n'.join(out)).send()
+        return '\n'.join(out)
 
     @command
     def version(self, msg):
         """
         Display Ludolph version.
         """
-        msg.reply('Version: '+ VERSION).send()
+        return 'Version: '+ VERSION
 
     @command
     def about(self, msg):
         """
         Details about this project.
         """
-        msg.reply(ABOUT.strip()).send()
+        return ABOUT.strip()
 
     @admin_required
     @command
@@ -274,12 +234,12 @@ class LudolphBot(ClientXMPP):
         List of users on Ludolph's roster (admin only).
         """
         roster = self.client_roster
-        out = ['| JID | subscription |']
+        out = []
 
         for i in roster.keys():
-            out.append('| %s | %s |' % (str(i), roster[i]['subscription']))
+            out.append((str(i), roster[i]['subscription'],))
 
-        msg.reply('\n'.join(out)).send()
+        return str(tabulate(out, headers=['JID', 'subscription'], tablefmt=TABLEFMT))
 
     @admin_required
     @parameter_required(1)
@@ -291,9 +251,9 @@ class LudolphBot(ClientXMPP):
         if user in self.client_roster.keys():
             self.send_presence(pto=user, ptype='unsubscribe')
             self.del_roster_item(user)
-            msg.reply('User '+ user +' removed from roster').send()
+            return 'User '+ user +' removed from roster'
         else:
-            msg.reply('User '+ user +' cannot be removed from roster').send()
+            return 'User '+ user +' cannot be removed from roster'
 
     @command
     def uptime(self, msg):
@@ -301,7 +261,8 @@ class LudolphBot(ClientXMPP):
         Show server uptime.
         """
         cmd = subprocess.Popen(['uptime'], stdout=subprocess.PIPE)
-        msg.reply(cmd.communicate()[0]).send()
+
+        return cmd.communicate()[0]
 
 
 def daemonize():
@@ -357,16 +318,30 @@ def daemonize():
 
     return(0)
 
+def ludolph_bot_factory(bases):
+    """
+    Return LudolphBot class extented with plugins.
+    """
+    bases = tuple(bases)
+
+    def init(self, config, *args, **kwargs):
+        for base in bases:
+            base.__init__(self, config, *args, **kwargs)
+
+    return type('EnhancedLudolphBot', bases, {'__init__': init})
+
 def main():
     """
     Start the daemon.
     """
+    bases = [LudolphBot]
     ret = 0
     cfg = 'ludolph.cfg'
     cfg_fp = None
     cfg_lo = ((os.path.expanduser('~'), '.'+ cfg),
             (sys.prefix, 'etc', cfg), ('/etc', cfg))
     config = RawConfigParser()
+    config_base_sections = ('global', 'xmpp')
 
     # Try to read config file from ~/.ludolph.cfg or /etc/ludolph.cfg
     for i in cfg_lo:
@@ -391,7 +366,7 @@ The example file is located in: %s\n\n""" % (
     # Prepare logging configuration
     logconfig = {
         'level': logging.getLevelName(config.get('global','loglevel')),
-        'format': '%(asctime)s %(levelname)-8s %(message)s',
+        'format': LOGFORMAT,
     }
 
     if config.has_option('global', 'logfile'):
@@ -419,7 +394,7 @@ The example file is located in: %s\n\n""" % (
     # All exceptions will be logged
     def log_except_hook(*exc_info):
         logger.critical('Unhandled exception!', exc_info=exc_info)
-        sys.exit(99)
+        #sys.exit(99)
     sys.excepthook = log_except_hook
 
     # Default configuration
@@ -432,6 +407,22 @@ The example file is located in: %s\n\n""" % (
     # Starting
     logger.info('Starting Ludolph %s', VERSION)
     logger.info('Loaded configuration from %s', cfg_fp.name)
+
+    # Load plugins
+    for plugin in config.sections():
+        plugin = plugin.lower().strip()
+        if plugin in config_base_sections:
+            continue
+        logger.info('Loading plugin: %s', plugin)
+        try:
+            clsname = plugin[0].upper() + plugin[1:]
+            mod = __import__('plugins.'+ plugin, fromlist=[clsname])
+            cls = getattr(mod, clsname)
+        except Exception as ex:
+            logger.critical('Could not load plugin %s', plugin)
+            logger.exception(ex)
+        else:
+            bases.append(cls)
 
     # XMPP connection settings
     if config.has_option('xmpp', 'host'):
@@ -462,7 +453,8 @@ The example file is located in: %s\n\n""" % (
 
     # Here we go
     try:
-        xmpp = LudolphBot(config)
+        bot = ludolph_bot_factory(bases)
+        xmpp = bot(config)
         signal.signal(signal.SIGINT, xmpp.shutdown)
         signal.signal(signal.SIGTERM, xmpp.shutdown)
         if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):
