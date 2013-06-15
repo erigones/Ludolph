@@ -190,7 +190,7 @@ class Zabbix(LudolphPlugin):
 
             table.append([eventid, hostname, desc, prio, age, ack])
 
-        out = '\n' + str(tabulate(table, headers=['EventID', 'Host', 'Issue',
+        out = str(tabulate(table, headers=['EventID', 'Host', 'Issue',
             'Severity', 'Age', 'Ack'], tablefmt=TABLEFMT))
         out += '\n\n%d issues are shown.\n%s' % (
             len(triggers), self.zapi.server + '/aaa.php')
@@ -198,14 +198,14 @@ class Zabbix(LudolphPlugin):
         return out
 
     @zabbix_command
-    @parameter_required(2)
+    @parameter_required(1)
     @command
-    def ack(self, msg, eventid, message):
+    def ack(self, msg, eventid):
         """
-        Acknowledge event. EventID and resolution message are required parameters.
+        Acknowledge event. EventID is a required parameter.
         """
         ret = self.zapi.event.acknowledge({
             'eventids': [eventid],
-            'message': message,
+            'message': str(msg['from']),
         })
         return 'Event %s acknowledged' % eventid
