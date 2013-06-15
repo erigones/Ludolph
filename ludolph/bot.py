@@ -416,7 +416,7 @@ The example file is located in: %s\n\n""" % (
         logger.info('Loading plugin: %s', plugin)
         try:
             clsname = plugin[0].upper() + plugin[1:]
-            mod = __import__('plugins.'+ plugin, fromlist=[clsname])
+            mod = __import__('ludolph.plugins.'+ plugin, fromlist=[clsname])
             cls = getattr(mod, clsname)
         except Exception as ex:
             logger.critical('Could not load plugin %s', plugin)
