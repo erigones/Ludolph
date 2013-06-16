@@ -85,7 +85,7 @@ class LudolphBot(ClientXMPP):
                             'This may lead to unexpected behaviour. ', i)
 
         # Initialize plugins
-        self.plugins = {'__main__': self}
+        self.plugins = {'__main__': self, 'ludolph.bot': self}
         if plugins:
             for plugin, cls in plugins.items():
                 logger.info('Initializing plugin %s', plugin)
