@@ -23,9 +23,9 @@ Installation Notes
 
 
 **Dependencies:**
- - sleekxmpp
- - dnspython (or dnspython3 when using Python 3)
- - tabulate
+ - sleekxmpp (1.1.11+)
+ - dnspython (1.10.0+) (or dnspython3 when using Python 3)
+ - tabulate (0.4.4+)
 
 
 License

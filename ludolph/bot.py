@@ -172,9 +172,7 @@ class LudolphBot(ClientXMPP):
         """
         logger.info('Requested shutdown (%s)', signalnum)
 
-        # Using wait=True ensures that the send queue will be emptied before ending the session.
-        self.disconnect(wait=True)
-        return True
+        return self.abort()
 
     def mon_thread(self):
         """
