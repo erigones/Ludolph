@@ -8,7 +8,7 @@ See the file LICENSE for copying permission.
 import logging
 from tabulate import tabulate
 
-from ludolph.command import command, parameter_required, admin_required
+from ludolph.command import command, parameter_required
 from ludolph.plugins.plugin import LudolphPlugin
 from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException
 
@@ -19,41 +19,47 @@ logger = logging.getLogger(__name__)
 
 def zabbix_command(f):
     """
-    Decorator for executing zabbix API commands and doing a relogin if needed.
+    Decorator for executing zabbix API commands, checking zabbix API errors
+    and doing a relogin if needed.
     """
     def wrap(obj, msg, *args, **kwargs):
-        errmsg = 'Zabbix API not available'
-
-        # Was never logged in. Repair authentication and restart Ludolph.
-        if not obj.zapi.logged_in():
+        def api_error(errmsg='Zabbix API not available'):
+            # Log and reply with error message
             logger.error(errmsg)
             msg.reply(errmsg).send()
             return None
 
+        # Was never logged in. Repair authentication and restart Ludolph.
+        if not obj.zapi.logged_in():
+            return api_error()
+
         try:
             return f(obj, msg, *args, **kwargs)
         except ZabbixAPIException as ex:
-            logger.error('Zabbix API error (%s)', ex)
+            ex = str(ex)
+            if ex.find('Not authorized while sending') >= 0:
+                # Try to relogin
+                try:
+                    logger.warning('Zabbix API not logged in (%s). '
+                            'Performing Zabbix API relogin.', ex)
+                    obj.zapi.auth = '' # Reset auth before relogin
+                    obj.zapi.login()
+                except ZabbixAPIException as e:
+                    # Relogin failed. Repair authentication and restart Ludolph.
+                    logger.critical('Zabbix API login error (%s)', e)
+                    obj.zapi.auth = '' # logged_in() will always return False
+                    return api_error()
 
-            # Try to relogin
-            try:
-                logger.info('Zabbix API relogin')
-                obj.zapi.auth = '' # Reset auth before relogin
-                obj.zapi.login()
-            except ZabbixAPIException as e:
-                # Relogin failed. Repair authentication and restart Ludolph.
-                logger.critical('Zabbix API login error (%s)', e)
-                obj.zapi.auth = '' # logged_in() will always return False
-                msg.reply(errmsg).send()
-                return None
-            else:
                 # Relogin successfull, Try to run command
                 try:
                     return f(obj, msg, *args, **kwargs)
                 except ZabbixAPIException as exc:
-                    err = 'Zabbix API error (%s)' % exc
-                    logger.error(err)
-                    msg.reply(err).send()
+                    # API command problem
+                    return api_error('Zabbix API error (%s)' % exc)
+
+            else:
+                # API command problem
+                return api_error('Zabbix API error (%s)' % ex)
 
     return wrap
 
@@ -213,8 +219,9 @@ class Zabbix(LudolphPlugin):
         except ValueError:
             return 'Integer required'
 
-        ret = self.zapi.event.acknowledge({
+        self.zapi.event.acknowledge({
             'eventids': [eventid],
             'message': str(msg['from']),
         })
+
         return 'Event %s acknowledged' % eventid

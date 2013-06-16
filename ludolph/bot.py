@@ -27,7 +27,7 @@ from ludolph.command import COMMANDS, command, parameter_required, admin_require
 from ludolph.__init__ import __doc__ as ABOUT
 from ludolph.__init__ import __version__ as VERSION
 
-LOGFORMAT = '%(asctime)s %(levelname)s %(name)s: %(message)s'
+LOGFORMAT = '%(asctime)s %(levelname)-8s %(name)s: %(message)s'
 TABLEFMT = 'simple'
 
 logger = logging.getLogger(__name__)
