@@ -190,9 +190,13 @@ class Zabbix(LudolphPlugin):
 
             table.append([eventid, hostname, desc, prio, age, ack])
 
-        out = str(tabulate(table, headers=['EventID', 'Host', 'Issue',
-            'Severity', 'Age', 'Ack'], tablefmt=TABLEFMT))
-        out += '\n\n%d issues are shown.\n%s' % (
+        out = ''
+        if table:
+            out = str(tabulate(table, headers=['EventID', 'Host', 'Issue',
+                'Severity', 'Age', 'Ack'], tablefmt=TABLEFMT))
+            out += '\n\n'
+
+        out += '%d issues are shown.\n%s' % (
             len(triggers), self.zapi.server + '/aaa.php')
 
         return out

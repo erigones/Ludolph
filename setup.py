@@ -44,7 +44,7 @@ setup(
     long_description = LONG_DESCRIPTION,
     author = 'Erigones',
     author_email = 'erigones [at] erigones.com',
-    url = 'https://github.com/ricco386/Ludolph/',
+    url = 'https://github.com/erigones/Ludolph/',
     license = 'GPLv3',
     packages = packages,
     scripts = ['bin/ludolph'],
