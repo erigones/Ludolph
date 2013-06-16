@@ -6,10 +6,3 @@ include ludolph/ludolph.cfg.example
 recursive-include ludolph *.py
 recursive-include init.d *
 recursive-include bin *
-global-exclude __pycache__/*
-global-exclude .deps/*
-global-exclude *.so
-global-exclude *.pyd
-global-exclude *.pyc
-global-exclude .git*
-global-exclude .DS_Store
