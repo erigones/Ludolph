@@ -208,6 +208,11 @@ class Zabbix(LudolphPlugin):
         """
         Acknowledge event. EventID is a required parameter.
         """
+        try:
+            eventid = int(eventid)
+        except ValueError:
+            return 'Integer required'
+
         ret = self.zapi.event.acknowledge({
             'eventids': [eventid],
             'message': str(msg['from']),
