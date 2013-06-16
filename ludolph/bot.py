@@ -23,7 +23,8 @@ if sys.version_info < (3, 0):
 else:
     from configparser import RawConfigParser
 
-from ludolph.command import COMMANDS, command, parameter_required, admin_required
+from ludolph.command import ( COMMAND_MAP, COMMANDS, USERS, ADMINS,
+        command, parameter_required, admin_required )
 from ludolph.__init__ import __doc__ as ABOUT
 from ludolph.__init__ import __version__ as VERSION
 
@@ -36,11 +37,13 @@ class LudolphBot(ClientXMPP):
     """
     Ludolph bot.
     """
+    command_map = COMMAND_MAP
     commands = COMMANDS
-    users = []
-    admins = []
+    users = USERS
+    admins = ADMINS
+    plugins = None
 
-    def __init__(self, config, *args, **kwargs):
+    def __init__(self, config, plugins=None, *args, **kwargs):
         # Initialize the SleeXMPP client
         ClientXMPP.__init__(self,
                 config.get('xmpp','username'),
@@ -80,6 +83,13 @@ class LudolphBot(ClientXMPP):
                 if i not in self.users:
                     logger.error('Admin user %s is not specified in users. '
                             'This may lead to unexpected behaviour. ', i)
+
+        # Initialize plugins
+        self.plugins = {'__main__': self}
+        if plugins:
+            for plugin, cls in plugins.items():
+                logger.info('Initializing plugin %s', plugin)
+                self.plugins[plugin] = cls(config)
 
         # Register event handlers
         self.add_event_handler('session_start', self.session_start)
@@ -148,8 +158,8 @@ class LudolphBot(ClientXMPP):
             # Seek received text in available commands
             cmd = msg['body'].split()[0].strip()
             if cmd in self.available_commands():
-                # Run command
-                f = getattr(self, cmd)
+                # Find and run command
+                f = getattr(self.plugins[self.command_map[cmd]], cmd)
                 return f(msg)
             else:
                 # Send message that command was not understod and what to do
@@ -318,23 +328,10 @@ def daemonize():
 
     return(0)
 
-def ludolph_bot_factory(bases):
-    """
-    Return LudolphBot class extented with plugins.
-    """
-    bases = tuple(bases)
-
-    def init(self, config, *args, **kwargs):
-        for base in bases:
-            base.__init__(self, config, *args, **kwargs)
-
-    return type('EnhancedLudolphBot', bases, {'__init__': init})
-
 def main():
     """
     Start the daemon.
     """
-    bases = [LudolphBot]
     ret = 0
     cfg = 'ludolph.cfg'
     cfg_fp = None
@@ -409,6 +406,7 @@ The example file is located in: %s\n\n""" % (
     logger.info('Loaded configuration from %s', cfg_fp.name)
 
     # Load plugins
+    plugins = {}
     for plugin in config.sections():
         plugin = plugin.lower().strip()
         if plugin in config_base_sections:
@@ -416,13 +414,12 @@ The example file is located in: %s\n\n""" % (
         logger.info('Loading plugin: %s', plugin)
         try:
             clsname = plugin[0].upper() + plugin[1:]
-            mod = __import__('ludolph.plugins.'+ plugin, fromlist=[clsname])
-            cls = getattr(mod, clsname)
+            modname = 'ludolph.plugins.'+ plugin
+            module = __import__(modname, fromlist=[clsname])
+            plugins[modname] = getattr(module, clsname)
         except Exception as ex:
             logger.critical('Could not load plugin %s', plugin)
             logger.exception(ex)
-        else:
-            bases.append(cls)
 
     # XMPP connection settings
     if config.has_option('xmpp', 'host'):
@@ -453,8 +450,7 @@ The example file is located in: %s\n\n""" % (
 
     # Here we go
     try:
-        bot = ludolph_bot_factory(bases)
-        xmpp = bot(config)
+        xmpp = LudolphBot(config, plugins=plugins)
         signal.signal(signal.SIGINT, xmpp.shutdown)
         signal.signal(signal.SIGTERM, xmpp.shutdown)
         if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):

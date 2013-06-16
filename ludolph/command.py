@@ -9,12 +9,26 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
-COMMANDS = {}
+COMMAND_MAP = {} # command : module
+COMMANDS = {} # command : help
+USERS = [] # List of users
+ADMINS = [] # List of admins
 
 def command(f):
     """
     Decorator for registering available commands.
     """
+    # Check if command exists
+    if f.__name__ in COMMAND_MAP.keys():
+        logger.critical('Command "%s" from plugin "%s" overlaps with existing '
+                'command from module "%s"' % (f.__name__, f.__module__,
+                    COMMAND_MAP[f.__name__]))
+        return None
+
+    # Save in module map
+    COMMAND_MAP[f.__name__] = f.__module__
+
+    # Save documentation
     if f.__doc__:
         COMMANDS[f.__name__] = f.__doc__.strip()
     else:
@@ -22,7 +36,7 @@ def command(f):
         COMMANDS[f.__name__] = ''
 
     def wrap(obj, msg, *args, **kwargs):
-        if not obj.users or msg['from'].bare in obj.users:
+        if not USERS or msg['from'].bare in USERS:
             logger.info('User "%s" requested command "%s"' % (msg['from'],msg['body']))
             # Reply with output of function
             out = f(obj, msg, *args, **kwargs)
@@ -61,7 +75,7 @@ def admin_required(f):
     Decorator for admin only commands.
     """
     def wrap(obj, msg, *args, **kwargs):
-        if not obj.admins or msg['from'].bare in obj.admins:
+        if not ADMINS or msg['from'].bare in ADMINS:
             return f(obj, msg, *args, **kwargs)
         else:
             logger.warning('Unauthorized command "%s" from user "%s"' % (
