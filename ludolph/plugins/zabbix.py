@@ -203,7 +203,7 @@ class Zabbix(LudolphPlugin):
             out += '\n\n'
 
         out += '%d issues are shown.\n%s' % (
-            len(triggers), self.zapi.server + '/aaa.php')
+            len(triggers), self.zapi.server + '/dashboard.php')
 
         return out
 
