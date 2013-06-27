@@ -7,11 +7,11 @@ Monitoring Jabber Bot with support for `Zabbix <http://www.zabbix.com>`_.
 Installation Notes
 ------------------
 
- - Install the latest version using pip::
+ - Install the latest released version using pip::
 
-    pip install https://github.com/erigones/Ludolph/tarball/master
+    pip install ludolph
 
- - Make sure all dependencies (listed below) are installed
+ - Make sure all dependencies (listed below) are installed (done automatically when installing via pip)
 
  - Create and edit the config file::
 
@@ -27,6 +27,12 @@ Installation Notes
  - dnspython (1.10.0+) (or dnspython3 when using Python 3)
  - tabulate (0.4.4+)
 
+Useful Links
+------------
+
+ - Wiki: https://github.com/erigones/Ludolph/wiki
+ - Bug Tracker: https://github.com/erigones/Ludolph/issues
+ - Twitter: https://twitter.com/erigones
 
 License
 -------
