@@ -176,12 +176,12 @@ class Zabbix(LudolphPlugin):
             host = hosts[trigger['hostid']]
             hostname = host['name']
             if int(host['maintenance_status']):
-                hostname += '*' # some kind of maintenance TODO
+                hostname += '*' # some kind of maintenance
 
             # Trigger description
             desc = str(trigger['description'])
             if trigger['error'] or int(trigger['value_flags']):
-                desc += '*' # some kind of trigger error TODO
+                desc += '*' # some kind of trigger error
 
             # Priority
             prio = self.zapi.get_severity(trigger['priority'])
@@ -225,7 +225,7 @@ class Zabbix(LudolphPlugin):
 
         self.zapi.event.acknowledge({
             'eventids': [eventid],
-            'message': str(msg['from']), # TODO: bare JID
+            'message': str(msg['from'].bare),
         })
 
         return 'Event ID %s acknowledged' % eventid
@@ -272,7 +272,7 @@ class Zabbix(LudolphPlugin):
         options = {
                 'active_since': now,
                 'active_till': end,
-                'description': str(msg['from']), # TODO: bare jid
+                'description': str(msg['from'].bare),
                 'maintenance_type': 0, # with data collection
                 'timeperiods': [{
                     'timeperiod_type': 0, # one time only
