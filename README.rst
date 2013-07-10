@@ -37,4 +37,4 @@ Useful Links
 License
 -------
 
-For more informations see the LICENSE file.
+For more information see the LICENSE file.

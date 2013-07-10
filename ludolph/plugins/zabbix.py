@@ -348,7 +348,7 @@ class Zabbix(LudolphPlugin):
         else:
             out = ''
 
-        out += '%d outages are shown.\n%s' % (
+        out += '%d maintenances are shown.\n%s' % (
             len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
 
         return out
