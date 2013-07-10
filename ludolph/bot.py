@@ -12,7 +12,6 @@ import ssl
 import time
 import signal
 import logging
-import subprocess
 from sleekxmpp import ClientXMPP
 from tabulate import tabulate
 
@@ -23,7 +22,7 @@ if sys.version_info < (3, 0):
 else:
     from configparser import RawConfigParser
 
-from ludolph.command import ( COMMAND_MAP, COMMANDS, USERS, ADMINS,
+from ludolph.command import ( COMMANDS, USERS, ADMINS,
         command, parameter_required, admin_required )
 from ludolph.__init__ import __doc__ as ABOUT
 from ludolph.__init__ import __version__ as VERSION
@@ -37,7 +36,8 @@ class LudolphBot(ClientXMPP):
     """
     Ludolph bot.
     """
-    command_map = COMMAND_MAP
+    _start_time = None
+    _commands = None # Cached sorted list of commands
     commands = COMMANDS
     users = USERS
     admins = ADMINS
@@ -98,6 +98,9 @@ class LudolphBot(ClientXMPP):
         # Start the monitoring thread for reading the pipe file
         self._start_thread('mon_thread', self.mon_thread)
 
+        # Save start time
+        self._start_time = time.time()
+
     def _handle_new_subscription(self, pres):
         """
         xmpp.auto_authorize is True by default, which is fine. But we want to
@@ -148,7 +151,11 @@ class LudolphBot(ClientXMPP):
         """
         List of all available bot commands.
         """
-        return self.commands.keys()
+        # Sort and cache
+        if self._commands is None:
+            self._commands = sorted(self.commands.keys())
+
+        return self._commands
 
     def message(self, msg):
         """
@@ -159,7 +166,8 @@ class LudolphBot(ClientXMPP):
             cmd = msg['body'].split()[0].strip()
             if cmd in self.available_commands():
                 # Find and run command
-                f = getattr(self.plugins[self.command_map[cmd]], cmd)
+                cmd = self.commands[cmd]
+                f = getattr(self.plugins[cmd['module']], cmd['name'])
                 return f(msg)
             else:
                 # Send message that command was not understod and what to do
@@ -202,24 +210,30 @@ class LudolphBot(ClientXMPP):
     def help(self, msg):
         """
         Show this help.
+
+        Usage: help
         """
         # Global help or command help?
         cmdline = msg['body'].strip().split()
         if len(cmdline) > 1 and cmdline[1] in self.available_commands():
-            out = ['* ' + cmdline[1], '', self.commands[cmdline[1]]]
+            desc = self.commands[cmdline[1]]['doc']
+            # Remove whitespaces from __doc__ lines
+            desc = '\n'.join(map(str.strip, desc.split('\n')))
+            out = ('* ' + cmdline[1], '', desc)
         else:
             out = ['List of available Ludolph commands:']
 
-            for cmd, info in self.commands.items():
+            for name in self.available_commands():
+                cmd = self.commands[name]
                 try:
                     # First line of __doc__
-                    desc = info.split('\n')[0]
+                    desc = cmd['doc'].split('\n')[0]
                     # Lowercase first char and remove trailing dot
                     desc = desc[0].lower() + desc[1:].rstrip('.')
                 except IndexError:
                     desc = ''
                 # Append line of command + description
-                out.append('\t* %s - %s' % (cmd, desc))
+                out.append('\t* %s - %s' % (name, desc))
 
         return '\n'.join(out)
 
@@ -227,6 +241,8 @@ class LudolphBot(ClientXMPP):
     def version(self, msg):
         """
         Display Ludolph version.
+
+        Usage: version
         """
         return 'Version: '+ VERSION
 
@@ -234,6 +250,8 @@ class LudolphBot(ClientXMPP):
     def about(self, msg):
         """
         Details about this project.
+
+        Usage: about
         """
         return ABOUT.strip()
 
@@ -242,6 +260,8 @@ class LudolphBot(ClientXMPP):
     def roster_list(self, msg):
         """
         List of users on Ludolph's roster (admin only).
+
+        Usage: roster-list
         """
         roster = self.client_roster
         out = []
@@ -257,6 +277,8 @@ class LudolphBot(ClientXMPP):
     def roster_remove(self, msg, user):
         """
         Remove user from Ludolph's roster (admin only).
+
+        Usage: roster-remove <JID>
         """
         if user in self.client_roster.keys():
             self.send_presence(pto=user, ptype='unsubscribe')
@@ -268,11 +290,16 @@ class LudolphBot(ClientXMPP):
     @command
     def uptime(self, msg):
         """
-        Show server uptime.
-        """
-        cmd = subprocess.Popen(['uptime'], stdout=subprocess.PIPE)
+        Show Ludolph uptime.
 
-        return cmd.communicate()[0]
+        Usage: uptime
+        """
+        u = time.time() - self._start_time
+        m, s = divmod(u, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+
+        return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
 
 
 def daemonize():

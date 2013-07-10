@@ -41,6 +41,8 @@ from collections import deque
 
 __logger = logging.getLogger(__name__)
 
+DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+
 try:
     # Separate module or Python <2.6
     import simplejson as json
@@ -222,11 +224,17 @@ class ZabbixAPI(object):
         """
         return datetime.datetime.fromtimestamp(int(timestamp))
 
-    def convert_datetime(self, dt, format='%Y-%m-%d %H:%M:%S'):
+    def convert_datetime(self, dt, format=DATETIME_FORMAT):
         """
         Convert python datetime to human readable date and time string.
         """
         return dt.strftime(format)
+
+    def timestamp_to_datetime(self, dt, format=DATETIME_FORMAT):
+        """
+        Convert unix timestamp to human readable date/time string.
+        """
+        return self.convert_datetime(self.get_datetime(dt), format=format)
 
     def get_age(self, dt):
         """

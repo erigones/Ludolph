@@ -7,6 +7,7 @@ See the file LICENSE for copying permission.
 """
 import logging
 from tabulate import tabulate
+from datetime import datetime, timedelta
 
 from ludolph.command import command, parameter_required
 from ludolph.plugins.plugin import LudolphPlugin
@@ -98,6 +99,8 @@ class Zabbix(LudolphPlugin):
     def zabbix_version(self, msg):
         """
         Show version of Zabbix API.
+
+        Usage: zabbix-version
         """
         return 'Zabbix API version: '+ self.zapi.api_version()
 
@@ -105,12 +108,12 @@ class Zabbix(LudolphPlugin):
     @command
     def alerts(self, msg):
         """
-        List current zabbix alerts.
+        Show a list of current zabbix alerts.
 
-        Emulates include/blocks.inc.php :: make_latest_issues()
+        Usage: alerts
         """
-        # get triggers
-        options = {
+        # Get triggers
+        triggers = self.zapi.trigger.get({
                 'groupids': None,
                 'hostids': None,
                 'monitored': True,
@@ -121,11 +124,10 @@ class Zabbix(LudolphPlugin):
                 'output': ['triggerid', 'value_flags', 'error', 'url', 'expression', 'description', 'priority', 'type'],
                 'sortfield': 'lastchange',
                 'sortorder': 'DESC', # ZBX_SORT_DOWN
-        }
-        triggers = self.zapi.trigger.get(options)
+        })
 
         for tnum, trigger in enumerate(triggers):
-            # if trigger is lost (broken expression) we skip it
+            # If trigger is lost (broken expression) we skip it
             if not trigger['hosts']:
                 del triggers[tnum]
                 continue
@@ -136,7 +138,7 @@ class Zabbix(LudolphPlugin):
 
             triggers[tnum] = trigger
 
-        # get hosts
+        # Get hosts
         hosts = self.zapi.host.get({
             'hostids': [int(i['hostid']) for i in triggers],
             'output': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
@@ -145,10 +147,11 @@ class Zabbix(LudolphPlugin):
             'preservekeys': True,
         })
 
-        # output
+        # Output
+        headers=['EventID', 'Host', 'Issue', 'Severity', 'Age', 'Ack']
         table = []
         for trigger in triggers:
-            # get last event
+            # Get last event
             events = self.zapi.event.get({
                     'output': 'extend',
                     'select_acknowledges': 'extend',
@@ -196,11 +199,10 @@ class Zabbix(LudolphPlugin):
 
             table.append([eventid, hostname, desc, prio, age, ack])
 
-        out = ''
         if table:
-            out = str(tabulate(table, headers=['EventID', 'Host', 'Issue',
-                'Severity', 'Age', 'Ack'], tablefmt=TABLEFMT))
-            out += '\n\n'
+            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) +'\n\n'
+        else:
+            out = ''
 
         out += '%d issues are shown.\n%s' % (
             len(triggers), self.zapi.server + '/dashboard.php')
@@ -212,7 +214,9 @@ class Zabbix(LudolphPlugin):
     @command
     def ack(self, msg, eventid):
         """
-        Acknowledge event. EventID is a required parameter.
+        Acknowledge event.
+
+        Usage: ack <event ID>
         """
         try:
             eventid = int(eventid)
@@ -221,7 +225,130 @@ class Zabbix(LudolphPlugin):
 
         self.zapi.event.acknowledge({
             'eventids': [eventid],
-            'message': str(msg['from']),
+            'message': str(msg['from']), # TODO: bare JID
         })
 
-        return 'Event %s acknowledged' % eventid
+        return 'Event ID %s acknowledged' % eventid
+
+    @zabbix_command
+    @parameter_required(1)
+    @command
+    def outage_del(self, msg, mid):
+        """
+        Delete maintenance period specified by maintenance ID.
+
+        Usage: outage-del <maintenance ID>
+        """
+        try:
+           mid = int(mid)
+        except ValueError:
+            return 'Integer required'
+
+        self.zapi.maintenance.delete([mid])
+
+        return 'Outage ID %s deleted' % mid
+
+    @zabbix_command
+    @parameter_required(2)
+    @command
+    def outage_add(self, msg, host_or_group, duration):
+        """
+        Set maintenance period for specified host and time.
+
+        Usage: outage-add <host/group name> <duration in minutes>
+        """
+        # Get start and end time
+        try:
+           duration = int(duration)
+        except ValueError:
+            return 'Integer required'
+        else:
+            period = timedelta(minutes=duration)
+            _now = datetime.now()
+            _end = _now + period
+            now = _now.strftime('%s')
+            end = _end.strftime('%s')
+
+        options = {
+                'active_since': now,
+                'active_till': end,
+                'description': str(msg['from']), # TODO: bare jid
+                'maintenance_type': 0, # with data collection
+                'timeperiods': [{
+                    'timeperiod_type': 0, # one time only
+                    'start_date': now,
+                    'period': period.seconds,
+                }],
+        }
+
+        # Get hosts
+        hosts = self.zapi.host.get({
+            'filter': {'name': [host_or_group]},
+            'output': ['hostid', 'name'],
+        })
+
+        if hosts:
+            options['hostids'] = [i['hostid'] for i in hosts]
+            names = [i['name'] for i in hosts]
+
+        if not hosts:
+            # Get groups
+            groups = self.zapi.hostgroup.get({
+                'filter': {'name': [host_or_group]},
+                'output': ['groupids', 'name'],
+            })
+
+            if groups:
+                options['groupids'] = [i['groupid'] for i in groups]
+                names = [i['name'] for i in groups]
+            else:
+                return "Host/Group not found"
+
+        names = ','.join(names)
+        options['name'] = 'Maintenance for %s - %s' % (names, now)
+
+        # Create maintenance period
+        res = self.zapi.maintenance.create(options)
+
+        return 'Added maintenance ID %s for %s %s' % (res['maintenanceids'][0],
+                'host' if hosts else 'group', names)
+
+    @zabbix_command
+    @command
+    def outage(self, msg):
+        """
+        Show maintenance periods.
+
+        Usage: outage
+        """
+        # Display list of maintenances
+        maintenances = self.zapi.maintenance.get({
+            'output': 'extend',
+            'sortfield': ['maintenanceid', 'name'],
+            'sortorder': 'ASC',
+            'selectHosts': 'extend',
+            'selectGroups': 'extend',
+        })
+
+        table = []
+        headers = ['ID', 'Name', 'Desc', 'Since', 'Till', 'Hosts', 'Groups']
+        for i in maintenances:
+            table.append([
+                i['maintenanceid'],
+                i['name'],
+                i['description'],
+                self.zapi.timestamp_to_datetime(i['active_since']),
+                self.zapi.timestamp_to_datetime(i['active_till']),
+                ', '.join([h['name'] for h in i['hosts']]),
+                ', '.join([g['name'] for g in i['groups']]),
+            ])
+
+        if table:
+            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) +'\n\n'
+        else:
+            out = ''
+
+        out += '%d outages are shown.\n%s' % (
+            len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
+
+        return out

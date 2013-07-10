@@ -9,8 +9,7 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
-COMMAND_MAP = {} # command : module
-COMMANDS = {} # command : help
+COMMANDS = {} # command : {name, module, doc}
 USERS = [] # List of users
 ADMINS = [] # List of admins
 
@@ -18,23 +17,6 @@ def command(f):
     """
     Decorator for registering available commands.
     """
-    # Check if command exists
-    if f.__name__ in COMMAND_MAP.keys():
-        logger.critical('Command "%s" from plugin "%s" overlaps with existing '
-                'command from module "%s"' % (f.__name__, f.__module__,
-                    COMMAND_MAP[f.__name__]))
-        return None
-
-    # Save in module map
-    COMMAND_MAP[f.__name__] = f.__module__
-
-    # Save documentation
-    if f.__doc__:
-        COMMANDS[f.__name__] = f.__doc__.strip()
-    else:
-        logger.error('Missing documentation for command "%s"', f.__name__)
-        COMMANDS[f.__name__] = ''
-
     def wrap(obj, msg, *args, **kwargs):
         if not USERS or msg['from'].bare in USERS:
             logger.info('User "%s" requested command "%s"' % (msg['from'],msg['body']))
@@ -47,6 +29,30 @@ def command(f):
                 msg['body'], msg['from']))
             msg.reply('Permission denied').send()
             return None
+
+    # Create command name - skip methods which start with underscore
+    if f.__name__.startswith('_'):
+        # Not a public command, but we will execute the method (private helper)
+        return wrap
+    else:
+        name = f.__name__.replace('_', '-')
+
+    # Check if command exists
+    if name in COMMANDS.keys():
+        logger.critical('Command "%s" from plugin "%s" overlaps with existing '
+                'command from module "%s"' % (name, f.__module__,
+                    COMMANDS[name]['module']))
+        return None
+
+    # Save module and method name
+    COMMANDS[name] = { 'name': f.__name__, 'module': f.__module__ }
+
+    # Save documentation
+    if f.__doc__:
+        COMMANDS[name]['doc'] = f.__doc__.strip()
+    else:
+        logger.error('Missing documentation for command "%s"', name)
+        COMMANDS[name]['doc'] = ''
 
     return wrap
 
