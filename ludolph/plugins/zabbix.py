@@ -246,7 +246,7 @@ class Zabbix(LudolphPlugin):
 
         self.zapi.maintenance.delete([mid])
 
-        return 'Outage ID %s deleted' % mid
+        return 'Maintenance ID %s deleted' % mid
 
     @zabbix_command
     @parameter_required(2)
