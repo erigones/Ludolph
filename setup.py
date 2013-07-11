@@ -54,7 +54,7 @@ setup(
     license = 'GPLv3',
     packages = packages,
     scripts = ['bin/ludolph'],
-    install_requires = DEPS
+    install_requires = DEPS,
     platforms = 'Linux',
     classifiers = CLASSIFIERS,
     include_package_data = True
