@@ -1,8 +1,7 @@
-
 Ludolph
 #######
 
-Monitoring Jabber Bot with support for `Zabbix <http://www.zabbix.com>`_.
+Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support
 
 Installation Notes
 ------------------
@@ -13,7 +12,7 @@ Installation Notes
 
  - Make sure all dependencies (listed below) are installed (done automatically when installing via pip)
 
- - Create and edit the config file::
+ - Create and edit the configuration file::
 
     cp /usr/lib/python2.7/site-packages/ludolph/ludolph.cfg.example /etc/ludolph.cfg
 
@@ -27,14 +26,16 @@ Installation Notes
  - dnspython (1.10.0+) (or dnspython3 when using Python 3)
  - tabulate (0.4.4+)
 
-Useful Links
-------------
+
+Links
+-----
 
  - Wiki: https://github.com/erigones/Ludolph/wiki
  - Bug Tracker: https://github.com/erigones/Ludolph/issues
  - Twitter: https://twitter.com/erigones
 
+
 License
 -------
 
-For more information see the LICENSE file.
+For more information see the LICENSE file

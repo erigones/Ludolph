@@ -14,7 +14,7 @@
 NAME=ludolph
 USER=zabbix
 PIDFILE=/var/run/zabbix/$NAME.pid
-DAEMON="/usr/local/bin/$NAME"
+DAEMON="/usr/bin/$NAME"
 DESC="Ludolph - Monitoring Jabber Bot"
 
 case "$1" in

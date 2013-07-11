@@ -7,6 +7,7 @@
 # This software is licensed as described in the README.rst and LICENSE
 # files, which you should have received as part of this distribution.
 
+import sys
 import codecs
 try:
     from setuptools import setup
@@ -19,6 +20,11 @@ DESCRIPTION = 'Monitoring Jabber Bot'
 
 with codecs.open('README.rst', 'r', encoding='UTF-8') as readme:
     LONG_DESCRIPTION = ''.join(readme)
+
+if sys.version_info[0] < 3:
+    DEPS = ['sleekxmpp>=1.1.11', 'dnspython', 'tabulate']
+else:
+    DEPS = ['sleekxmpp>=1.1.11', 'dnspython3', 'tabulate']
 
 CLASSIFIERS = [
     'Environment :: Console',
@@ -48,7 +54,7 @@ setup(
     license = 'GPLv3',
     packages = packages,
     scripts = ['bin/ludolph'],
-    install_requires = ['sleekxmpp>=1.1.11', 'dnspython', 'tabulate'],
+    install_requires = DEPS
     platforms = 'Linux',
     classifiers = CLASSIFIERS,
     include_package_data = True

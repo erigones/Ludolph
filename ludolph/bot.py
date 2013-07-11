@@ -241,6 +241,9 @@ class LudolphBot(ClientXMPP):
                     # Append line of command + description
                     out.append('\t* %s - %s' % (name, desc))
 
+            out.append('\nUse "help <command>" for more information about '
+                        'the command usage')
+
         return '\n'.join(out)
 
     @command

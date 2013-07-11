@@ -13,7 +13,7 @@ import logging
 
 # In order to make sure that Unicode is handled properly
 # in Python 2.x, reset the default encoding.
-if sys.version_info < (3, 0):
+if sys.version_info[0] < 3:
     from ConfigParser import RawConfigParser
 else:
     from configparser import RawConfigParser
