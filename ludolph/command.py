@@ -17,6 +17,9 @@ def command(f):
     """
     Decorator for registering available commands.
     """
+    global COMMANDS
+    global USERS
+
     def wrap(obj, msg, *args, **kwargs):
         if not USERS or msg['from'].bare in USERS:
             logger.info('User "%s" requested command "%s"' % (msg['from'],msg['body']))
@@ -80,6 +83,8 @@ def admin_required(f):
     """
     Decorator for admin only commands.
     """
+    global ADMINS
+
     def wrap(obj, msg, *args, **kwargs):
         if not ADMINS or msg['from'].bare in ADMINS:
             return f(obj, msg, *args, **kwargs)

@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
 
 def zabbix_command(f):
     """
-    Decorator for executing zabbix API commands, checking zabbix API errors
-    and doing a relogin if needed.
+    Decorator for executing zabbix API commands and checking zabbix API errors.
     """
     def wrap(obj, msg, *args, **kwargs):
         def api_error(errmsg='Zabbix API not available'):
@@ -37,30 +36,8 @@ def zabbix_command(f):
         try:
             return f(obj, msg, *args, **kwargs)
         except ZabbixAPIException as ex:
-            ex = str(ex)
-            if ex.find('Not authorized while sending') >= 0:
-                # Try to relogin
-                try:
-                    logger.warning('Zabbix API not logged in (%s). '
-                            'Performing Zabbix API relogin.', ex)
-                    obj.zapi.auth = '' # Reset auth before relogin
-                    obj.zapi.login()
-                except ZabbixAPIException as e:
-                    # Relogin failed. Repair authentication and restart Ludolph.
-                    logger.critical('Zabbix API login error (%s)', e)
-                    obj.zapi.auth = '' # logged_in() will always return False
-                    return api_error()
-
-                # Relogin successfull, Try to run command
-                try:
-                    return f(obj, msg, *args, **kwargs)
-                except ZabbixAPIException as exc:
-                    # API command problem
-                    return api_error('Zabbix API error (%s)' % exc)
-
-            else:
-                # API command problem
-                return api_error('Zabbix API error (%s)' % ex)
+            # API command problem
+            return api_error('Zabbix API error (%s)' % ex)
 
     return wrap
 

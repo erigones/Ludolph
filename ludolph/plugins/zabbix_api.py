@@ -30,46 +30,26 @@ import base64
 import hashlib
 import logging
 import string
-import sys
 import re
 import datetime
+import json
+
 try:
     import urllib2
 except ImportError:
     import urllib.request as urllib2  # python3
+
 from collections import deque
 
-__logger = logging.getLogger(__name__)
-
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
-
-try:
-    # Separate module or Python <2.6
-    import simplejson as json
-    __logger.log(15, "Using simplejson library")
-except ImportError:
-    # Python >=2.6
-    import json
-    __logger.log(15, "Using native json library")
 
 
 def checkauth(fn):
     """ Decorator to check authentication of the decorated method """
-    def ret(self, *args):
+    def ret(self, *args, **kwargs):
         self.__checkauth__()
-        return fn(self, args)
+        return fn(self, *args, **kwargs)
     return ret
-
-
-def dojson(name):
-    def decorator(fn):
-        def wrapper(self, opts):
-            self.logger.log(logging.DEBUG, \
-                    "Going to do_request for %s with opts %s" \
-                    % (repr(fn), repr(opts)))
-            return self.do_request(self.json_obj(name, opts))['result']
-        return wrapper
-    return decorator
 
 
 def dojson2(fn):
@@ -77,7 +57,23 @@ def dojson2(fn):
         self.logger.log(logging.DEBUG, \
                 "Going to do_request for %s with opts %s" \
                 % (repr(fn), repr(opts)))
-        return self.do_request(self.json_obj(method, opts))['result']
+        try:
+            return self.do_request(self.json_obj(method, opts))['result']
+        except ZabbixAPIException as ex:
+            if str(ex).find('Not authorized while sending') >= 0:
+                self.logger.log(logging.WARNING, "Zabbix API not logged in (%s). "
+                        "Performing Zabbix API relogin" % (ex,))
+                try:
+                    self.parent.auth = '' # reset auth before relogin
+                    self.parent.login()
+                except ZabbixAPIException as e:
+                    self.logger.log(logging.ERROR, "Zabbix API login error (%s)" % (e,))
+                    self.parent.auth = '' # logged_in() will always return False
+                    raise e
+                else:
+                    return self.do_request(self.json_obj(method, opts))['result']
+            else:
+                raise ex
     return wrapper
 
 
@@ -356,9 +352,9 @@ class ZabbixAPI(object):
             raise ZabbixAPIException("Received zero answer")
         try:
             jobj = json.loads(reads.decode('utf-8'))
-        except ValueError as msg:
-            print ("unable to decode. returned string: %s" % reads)
-            sys.exit(-1)
+        except ValueError as e:
+            print("unable to decode. returned string: %s" % reads)
+            raise e
         self.debug(logging.DEBUG, "Response Body: " + str(jobj))
 
         self.id += 1
@@ -420,7 +416,7 @@ class ZabbixAPISubClass(ZabbixAPI):
     def json_obj(self, method, param):
         return self.parent.json_obj(method, param)
 
-    @dojson2
     @checkauth
+    @dojson2
     def universal(self, **opts):
         return opts
