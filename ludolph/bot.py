@@ -13,7 +13,7 @@ import logging
 from sleekxmpp import ClientXMPP
 from tabulate import tabulate
 
-from ludolph.command import COMMANDS, USERS, ADMINS, command, parameter_required, admin_required
+from ludolph.command import BOT, COMMANDS, USERS, ADMINS, command, parameter_required, admin_required
 from ludolph.__init__ import __doc__ as ABOUT
 from ludolph.__init__ import __version__ as VERSION
 
@@ -44,6 +44,7 @@ class LudolphBot(ClientXMPP):
                 self.nick = nick
 
         logger.info('Initializing *%s* jabber bot', self.nick)
+        BOT['xmpp'] = self  # Set pointer to this instance
 
         # Initialize the SleekXMPP client
         ClientXMPP.__init__(self, config.get('xmpp', 'username'), config.get('xmpp', 'password'))

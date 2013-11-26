@@ -12,7 +12,7 @@ logger = getLogger(__name__)
 COMMANDS = {}  # command : {name, module, doc}
 USERS = []     # List of users
 ADMINS = []    # List of admins
-
+BOT = {'xmpp': None}
 
 def command(f):
     """
@@ -20,9 +20,10 @@ def command(f):
     """
     global COMMANDS
     global USERS
+    global BOT
 
     def wrap(obj, msg, *args, **kwargs):
-        user = obj._get_jid(msg).bare
+        user = BOT['xmpp']._get_jid(msg).bare
 
         if not USERS or user in USERS:
             logger.info('User "%s" requested command "%s"', user, msg['body'])
@@ -66,6 +67,8 @@ def parameter_required(count=1):
     Decorator for required command parameters.
     """
     def parameter_required_decorator(f):
+        global BOT
+
         def wrap(obj, msg, *args, **kwargs):
             #Try to get command parameter
             params = msg['body'].strip().split()[1:]
@@ -73,7 +76,7 @@ def parameter_required(count=1):
                 params.extend(args)
                 return f(obj, msg, *params, **kwargs)
             else:
-                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], obj._get_jid(msg).bare)
+                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], BOT['xmpp']._get_jid(msg).bare)
                 msg.reply('Missing parameter').send()
                 return None
 
@@ -86,9 +89,10 @@ def admin_required(f):
     Decorator for admin only commands.
     """
     global ADMINS
+    global BOT
 
     def wrap(obj, msg, *args, **kwargs):
-        user = obj._get_jid(msg).bare
+        user = BOT['xmpp']._get_jid(msg).bare
 
         if not ADMINS or user in ADMINS:
             return f(obj, msg, *args, **kwargs)
