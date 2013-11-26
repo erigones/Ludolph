@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-13 Erigones s.r.o.
+Copyright (C) 2012-13 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -17,6 +17,7 @@ TIMEOUT = 10
 TABLEFMT = 'simple'
 
 logger = logging.getLogger(__name__)
+
 
 def zabbix_command(f):
     """
@@ -41,6 +42,7 @@ def zabbix_command(f):
 
     return wrap
 
+
 class Zabbix(LudolphPlugin):
     """
     Zabbix API connector for LudolphBot.
@@ -59,9 +61,9 @@ class Zabbix(LudolphPlugin):
         if config.has_option('zabbix', 'httppasswd'):
             httppasswd = config.get('zabbix', 'httppasswd')
 
-        self.zapi = ZabbixAPI(server=config.get('zabbix','server'),
-                user=httpuser, passwd=httppasswd, timeout=TIMEOUT,
-                log_level=logging.getLevelName(config.get('global','loglevel')))
+        self.zapi = ZabbixAPI(server=config.get('zabbix', 'server'),
+                              user=httpuser, passwd=httppasswd, timeout=TIMEOUT,
+                              log_level=logging.getLevelName(config.get('global', 'loglevel')))
 
         # Login and save zabbix credentials
         try:
@@ -79,7 +81,7 @@ class Zabbix(LudolphPlugin):
 
         Usage: zabbix-version
         """
-        return 'Zabbix API version: '+ self.zapi.api_version()
+        return 'Zabbix API version: ' + self.zapi.api_version()
 
     @zabbix_command
     @command
@@ -96,11 +98,11 @@ class Zabbix(LudolphPlugin):
                 'monitored': True,
                 'maintenance': False,
                 'skipDependent': True,
-                'filter': {'priority': None, 'value': 1}, # TRIGGER_VALUE_TRUE
+                'filter': {'priority': None, 'value': 1},  # TRIGGER_VALUE_TRUE
                 'selectHosts': ['hostid', 'name'],
                 'output': ['triggerid', 'value_flags', 'error', 'url', 'expression', 'description', 'priority', 'type'],
                 'sortfield': 'lastchange',
-                'sortorder': 'DESC', # ZBX_SORT_DOWN
+                'sortorder': 'DESC',  # ZBX_SORT_DOWN
         })
 
         for tnum, trigger in enumerate(triggers):
@@ -120,12 +122,12 @@ class Zabbix(LudolphPlugin):
             'hostids': [int(i['hostid']) for i in triggers],
             'output': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
             'selectInventory': ['hostid'],
-            'selectScreens': 'count', #API_OUTPUT_COUNT
+            'selectScreens': 'count',  # API_OUTPUT_COUNT
             'preservekeys': True,
         })
 
         # Output
-        headers=['EventID', 'Host', 'Issue', 'Severity', 'Age', 'Ack']
+        headers = ['EventID', 'Host', 'Issue', 'Severity', 'Age', 'Ack']
         table = []
         for trigger in triggers:
             # Get last event
@@ -134,9 +136,9 @@ class Zabbix(LudolphPlugin):
                     'select_acknowledges': 'extend',
                     'triggerids': trigger['triggerid'],
                     'filter': {
-                            'object': 0, # EVENT_OBJECT_TRIGGER
-                            'value': 1, # TRIGGER_VALUE_TRUE
-                            'value_changed': 1, # TRIGGER_VALUE_CHANGED_YES
+                            'object': 0,  # EVENT_OBJECT_TRIGGER
+                            'value': 1,  # TRIGGER_VALUE_TRUE
+                            'value_changed': 1,  # TRIGGER_VALUE_CHANGED_YES
                     },
                     'sortfield': ['object', 'objectid', 'eventid'],
                     'sortorder': 'DESC',
@@ -145,7 +147,7 @@ class Zabbix(LudolphPlugin):
 
             # Event
             if not events:
-                continue # WTF?
+                continue  # WTF?
             event = events[0]
             eventid = event['eventid']
 
@@ -153,12 +155,12 @@ class Zabbix(LudolphPlugin):
             host = hosts[trigger['hostid']]
             hostname = host['name']
             if int(host['maintenance_status']):
-                hostname += '*' # some kind of maintenance
+                hostname += '*'  # some kind of maintenance
 
             # Trigger description
             desc = str(trigger['description'])
             if trigger['error'] or int(trigger['value_flags']):
-                desc += '*' # some kind of trigger error
+                desc += '*'  # some kind of trigger error
 
             # Priority
             prio = self.zapi.get_severity(trigger['priority'])
@@ -177,7 +179,7 @@ class Zabbix(LudolphPlugin):
             table.append([eventid, hostname, desc, prio, age, ack])
 
         if table:
-            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) +'\n\n'
+            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) + '\n\n'
         else:
             out = ''
 
@@ -217,7 +219,7 @@ class Zabbix(LudolphPlugin):
         Usage: outage-del <maintenance ID>
         """
         try:
-           mid = int(mid)
+            mid = int(mid)
         except ValueError:
             return 'Integer required'
 
@@ -236,7 +238,7 @@ class Zabbix(LudolphPlugin):
         """
         # Get start and end time
         try:
-           duration = int(duration)
+            duration = int(duration)
         except ValueError:
             return 'Integer required'
         else:
@@ -250,9 +252,9 @@ class Zabbix(LudolphPlugin):
                 'active_since': now,
                 'active_till': end,
                 'description': str(msg['from'].bare),
-                'maintenance_type': 0, # with data collection
+                'maintenance_type': 0,  # with data collection
                 'timeperiods': [{
-                    'timeperiod_type': 0, # one time only
+                    'timeperiod_type': 0,  # one time only
                     'start_date': now,
                     'period': period.seconds,
                 }],
@@ -288,7 +290,7 @@ class Zabbix(LudolphPlugin):
         res = self.zapi.maintenance.create(options)
 
         return 'Added maintenance ID %s for %s %s' % (res['maintenanceids'][0],
-                'host' if hosts else 'group', names)
+                                                      'host' if hosts else 'group', names)
 
     @zabbix_command
     @command
@@ -321,11 +323,10 @@ class Zabbix(LudolphPlugin):
             ])
 
         if table:
-            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) +'\n\n'
+            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) + '\n\n'
         else:
             out = ''
 
-        out += '%d maintenances are shown.\n%s' % (
-            len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
+        out += '%d maintenances are shown.\n%s' % (len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
 
         return out

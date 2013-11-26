@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-13 Erigones s.r.o.
+Copyright (C) 2012-13 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -25,15 +25,16 @@ LOGFORMAT = '%(asctime)s %(levelname)-8s %(name)s: %(message)s'
 
 logger = logging.getLogger(__name__)
 
+
 def daemonize():
     """
     http://code.activestate.com/recipes/278731-creating-a-daemon-the-python-way/
     http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
     """
     try:
-        pid = os.fork() # Fork #1
+        pid = os.fork()  # Fork #1
         if pid > 0:
-            sys.exit(0) # Exit first parent
+            sys.exit(0)  # Exit first parent
     except OSError as e:
         sys.stderr.write('Fork #1 failed: %d (%s)\n' % (e.errno, e.strerror))
         sys.exit(1)
@@ -46,24 +47,24 @@ def daemonize():
     os.umask(0)
 
     try:
-        pid = os.fork() # Fork #2
+        pid = os.fork()  # Fork #2
         if pid > 0:
-            sys.exit(0) # Exit from second parent
+            sys.exit(0)  # Exit from second parent
     except OSError as e:
         sys.stderr.write('Fork #2 failed: %d (%s)\n' % (e.errno, e.strerror))
         sys.exit(1)
 
     # Close all open file descriptors
-    import resource # Resource usage information
+    import resource  # Resource usage information
     maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
-    if (maxfd == resource.RLIM_INFINITY):
+    if maxfd == resource.RLIM_INFINITY:
         maxfd = 1024
 
     # Iterate through and close all file descriptors
     for fd in range(0, maxfd):
         try:
             os.close(fd)
-        except OSError: # ERROR, fd wasn't open (ignored)
+        except OSError:  # ERROR, fd wasn't open (ignored)
             pass
 
     # Redirect standard file descriptors to /dev/null
@@ -76,7 +77,8 @@ def daemonize():
     os.dup2(so.fileno(), sys.stdout.fileno())
     os.dup2(se.fileno(), sys.stderr.fileno())
 
-    return(0)
+    return 0
+
 
 def start():
     """
@@ -85,8 +87,7 @@ def start():
     ret = 0
     cfg = 'ludolph.cfg'
     cfg_fp = None
-    cfg_lo = ((os.path.expanduser('~'), '.'+ cfg),
-            (sys.prefix, 'etc', cfg), ('/etc', cfg))
+    cfg_lo = ((os.path.expanduser('~'), '.' + cfg), (sys.prefix, 'etc', cfg), ('/etc', cfg))
     config = RawConfigParser()
     config_base_sections = ('global', 'xmpp')
 
@@ -106,18 +107,18 @@ def start():
 You need to create a config file in one this locations: \n%s\n
 You can rename ludolph.cfg.example and update the required variables.
 The example file is located in: %s\n\n""" % (
-        '\n'.join([os.path.join(*i) for i in cfg_lo]),
-        os.path.dirname(os.path.abspath(__file__))))
+            '\n'.join([os.path.join(*i) for i in cfg_lo]),
+            os.path.dirname(os.path.abspath(__file__))))
         sys.exit(1)
 
     # Prepare logging configuration
     logconfig = {
-        'level': logging.getLevelName(config.get('global','loglevel')),
+        'level': logging.getLevelName(config.get('global', 'loglevel')),
         'format': LOGFORMAT,
     }
 
     if config.has_option('global', 'logfile'):
-        logfile = config.get('global','logfile').strip()
+        logfile = config.get('global', 'logfile').strip()
         if logfile:
             logconfig['filename'] = logfile
 
@@ -145,7 +146,7 @@ The example file is located in: %s\n\n""" % (
     sys.excepthook = log_except_hook
 
     # Default configuration
-    pipe_file = config.get('global','pipe_file')
+    pipe_file = config.get('global', 'pipe_file')
     pipe_mode = '0600'
     use_tls = True
     use_ssl = False
@@ -164,7 +165,7 @@ The example file is located in: %s\n\n""" % (
         logger.info('Loading plugin: %s', plugin)
         try:
             clsname = plugin[0].upper() + plugin[1:]
-            modname = 'ludolph.plugins.'+ plugin
+            modname = 'ludolph.plugins.' + plugin
             module = __import__(modname, fromlist=[clsname])
             plugins[modname] = getattr(module, clsname)
         except Exception as ex:
@@ -193,7 +194,7 @@ The example file is located in: %s\n\n""" % (
     logger.info('Creating pipe file %s', pipe_file)
     try:
         os.remove(pipe_file)
-    except:
+    except os.error:
         pass
 
     os.mkfifo(pipe_file, int(pipe_mode, 8))

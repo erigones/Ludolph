@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-13 Erigones s.r.o.
+Copyright (C) 2012-13 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -9,9 +9,10 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
-COMMANDS = {} # command : {name, module, doc}
-USERS = [] # List of users
-ADMINS = [] # List of admins
+COMMANDS = {}  # command : {name, module, doc}
+USERS = []     # List of users
+ADMINS = []    # List of admins
+
 
 def command(f):
     """
@@ -22,14 +23,13 @@ def command(f):
 
     def wrap(obj, msg, *args, **kwargs):
         if not USERS or msg['from'].bare in USERS:
-            logger.info('User "%s" requested command "%s"' % (msg['from'],msg['body']))
+            logger.info('User "%s" requested command "%s"', msg['from'], msg['body'])
             # Reply with output of function
             out = f(obj, msg, *args, **kwargs)
             logger.debug('Command output: "%s"', out)
             return msg.reply(out).send()
         else:
-            logger.warning('Unauthorized command "%s" from "%s"' % (
-                msg['body'], msg['from']))
+            logger.warning('Unauthorized command "%s" from "%s"', msg['body'], msg['from'])
             msg.reply('Permission denied').send()
             return None
 
@@ -42,13 +42,12 @@ def command(f):
 
     # Check if command exists
     if name in COMMANDS.keys():
-        logger.critical('Command "%s" from plugin "%s" overlaps with existing '
-                'command from module "%s"' % (name, f.__module__,
-                    COMMANDS[name]['module']))
+        logger.critical('Command "%s" from plugin "%s" overlaps with existing command from module "%s"',
+                        name, f.__module__, COMMANDS[name]['module'])
         return None
 
     # Save module and method name
-    COMMANDS[name] = { 'name': f.__name__, 'module': f.__module__ }
+    COMMANDS[name] = {'name': f.__name__, 'module': f.__module__}
 
     # Save documentation
     if f.__doc__:
@@ -58,6 +57,7 @@ def command(f):
         COMMANDS[name]['doc'] = ''
 
     return wrap
+
 
 def parameter_required(count=1):
     """
@@ -71,13 +71,13 @@ def parameter_required(count=1):
                 params.extend(args)
                 return f(obj, msg, *params, **kwargs)
             else:
-                logger.warning('Missing parameter in command "%s" from user "%s"' % (
-                    msg['body'], msg['from']))
+                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], msg['from'])
                 msg.reply('Missing parameter').send()
                 return None
 
         return wrap
     return parameter_required_decorator
+
 
 def admin_required(f):
     """
@@ -89,8 +89,7 @@ def admin_required(f):
         if not ADMINS or msg['from'].bare in ADMINS:
             return f(obj, msg, *args, **kwargs)
         else:
-            logger.warning('Unauthorized command "%s" from user "%s"' % (
-                msg['body'], msg['from']))
+            logger.warning('Unauthorized command "%s" from user "%s"', msg['body'], msg['from'])
             msg.reply('Permission denied').send()
             return None
 
