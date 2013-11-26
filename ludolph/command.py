@@ -22,14 +22,16 @@ def command(f):
     global USERS
 
     def wrap(obj, msg, *args, **kwargs):
-        if not USERS or msg['from'].bare in USERS:
-            logger.info('User "%s" requested command "%s"', msg['from'], msg['body'])
+        user = obj._get_jid(msg).bare
+
+        if not USERS or user in USERS:
+            logger.info('User "%s" requested command "%s"', user, msg['body'])
             # Reply with output of function
             out = f(obj, msg, *args, **kwargs)
             logger.debug('Command output: "%s"', out)
             return msg.reply(out).send()
         else:
-            logger.warning('Unauthorized command "%s" from "%s"', msg['body'], msg['from'])
+            logger.warning('Unauthorized command "%s" from "%s"', msg['body'], user)
             msg.reply('Permission denied').send()
             return None
 
@@ -71,7 +73,7 @@ def parameter_required(count=1):
                 params.extend(args)
                 return f(obj, msg, *params, **kwargs)
             else:
-                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], msg['from'])
+                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], obj._get_jid(msg).bare)
                 msg.reply('Missing parameter').send()
                 return None
 
@@ -86,10 +88,12 @@ def admin_required(f):
     global ADMINS
 
     def wrap(obj, msg, *args, **kwargs):
-        if not ADMINS or msg['from'].bare in ADMINS:
+        user = obj._get_jid(msg).bare
+
+        if not ADMINS or user in ADMINS:
             return f(obj, msg, *args, **kwargs)
         else:
-            logger.warning('Unauthorized command "%s" from user "%s"', msg['body'], msg['from'])
+            logger.warning('Unauthorized command "%s" from user "%s"', msg['body'], user)
             msg.reply('Permission denied').send()
             return None
 

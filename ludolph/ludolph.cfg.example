@@ -22,6 +22,9 @@ pipe_file = /tmp/ludolph.msg
 #pipe_mode = 0600
 
 [xmpp]
+# Jabberbot nick name
+nickname = Ludolph
+
 # Username used for jabberbot to login (required)
 username = user@example.com
 
@@ -52,6 +55,10 @@ users =
 # Only admin is authorized to remove other users from Ludolph's roster.
 # Leave this option empty to grant roster operations to everybody.
 admins =
+
+# Name of the Multi-User Chat room.
+# Leaving this option empty will disable MUC.
+room =
 
 
 ###############################################################################

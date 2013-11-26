@@ -32,8 +32,19 @@ class LudolphBot(ClientXMPP):
     users = USERS
     admins = ADMINS
     plugins = None
+    room = None
+    muc = None
+    nick = 'Ludolph'
 
     def __init__(self, config, plugins=None, *args, **kwargs):
+        # Get nick name
+        if config.has_option('xmpp', 'nick'):
+            nick = config.get('xmpp', 'nick').strip()
+            if nick:
+                self.nick = nick
+
+        logger.info('Initializing *%s* jabber bot', self.nick)
+
         # Initialize the SleekXMPP client
         ClientXMPP.__init__(self, config.get('xmpp', 'username'), config.get('xmpp', 'password'))
 
@@ -71,6 +82,10 @@ class LudolphBot(ClientXMPP):
                     logger.error('Admin user "%s" is not specified in users. '
                                  'This may lead to unexpected behaviour. ', i)
 
+        # MUC room
+        if config.has_option('xmpp', 'room'):
+            self.room = config.get('xmpp', 'room').strip()
+
         # Initialize plugins
         self.plugins = {__name__: self}
         if plugins:
@@ -78,15 +93,47 @@ class LudolphBot(ClientXMPP):
                 logger.info('Initializing plugin %s', plugin)
                 self.plugins[plugin] = cls(config)
 
+        # Register XMPP plugins
+        self.register_plugin('xep_0030')  # Service Discovery
+        self.register_plugin('xep_0045')  # Multi-User Chat
+        self.register_plugin('xep_0199')  # XMPP Ping
+        self.register_plugin('old_0004')  # Multi-User Chat dependency
+
         # Register event handlers
         self.add_event_handler('session_start', self.session_start, threaded=True)
         self.add_event_handler('message', self.message, threaded=True)
+
+        if self.room:
+            self.muc = self.plugin['xep_0045']
+            self.add_event_handler('groupchat_message', self.muc_message, threaded=True)
+            self.add_event_handler('muc::%s::got_online' % self.room, self.muc_online, threaded=True)
 
         # Start the monitoring thread for reading the pipe file
         self._start_thread('mon_thread', self.mon_thread)
 
         # Save start time
         self._start_time = time.time()
+
+    def _get_jid(self, msg):
+        """
+        Helper method for retrieving jid from message.
+        """
+        if msg['type'] == 'groupchat' and self.room:
+            return self.muc.getJidProperty(msg['mucroom'], msg['mucnick'], 'jid')
+
+        return msg['from']
+
+    def _jid_in_room(self, jid):
+        """
+        Determine if jid is present in chat room.
+        """
+        for nick in self.muc.rooms[self.room]:
+            entry = self.muc.rooms[self.room][nick]
+
+            if entry is not None and entry['jid'].bare == jid:
+                return True
+
+        return False
 
     def _handle_new_subscription(self, pres):
         """
@@ -108,8 +155,12 @@ class LudolphBot(ClientXMPP):
         """
         self.get_roster()
         self.roster_cleanup()
-        self.send_presence()
+        self.send_presence(pnick=self.nick)
         logger.info('Registered commands: %s', ', '.join(self.available_commands()))
+
+        if self.room:
+            logger.info('Initializing multi-user chat room %s', self.room)
+            self.muc.joinMUC(self.room, self.nick, maxhistory='64', wait=False)
 
     def roster_cleanup(self):
         """
@@ -130,6 +181,27 @@ class LudolphBot(ClientXMPP):
                 self.del_roster_item(i)
             else:
                 logger.info('Roster item: %s (%s) - ok', i, roster[i]['subscription'])
+
+    def muc_online(self, presence):
+        """
+        Process a presence stanza from a chat room.
+        """
+        # Say hello if this is a presence stanza for jabber bot
+        if presence['from'] == '%s/%s' % (self.room, self.nick):
+            self.send_message(mto=self.room, mbody='%s is here!' % self.nick, mtype='groupchat')
+
+            # Send invitation to all users in roster
+            for user in self.client_roster.keys():
+                if self._jid_in_room(user):
+                    logger.info('User "%s" already in MUC room %s', user, self.room)
+                elif user != self.room:
+                    logger.info('Inviting "%s" to MUC room %s', user, self.room)
+                    self.muc.invite(self.room, user)
+
+        # Say hello to new user
+        if presence['muc']['nick'] != self.nick:
+            msg = 'Hello, %s %s' % (presence['muc']['role'], presence['muc']['nick'])
+            self.send_message(mto=presence['from'].bare, mbody=msg, mtype='groupchat')
 
     def available_commands(self):
         """
@@ -161,6 +233,20 @@ class LudolphBot(ClientXMPP):
             msg.reply('Sorry, I don\'t understand "%s"\n'
                       'Please type "help" for more info' % msg['body']).send()
 
+    def muc_message(self, msg):
+        """
+        MUC Incoming message handler.
+        """
+        if msg['mucnick'] == self.nick:
+            return
+
+        # Respond to the message only if the bots nickname is mentioned
+        nick = self.nick + ':'
+
+        if msg['body'].startswith(nick):
+            msg['body'] = msg['body'].lstrip(nick).lstrip()
+            return self.message(msg, types=('groupchat',))
+
     def shutdown(self, signalnum, handler):
         """
         Shutdown signal handler.
@@ -182,7 +268,14 @@ class LudolphBot(ClientXMPP):
                     if len(data) == 2:
                         logger.info('Sending monitoring message to "%s"', data[0])
                         logger.debug('\twith body: "%s"', data[1])
-                        self.send_message(mto=data[0], mbody=data[1], mtype='normal')
+
+                        if data[0] == self.room:
+                            mtype = 'groupchat'
+                        else:
+                            mtype = 'normal'
+
+                        self.send_message(mto=data[0], mbody=data[1], mtype=mtype)
+
                     else:
                         logger.warning('Bad message format ("%s")', line)
 
@@ -304,3 +397,34 @@ class LudolphBot(ClientXMPP):
         d, h = divmod(h, 24)
 
         return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
+
+    @admin_required
+    @parameter_required(1)
+    @command
+    def muc_invite(self, msg, user):
+        """
+        Invite user to multi-user chat room (admin only).
+
+        Usage: muc-invite <JID>
+        """
+        if not self.room:
+            return 'MUC room disabled'
+
+        self.muc.invite(self.room, user)
+
+        return 'Inviting %s to MUC room %s' % (user, self.room)
+
+    @command
+    def muc_invite_me(self, msg):
+        """
+        Invite yourself to multi-user chat room.
+
+        Usage: muc-invite-me
+        """
+        if not self.room:
+            return 'MUC room disabled'
+
+        me = self._get_jid(msg).bare
+        self.muc.invite(self.room, me)
+
+        return 'Inviting %s to MUC room %s' % (me, self.room)
