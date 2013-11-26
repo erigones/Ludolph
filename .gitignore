@@ -32,3 +32,6 @@ pip-log.txt
 # OS files
 .DS_Store
 *.swp
+
+# PyCharm
+.idea
