@@ -3,36 +3,61 @@ Ludolph
 
 Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support
 
+Features
+--------
+
+List of available Ludolph commands::
+
+ * ludolph.plugins.zabbix *
+    * ack - acknowledge event
+    * alerts - show a list of current zabbix alerts
+    * outage - show maintenance periods
+    * outage-add - set maintenance period for specified host and time
+    * outage-del - delete maintenance period specified by maintenance ID
+    * zabbix-version - show version of Zabbix API
+
+ * ludolph.bot *
+    * about - details about this project
+    * help - show this help
+    * muc-invite - invite user to multi-user chat room (admin only)
+    * muc-invite-me - invite yourself to multi-user chat room
+    * roster-list - list of users on Ludolph's roster (admin only)
+    * roster-remove - remove user from Ludolph's roster (admin only)
+    * uptime - show Ludolph uptime
+    * version - display Ludolph version
+
+
 Installation Notes
 ------------------
 
- - Install the latest released version using pip::
+- Install the latest released version using pip::
 
     pip install ludolph
 
- - Make sure all dependencies (listed below) are installed (done automatically when installing via pip)
+- Make sure all dependencies (listed below) are installed (done automatically when installing via pip)
 
- - Create and edit the configuration file::
+- Create and edit the configuration file::
 
     cp /usr/lib/python2.7/site-packages/ludolph/ludolph.cfg.example /etc/ludolph.cfg
 
- - The ``ludolph`` command should be installed somewhere in your ``PATH``.
+- The ``ludolph`` command should be installed somewhere in your ``PATH``.
 
- - Init scripts for Debian and RHEL based distributions are also available: https://github.com/erigones/Ludolph/tree/master/init.d
+- Init scripts for Debian and RHEL based distributions are also available: https://github.com/erigones/Ludolph/tree/master/init.d
 
 
 **Dependencies:**
- - sleekxmpp (1.1.11+)
- - dnspython (1.10.0+) (or dnspython3 when using Python 3)
- - tabulate (0.4.4+)
+
+- sleekxmpp (1.1.11+)
+- dnspython (1.10.0+) (or dnspython3 when using Python 3)
+- tabulate (0.4.4+)
 
 
 Links
 -----
 
- - Wiki: https://github.com/erigones/Ludolph/wiki
- - Bug Tracker: https://github.com/erigones/Ludolph/issues
- - Twitter: https://twitter.com/erigones
+- Wiki: https://github.com/erigones/Ludolph/wiki
+- Bug Tracker: https://github.com/erigones/Ludolph/issues
+- Twitter: https://twitter.com/erigones
 
 
 License
