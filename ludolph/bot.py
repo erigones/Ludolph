@@ -13,7 +13,7 @@ import logging
 from sleekxmpp import ClientXMPP
 from tabulate import tabulate
 
-from ludolph.command import BOT, COMMANDS, USERS, ADMINS, command, parameter_required, admin_required
+from ludolph.command import COMMANDS, USERS, ADMINS, command, parameter_required, admin_required
 from ludolph.__init__ import __doc__ as ABOUT
 from ludolph.__init__ import __version__ as VERSION
 
@@ -44,7 +44,6 @@ class LudolphBot(ClientXMPP):
                 self.nick = nick
 
         logger.info('Initializing *%s* jabber bot', self.nick)
-        BOT['xmpp'] = self  # Set pointer to this instance
 
         # Initialize the SleekXMPP client
         ClientXMPP.__init__(self, config.get('xmpp', 'username'), config.get('xmpp', 'password'))
@@ -88,17 +87,19 @@ class LudolphBot(ClientXMPP):
             self.room = config.get('xmpp', 'room').strip()
 
         # Initialize plugins
+        self.xmpp = self
         self.plugins = {__name__: self}
         if plugins:
             for plugin, cls in plugins.items():
                 logger.info('Initializing plugin %s', plugin)
                 self.plugins[plugin] = cls(config)
+                # xmpp attribute pointing to this instance is available in plugin object
+                setattr(self.plugins[plugin], 'xmpp', self)
 
         # Register XMPP plugins
         self.register_plugin('xep_0030')  # Service Discovery
         self.register_plugin('xep_0045')  # Multi-User Chat
         self.register_plugin('xep_0199')  # XMPP Ping
-        self.register_plugin('old_0004')  # Multi-User Chat dependency
 
         # Register event handlers
         self.add_event_handler('session_start', self.session_start, threaded=True)
