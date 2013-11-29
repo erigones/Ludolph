@@ -162,7 +162,7 @@ class LudolphBot(ClientXMPP):
 
         if self.room:
             logger.info('Initializing multi-user chat room %s', self.room)
-            self.muc.joinMUC(self.room, self.nick, maxhistory='64', wait=False)
+            self.muc.joinMUC(self.room, self.nick, maxhistory='1024', wait=False)
 
     def roster_cleanup(self):
         """
@@ -201,9 +201,17 @@ class LudolphBot(ClientXMPP):
                     self.muc.invite(self.room, user)
 
         # Say hello to new user
-        if presence['muc']['nick'] != self.nick:
-            msg = 'Hello, %s %s' % (presence['muc']['role'], presence['muc']['nick'])
-            self.send_message(mto=presence['from'].bare, mbody=msg, mtype='groupchat')
+        else:
+            jid = presence['muc']['jid']
+            nick = presence['muc']['nick']
+            role = presence['muc']['role']
+            logger.info('User "%s" with nick "%s" and role "%s" is joining room %s', jid, nick, role, self.room)
+            self.send_message(mto=presence['from'].bare, mbody='Hello %s!' % nick, mtype='groupchat')
+
+            # Change role to admin
+            if self.admins and jid.bare in self.admins:
+                logger.info('Promoting user "%s" with nick "%s" to admin in room %s', jid, nick, self.room)
+                self.muc.setAffiliation(self.room, jid=jid.bare, affiliation='admin')
 
     def available_commands(self):
         """
