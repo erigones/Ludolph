@@ -54,11 +54,23 @@ users =
 # Comma-separated list of admin jabber IDs.
 # Only admin is authorized to remove other users from Ludolph's roster.
 # Leave this option empty to grant roster operations to everybody.
+# You can use @users keyword here.
 admins =
 
 # Name of the Multi-User Chat room.
 # Leaving this option empty will disable MUC.
-room =
+#room =
+
+# Comma-separated list of room user jabber IDs.
+# Room users are authorized to access the MUC room.
+# Leaving this option empty means that everybody is allowed to access the room.
+# You can use @users or @admins keywords here.
+#room_users =
+
+# Comma-separated list of room admin jabber IDs.
+# Room admins get privileges associated with the "admin" affiliation.
+# You can use @users, @admins or @room_users keywords here.
+#room_admins =
 
 
 ###############################################################################

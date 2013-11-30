@@ -11,6 +11,7 @@ import ssl
 import time
 import logging
 from sleekxmpp import ClientXMPP
+from sleekxmpp.xmlstream import ET
 from tabulate import tabulate
 
 from ludolph.command import COMMANDS, USERS, ADMINS, command, parameter_required, admin_required
@@ -29,72 +30,29 @@ class LudolphBot(ClientXMPP):
     _start_time = None
     _commands = None  # Cached sorted list of commands
     commands = COMMANDS
+    plugins = None
     users = USERS
     admins = ADMINS
-    plugins = None
     room = None
+    room_config = None
+    room_users = set()
+    room_admins = set()
     muc = None
     nick = 'Ludolph'
+    pipe_file = None
+    xmpp = None
 
     def __init__(self, config, plugins=None, *args, **kwargs):
-        # Get nick name
-        if config.has_option('xmpp', 'nick'):
-            nick = config.get('xmpp', 'nick').strip()
-            if nick:
-                self.nick = nick
-
+        self._load_config(config)
         logger.info('Initializing *%s* jabber bot', self.nick)
+        self._load_plugins(config, plugins)
 
         # Initialize the SleekXMPP client
         ClientXMPP.__init__(self, config.get('xmpp', 'username'), config.get('xmpp', 'password'))
 
-        # If you are working with an OpenFire server, you will
-        # need to use a different SSL version:
-        if config.has_option('xmpp', 'sslv3') and config.getboolean('xmpp', 'sslv3'):
-            self.ssl_version = ssl.PROTOCOL_SSLv3
-
         # Auto-authorize is enabled by default. User subscriptions are
         # controlled by self._handle_new_subscription
         self.auto_authorize = True
-
-        # Rest of the configuration
-        self.config = config
-        self.pipe_file = config.get('global', 'pipe_file')
-
-        # Users
-        if config.has_option('xmpp', 'users'):
-            for i in config.get('xmpp', 'users').strip().split(','):
-                i = i.strip()
-                if i:
-                    self.users.append(i)
-
-        # Admins
-        if config.has_option('xmpp', 'admins'):
-            for i in config.get('xmpp', 'admins').strip().split(','):
-                i = i.strip()
-                if i:
-                    self.admins.append(i)
-
-        # Admins vs. users
-        if self.admins and self.users:
-            for i in self.admins:
-                if i not in self.users:
-                    logger.error('Admin user "%s" is not specified in users. '
-                                 'This may lead to unexpected behaviour. ', i)
-
-        # MUC room
-        if config.has_option('xmpp', 'room'):
-            self.room = config.get('xmpp', 'room').strip()
-
-        # Initialize plugins
-        self.xmpp = self
-        self.plugins = {__name__: self}
-        if plugins:
-            for plugin, cls in plugins.items():
-                logger.info('Initializing plugin %s', plugin)
-                self.plugins[plugin] = cls(config)
-                # xmpp attribute pointing to this instance is available in plugin object
-                setattr(self.plugins[plugin], 'xmpp', self)
 
         # Register XMPP plugins
         self.register_plugin('xep_0030')  # Service Discovery
@@ -116,14 +74,161 @@ class LudolphBot(ClientXMPP):
         # Save start time
         self._start_time = time.time()
 
-    def _get_jid(self, msg):
+    def _load_config(self, config):
         """
-        Helper method for retrieving jid from message.
+        Load bot settings from config object.
         """
-        if msg['type'] == 'groupchat' and self.room:
-            return self.muc.getJidProperty(msg['mucroom'], msg['mucnick'], 'jid')
+        logger.info('Configuring jabber bot')
 
-        return msg['from']
+        # Global stuff
+        self.pipe_file = config.get('global', 'pipe_file')
+
+        # Get nick name
+        if config.has_option('xmpp', 'nick'):
+            nick = config.get('xmpp', 'nick').strip()
+            if nick:
+                self.nick = nick
+
+        # If you are working with an OpenFire server, you will
+        # need to use a different SSL version:
+        if config.has_option('xmpp', 'sslv3') and config.getboolean('xmpp', 'sslv3'):
+            self.ssl_version = ssl.PROTOCOL_SSLv3
+
+        # Read comma-separated option and return a list of JIDs
+        def read_jid_array(section, option, keywords=()):
+            jids = set()
+
+            if config.has_option(section, option):
+                for jid in config.get(section, option).strip().split(','):
+                    jid = jid.strip()
+
+                    if not jid:
+                        continue
+
+                    if '@' in jid:
+                        if jid.startswith('@'):
+                            kwd = jid[1:]
+                            if kwd in keywords:
+                                jids.update(getattr(self, kwd))
+                            else:
+                                logger.warn('Skipping invalid keyword "%s" from setting "%s"', jid, option)
+                        else:
+                            jids.add(jid)
+                    else:
+                        logger.warn('Skipping invalid JID "%s" from setting "%s"', jid, option)
+
+            return jids
+
+        # Users
+        self.users.clear()
+        self.users.update(read_jid_array('xmpp', 'users'))
+        logger.info('Current users: %s', ', '.join(self.users))
+
+        # Admins
+        self.admins.clear()
+        self.admins.update(read_jid_array('xmpp', 'admins', keywords=('users',)))
+        logger.info('Current admins: %s', ', '.join(self.admins))
+
+        # Admins vs. users
+        if not self.admins.issubset(self.users):
+            for i in self.admins.difference(self.users):
+                logger.error('Admin "%s" is not specified in users. '
+                             'This may lead to unexpected behaviour. ', i)
+
+        # MUC room
+        if config.has_option('xmpp', 'room'):
+            self.room = config.get('xmpp', 'room').strip()
+
+        # MUC room users
+        self.room_users.clear()
+        if self.room:
+            self.room_users.update(read_jid_array('xmpp', 'room_users', keywords=('users', 'admins')))
+            logger.info('Current room users: %s', ', '.join(self.room_users))
+
+        # MUC room admins
+        self.room_admins.clear()
+        if self.room:
+            self.room_admins.update(read_jid_array('xmpp', 'room_admins', keywords=('users', 'admins', 'room_users')))
+            logger.info('Current room admins: %s', ', '.join(self.room_admins))
+
+        # Room admins vs. users
+        if not self.room_admins.issubset(self.room_users):
+            for i in self.room_admins.difference(self.room_users):
+                logger.error('Room admin "%s" is not specified in room_users. '
+                             'This may lead to unexpected behaviour. ', i)
+
+    def _load_plugins(self, config, plugins, init=True):
+        """
+        Initialize plugins.
+        The init parameter indicates whether this is a first-time initialization or a reload.
+        """
+        if init:
+            # First-time plugin initialization -> include ourself to plugins dict
+            self.xmpp = self
+            self.plugins = {__name__: self}
+        else:
+            # Bot reload - remove disabled plugins
+            for enabled_plugin in self.plugins.keys():
+                if not plugins or enabled_plugin not in plugins:
+                    logger.info('Disabling plugin %s', enabled_plugin)
+                    del self.plugins[enabled_plugin]
+
+        if plugins:
+            for plugin, cls in plugins.items():
+                if init or plugin not in self.plugins:
+                    logger.info('Initializing plugin %s', plugin)
+                    self.plugins[plugin] = cls(config, init=init)
+                    # xmpp attribute pointing to this instance is available in plugin object
+                    setattr(self.plugins[plugin], 'xmpp', self)
+                else:
+                    logger.info('Reloading plugin %s', plugin)
+                    self.plugins[plugin].reload(config)
+
+        logger.info('Registered commands: %s', ', '.join(self.available_commands()))
+
+    def _room_members(self):
+        """
+        Change multi-user chat room member list.
+        """
+        query = ET.Element('{http://jabber.org/protocol/muc#admin}query')
+
+        for jid in self.room_users:
+            if jid in self.room_admins:
+                affiliation = 'admin'
+            else:
+                affiliation = 'member'
+
+            item = ET.Element('{http://jabber.org/protocol/muc#admin}item', {'affiliation': affiliation, 'jid': jid})
+            query.append(item)
+
+        iq = self.make_iq_set(query)
+        iq['to'] = self.room
+        iq['from'] = ''
+        iq.send()
+
+    def _room_config(self):
+        """
+        Configure multi-user chat room.
+        """
+        logger.debug('Getting current configuration for MUC room %s', self.room)
+
+        try:
+            self.room_config = self.muc.getRoomConfig(self.room)
+        except ValueError:
+            logger.error('Could not get MUC room configuration. Maybe the room is not initialized.')
+            return
+
+        if self.room_users:
+            self.room_config['fields']['muc#roomconfig_membersonly']['value'] = True
+            self.room_config['fields']['members_by_default']['value'] = False
+        else:
+            self.room_config['fields']['muc#roomconfig_membersonly']['value'] = False
+            self.room_config['fields']['members_by_default']['value'] = True
+
+        logger.info('Setting new configuration for MUC room %s', self.room)
+        self.muc.setRoomConfig(self.room, self.room_config)
+        logger.info('Setting member list for MUC room %s', self.room)
+        self._room_members()
 
     def _jid_in_room(self, jid):
         """
@@ -151,6 +256,24 @@ class LudolphBot(ClientXMPP):
         else:
             logger.warning('User "%s" is not allowed to subscribe', user)
 
+    def reload(self, config, plugins):
+        """
+        Reload bot configuration and plugins.
+        """
+        self._load_config(config)
+        self._load_plugins(config, plugins, init=False)
+        if self.room:
+            self._room_config()
+
+    def get_jid(self, msg):
+        """
+        Helper method for retrieving jid from message.
+        """
+        if msg['type'] == 'groupchat' and self.room:
+            return self.muc.getJidProperty(msg['mucroom'], msg['mucnick'], 'jid')
+
+        return msg['from']
+
     def session_start(self, event):
         """
         Process the session_start event.
@@ -158,20 +281,17 @@ class LudolphBot(ClientXMPP):
         self.get_roster()
         self.roster_cleanup()
         self.send_presence(pnick=self.nick)
-        logger.info('Registered commands: %s', ', '.join(self.available_commands()))
 
         if self.room:
             logger.info('Initializing multi-user chat room %s', self.room)
-            self.muc.joinMUC(self.room, self.nick, maxhistory='1024', wait=False)
+            self.muc.joinMUC(self.room, self.nick, maxhistory='1024', wait=True)
+            self._room_config()
 
     def roster_cleanup(self):
         """
         Remove roster items with none subscription.
         """
         roster = self.client_roster
-        logger.info('Current auto_authorize: %s', self.auto_authorize)
-        logger.info('Current users: %s', ', '.join(self.users))
-        logger.info('Current admins: %s', ', '.join(self.admins))
         logger.info('Current roster: %s', ', '.join(roster.keys()))
 
         # Remove users with none subscription from roster
@@ -188,30 +308,24 @@ class LudolphBot(ClientXMPP):
         """
         Process a presence stanza from a chat room.
         """
-        # Say hello if this is a presence stanza for jabber bot
+        # Say hello from jabber bot if this is a presence stanza
         if presence['from'] == '%s/%s' % (self.room, self.nick):
             self.send_message(mto=self.room, mbody='%s is here!' % self.nick, mtype='groupchat')
 
-            # Send invitation to all users in roster
-            for user in self.client_roster.keys():
+            # Send invitation to all users
+            for user in self.room_users:
                 if self._jid_in_room(user):
-                    logger.info('User "%s" already in MUC room %s', user, self.room)
+                    logger.info('User "%s" already in MUC room', user)
                 elif user != self.room:
-                    logger.info('Inviting "%s" to MUC room %s', user, self.room)
+                    logger.info('Inviting "%s" to MUC room', user)
                     self.muc.invite(self.room, user)
 
-        # Say hello to new user
         else:
-            jid = presence['muc']['jid']
-            nick = presence['muc']['nick']
-            role = presence['muc']['role']
-            logger.info('User "%s" with nick "%s" and role "%s" is joining room %s', jid, nick, role, self.room)
-            self.send_message(mto=presence['from'].bare, mbody='Hello %s!' % nick, mtype='groupchat')
-
-            # Change role to admin
-            if self.admins and jid.bare in self.admins:
-                logger.info('Promoting user "%s" with nick "%s" to admin in room %s', jid, nick, self.room)
-                self.muc.setAffiliation(self.room, jid=jid.bare, affiliation='admin')
+            # Say hello to new user
+            muc = presence['muc']
+            logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is joining MUC room',
+                        muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
+            self.send_message(mto=presence['from'].bare, mbody='Hello %s!' % muc['nick'], mtype='groupchat')
 
     def available_commands(self):
         """
@@ -423,18 +537,3 @@ class LudolphBot(ClientXMPP):
         self.muc.invite(self.room, user)
 
         return 'Inviting %s to MUC room %s' % (user, self.room)
-
-    @command
-    def muc_invite_me(self, msg):
-        """
-        Invite yourself to multi-user chat room.
-
-        Usage: muc-invite-me
-        """
-        if not self.room:
-            return 'MUC room disabled'
-
-        me = self._get_jid(msg).bare
-        self.muc.invite(self.room, me)
-
-        return 'Inviting %s to MUC room %s' % (me, self.room)
