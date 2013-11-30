@@ -22,7 +22,7 @@ def command(f):
     global USERS
 
     def wrap(obj, msg, *args, **kwargs):
-        user = obj.xmpp.get_jid(msg).bare
+        user = obj.xmpp.get_jid(msg)
 
         if not USERS or user in USERS:
             logger.info('User "%s" requested command "%s"', user, msg['body'])
@@ -73,7 +73,7 @@ def parameter_required(count=1):
                 params.extend(args)
                 return f(obj, msg, *params, **kwargs)
             else:
-                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], obj.xmpp.get_jid(msg).bare)
+                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], obj.xmpp.get_jid(msg))
                 msg.reply('Missing parameter').send()
                 return None
 
@@ -88,7 +88,7 @@ def admin_required(f):
     global ADMINS
 
     def wrap(obj, msg, *args, **kwargs):
-        user = obj.xmpp.get_jid(msg).bare
+        user = obj.xmpp.get_jid(msg)
 
         if not ADMINS or user in ADMINS:
             return f(obj, msg, *args, **kwargs)

@@ -12,13 +12,8 @@ import time
 import logging
 from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
-from tabulate import tabulate
 
-from ludolph.command import COMMANDS, USERS, ADMINS, command, parameter_required, admin_required
-from ludolph.__init__ import __doc__ as ABOUT
-from ludolph.__init__ import __version__ as VERSION
-
-TABLEFMT = 'simple'
+from ludolph.command import COMMANDS, USERS, ADMINS
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +172,7 @@ class LudolphBot(ClientXMPP):
             for plugin, cls in plugins.items():
                 if init or plugin not in self.plugins:
                     logger.info('Initializing plugin %s', plugin)
-                    self.plugins[plugin] = cls(config, init=init)
+                    self.plugins[plugin] = cls(config)
                     # xmpp attribute pointing to this instance is available in plugin object
                     setattr(self.plugins[plugin], 'xmpp', self)
                 else:
@@ -256,23 +251,19 @@ class LudolphBot(ClientXMPP):
         else:
             logger.warning('User "%s" is not allowed to subscribe', user)
 
-    def reload(self, config, plugins):
-        """
-        Reload bot configuration and plugins.
-        """
-        self._load_config(config)
-        self._load_plugins(config, plugins, init=False)
-        if self.room:
-            self._room_config()
-
-    def get_jid(self, msg):
+    def get_jid(self, msg, bare=True):
         """
         Helper method for retrieving jid from message.
         """
         if msg['type'] == 'groupchat' and self.room:
-            return self.muc.getJidProperty(msg['mucroom'], msg['mucnick'], 'jid')
+            jid = self.muc.getJidProperty(msg['mucroom'], msg['mucnick'], 'jid')
+        else:
+            jid = msg['from']
 
-        return msg['from']
+        if bare and jid:
+            return jid.bare
+
+        return jid
 
     def session_start(self, event):
         """
@@ -379,6 +370,16 @@ class LudolphBot(ClientXMPP):
 
         return self.abort()
 
+    def reload(self, config, plugins):
+        """
+        Reload bot configuration and plugins.
+        """
+        logger.info('Requested reload')
+        self._load_config(config)
+        self._load_plugins(config, plugins, init=False)
+        if self.room:
+            self._room_config()
+
     def mon_thread(self):
         """
         Processing input from the monitoring pipe file.
@@ -408,132 +409,3 @@ class LudolphBot(ClientXMPP):
                 if self.stop.is_set():
                     self._end_thread('mon_thread', early=True)
                     return
-
-    @command
-    def help(self, msg):
-        """
-        Show this help.
-
-        Usage: help
-        """
-        cmdline = msg['body'].strip().split()
-
-        # Global help or command help?
-        if len(cmdline) > 1 and cmdline[1] in self.available_commands():
-            cmd = self.commands[cmdline[1]]
-            # Remove whitespaces from __doc__ lines
-            desc = '\n'.join(map(str.strip, cmd['doc'].split('\n')))
-            # Command name + module
-            title = '* ' + cmdline[1] + ' (' + cmd['module'] + ')'
-            out = (title, '', desc)
-
-        else:
-            # Create dict with module name as key and list of commands as value
-            cmd_map = {}
-            for cmd_name in self.available_commands():
-                cmd = self.commands[cmd_name]
-                mod_name = cmd['module']
-
-                if not mod_name in cmd_map:
-                    cmd_map[mod_name] = []
-
-                cmd_map[mod_name].append(cmd_name)
-
-            out = ['List of available Ludolph commands:']
-            for mod_name, cmd_names in cmd_map.items():
-                out.append('\n * ' + mod_name + ' * ')
-                for name in cmd_names:
-                    cmd = self.commands[name]
-                    try:
-                        # First line of __doc__
-                        desc = cmd['doc'].split('\n')[0]
-                        # Lowercase first char and remove trailing dot
-                        desc = desc[0].lower() + desc[1:].rstrip('.')
-                    except IndexError:
-                        desc = ''
-                    # Append line of command + description
-                    out.append('\t* %s - %s' % (name, desc))
-
-            out.append('\nUse "help <command>" for more information about the command usage')
-
-        return '\n'.join(out)
-
-    @command
-    def version(self, msg):
-        """
-        Display Ludolph version.
-
-        Usage: version
-        """
-        return 'Version: ' + VERSION
-
-    @command
-    def about(self, msg):
-        """
-        Details about this project.
-
-        Usage: about
-        """
-        return ABOUT.strip()
-
-    @admin_required
-    @command
-    def roster_list(self, msg):
-        """
-        List of users on Ludolph's roster (admin only).
-
-        Usage: roster-list
-        """
-        roster = self.client_roster
-        out = []
-
-        for i in roster.keys():
-            out.append((str(i), roster[i]['subscription'],))
-
-        return str(tabulate(out, headers=['JID', 'subscription'], tablefmt=TABLEFMT))
-
-    @admin_required
-    @parameter_required(1)
-    @command
-    def roster_remove(self, msg, user):
-        """
-        Remove user from Ludolph's roster (admin only).
-
-        Usage: roster-remove <JID>
-        """
-        if user in self.client_roster.keys():
-            self.send_presence(pto=user, ptype='unsubscribe')
-            self.del_roster_item(user)
-            return 'User ' + user + ' removed from roster'
-        else:
-            return 'User ' + user + ' cannot be removed from roster'
-
-    @command
-    def uptime(self, msg):
-        """
-        Show Ludolph uptime.
-
-        Usage: uptime
-        """
-        u = time.time() - self._start_time
-        m, s = divmod(u, 60)
-        h, m = divmod(m, 60)
-        d, h = divmod(h, 24)
-
-        return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
-
-    @admin_required
-    @parameter_required(1)
-    @command
-    def muc_invite(self, msg, user):
-        """
-        Invite user to multi-user chat room (admin only).
-
-        Usage: muc-invite <JID>
-        """
-        if not self.room:
-            return 'MUC room disabled'
-
-        self.muc.invite(self.room, user)
-
-        return 'Inviting %s to MUC room %s' % (user, self.room)

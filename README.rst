@@ -16,11 +16,10 @@ List of available Ludolph commands::
     * outage-del - delete maintenance period specified by maintenance ID
     * zabbix-version - show version of Zabbix API
 
- * ludolph.bot *
+ * ludolph.base.bot *
     * about - details about this project
     * help - show this help
     * muc-invite - invite user to multi-user chat room (admin only)
-    * muc-invite-me - invite yourself to multi-user chat room
     * roster-list - list of users on Ludolph's roster (admin only)
     * roster-remove - remove user from Ludolph's roster (admin only)
     * uptime - show Ludolph uptime

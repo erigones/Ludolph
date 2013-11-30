@@ -11,4 +11,10 @@ class LudolphPlugin(object):
     """
     Ludolph plugin base class.
     """
-    pass
+    xmpp = None  # Reference to LudolphBot object
+
+    def __init__(self, config, *args, **kwargs):
+        pass  # Implement plugin initialization here
+
+    def reload(self, config):
+        pass  # Implement plugin reloading here
