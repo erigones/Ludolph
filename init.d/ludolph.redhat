@@ -26,17 +26,31 @@ test -x ${DAEMON} || exit 0
 rh_start() {
     echo -n "Starting ${DESC}: "
     daemon --pidfile=${PIDFILE} --user=${USER} ${DAEMON}
+    RETVAL=$?
     echo
+    return $RETVAL
 }
 
 rh_stop() {
     echo -n "Stopping ${DESC}: "
     killproc -p ${PIDFILE} ${NAME}
+    RETVAL=$?
     echo
+    return $RETVAL
+}
+
+rh_reload() {
+    echo -n "Reloading ${DESC}: "
+    killproc -p ${PIDFILE} ${NAME} -HUP
+    RETVAL=$?
+    echo
+    return $RETVAL
 }
 
 rh_status () {
     status -p ${PIDFILE} ${NAME}
+    RETVAL=$?
+    return $RETVAL
 }
 
 case "$1" in
@@ -51,13 +65,16 @@ case "$1" in
         sleep 1
         rh_start
         ;;
+    reload)
+        rh_reload
+        ;;
     status)
         rh_status
         ;;
     *)
-        echo "Usage: ${0} {start|stop|restart}" >&2
-        exit 64
+        echo "Usage: ${0} {start|stop|restart|reload}" >&2
+        RETVAL=64
         ;;
 esac
 
-exit 0
+exit ${RETVAL}

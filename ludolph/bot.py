@@ -24,6 +24,7 @@ class LudolphBot(ClientXMPP):
     """
     _start_time = None
     _commands = None  # Cached sorted list of commands
+    _muc_ready = False
     commands = COMMANDS
     plugins = None
     users = USERS
@@ -36,6 +37,7 @@ class LudolphBot(ClientXMPP):
     nick = 'Ludolph'
     pipe_file = None
     xmpp = None
+    maxhistory = '1024'
 
     def __init__(self, config, plugins=None, *args, **kwargs):
         self._load_config(config)
@@ -164,6 +166,9 @@ class LudolphBot(ClientXMPP):
         else:
             # Bot reload - remove disabled plugins
             for enabled_plugin in self.plugins.keys():
+                if enabled_plugin == __name__:
+                    continue  # Skip ourself
+
                 if not plugins or enabled_plugin not in plugins:
                     logger.info('Disabling plugin %s', enabled_plugin)
                     del self.plugins[enabled_plugin]
@@ -179,13 +184,16 @@ class LudolphBot(ClientXMPP):
                     logger.info('Reloading plugin %s', plugin)
                     self.plugins[plugin].reload(config)
 
-        logger.info('Registered commands: %s', ', '.join(self.available_commands()))
+        cmds = self.available_commands(reset=True)
+        logger.info('Registered commands: %s', ', '.join(cmds))
 
     def _room_members(self):
         """
         Change multi-user chat room member list.
         """
         query = ET.Element('{http://jabber.org/protocol/muc#admin}query')
+        qitem = '{http://jabber.org/protocol/muc#admin}item'
+        query.append(ET.Element(qitem, {'affiliation': 'owner', 'jid': self.boundjid.bare}))
 
         for jid in self.room_users:
             if jid in self.room_admins:
@@ -193,7 +201,7 @@ class LudolphBot(ClientXMPP):
             else:
                 affiliation = 'member'
 
-            item = ET.Element('{http://jabber.org/protocol/muc#admin}item', {'affiliation': affiliation, 'jid': jid})
+            item = ET.Element(qitem, {'affiliation': affiliation, 'jid': jid})
             query.append(item)
 
         iq = self.make_iq_set(query)
@@ -205,12 +213,12 @@ class LudolphBot(ClientXMPP):
         """
         Configure multi-user chat room.
         """
-        logger.debug('Getting current configuration for MUC room %s', self.room)
+        logger.info('Getting current configuration for MUC room %s', self.room)
 
         try:
             self.room_config = self.muc.getRoomConfig(self.room)
         except ValueError:
-            logger.error('Could not get MUC room configuration. Maybe the room is not initialized.')
+            logger.error('Could not get MUC room configuration. Maybe the room is not (properly) initialized.')
             return
 
         if self.room_users:
@@ -273,10 +281,9 @@ class LudolphBot(ClientXMPP):
         self.roster_cleanup()
         self.send_presence(pnick=self.nick)
 
-        if self.room:
+        if self.room and self.muc:
             logger.info('Initializing multi-user chat room %s', self.room)
-            self.muc.joinMUC(self.room, self.nick, maxhistory='1024', wait=True)
-            self._room_config()
+            self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory, wait=True)
 
     def roster_cleanup(self):
         """
@@ -299,9 +306,13 @@ class LudolphBot(ClientXMPP):
         """
         Process a presence stanza from a chat room.
         """
-        # Say hello from jabber bot if this is a presence stanza
+        # Configure room and say hello from jabber bot if this is a presence stanza
         if presence['from'] == '%s/%s' % (self.room, self.nick):
+            self._room_config()
             self.send_message(mto=self.room, mbody='%s is here!' % self.nick, mtype='groupchat')
+            self._muc_ready = True
+            self.send_presence(pto=presence['from'])
+            logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
             # Send invitation to all users
             for user in self.room_users:
@@ -318,10 +329,17 @@ class LudolphBot(ClientXMPP):
                         muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
             self.send_message(mto=presence['from'].bare, mbody='Hello %s!' % muc['nick'], mtype='groupchat')
 
-    def available_commands(self):
+    def available_commands(self, reset=False):
         """
         List of all available bot commands.
         """
+        # Remove commands from disabled plugins
+        if reset:
+            for cmd_name, cmd in self.commands.items():
+                if cmd['module'] not in self.plugins:
+                    del self.commands[cmd_name]
+            self._commands = None
+
         # Sort and cache
         if self._commands is None:
             self._commands = sorted(self.commands.keys())
@@ -352,13 +370,16 @@ class LudolphBot(ClientXMPP):
         """
         MUC Incoming message handler.
         """
+        if not self._muc_ready:
+            return
+
         if msg['mucnick'] == self.nick:
             return
 
         # Respond to the message only if the bots nickname is mentioned
+        # And only if we can get user's JID
         nick = self.nick + ':'
-
-        if msg['body'].startswith(nick):
+        if msg['body'].startswith(nick) and self.get_jid(msg):
             msg['body'] = msg['body'].lstrip(nick).lstrip()
             return self.message(msg, types=('groupchat',))
 
@@ -370,15 +391,19 @@ class LudolphBot(ClientXMPP):
 
         return self.abort()
 
-    def reload(self, config, plugins):
+    def reload(self, config, plugins=None):
         """
         Reload bot configuration and plugins.
         """
         logger.info('Requested reload')
         self._load_config(config)
         self._load_plugins(config, plugins, init=False)
-        if self.room:
-            self._room_config()
+
+        if self.room and self.muc:
+            self._muc_ready = False
+            self.muc.leaveMUC(self.room, self.nick)
+            logger.info('Reinitializing multi-user chat room %s', self.room)
+            self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory, wait=True)
 
     def mon_thread(self):
         """

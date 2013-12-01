@@ -88,7 +88,6 @@ def start():
     cfg = 'ludolph.cfg'
     cfg_fp = None
     cfg_lo = ((os.path.expanduser('~'), '.' + cfg), (sys.prefix, 'etc', cfg), ('/etc', cfg))
-    config = RawConfigParser()
     config_base_sections = ('global', 'xmpp')
 
     # Try to read config file from ~/.ludolph.cfg or /etc/ludolph.cfg
@@ -100,9 +99,7 @@ def start():
             else:
                 break
 
-    if cfg_fp:
-        config.readfp(cfg_fp)
-    else:
+    if not cfg_fp:
         sys.stderr.write("""\nLudolph can't start!\n
 You need to create a config file in one this locations: \n%s\n
 You can rename ludolph.cfg.example and update the required variables.
@@ -110,6 +107,15 @@ The example file is located in: %s\n\n""" % (
             '\n'.join([os.path.join(*i) for i in cfg_lo]),
             os.path.dirname(os.path.abspath(__file__))))
         sys.exit(1)
+
+    # Read and parse configuration
+    def load_config(fp, reopen=False):
+        config = RawConfigParser()
+        if reopen:
+            fp = open(fp.name)
+        config.readfp(fp)
+        return config
+    config = load_config(cfg_fp)
 
     # Prepare logging configuration
     logconfig = {
@@ -157,20 +163,24 @@ The example file is located in: %s\n\n""" % (
     logger.info('Loaded configuration from %s', cfg_fp.name)
 
     # Load plugins
-    plugins = {}
-    for plugin in config.sections():
-        plugin = plugin.lower().strip()
-        if plugin in config_base_sections:
-            continue
-        logger.info('Loading plugin: %s', plugin)
-        try:
-            clsname = plugin[0].upper() + plugin[1:]
-            modname = 'ludolph.plugins.' + plugin
-            module = __import__(modname, fromlist=[clsname])
-            plugins[modname] = getattr(module, clsname)
-        except Exception as ex:
-            logger.critical('Could not load plugin %s', plugin)
-            logger.exception(ex)
+    def load_plugins(config):
+        plugins = {}
+        for plugin in config.sections():
+            plugin = plugin.lower().strip()
+            if plugin in config_base_sections:
+                continue
+            logger.info('Loading plugin: %s', plugin)
+            try:
+                clsname = plugin[0].upper() + plugin[1:]
+                modname = 'ludolph.plugins.' + plugin
+                module = __import__(modname, fromlist=[clsname])
+                plugins[modname] = getattr(module, clsname)
+            except Exception as ex:
+                logger.critical('Could not load plugin %s', plugin)
+                logger.exception(ex)
+
+        return plugins
+    plugins = load_plugins(config)
 
     # XMPP connection settings
     if config.has_option('xmpp', 'host'):
@@ -202,14 +212,25 @@ The example file is located in: %s\n\n""" % (
     # Here we go
     try:
         xmpp = LudolphBot(config, plugins=plugins)
+
+        def sighup(signalnum, handler):
+            config = load_config(cfg_fp, reopen=True)
+            logger.info('Reloaded configuration from %s', cfg_fp.name)
+            plugins = load_plugins(config)
+            xmpp.reload(config, plugins=plugins)
+
         signal.signal(signal.SIGINT, xmpp.shutdown)
         signal.signal(signal.SIGTERM, xmpp.shutdown)
+        signal.signal(signal.SIGHUP, sighup)
+        #signal.siginterrupt(signal.SIGHUP, false)  # http://stackoverflow.com/a/4302037
+
         if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):
             xmpp.process(block=True)
             sys.exit(ret)
         else:
             logger.error('Ludolph is unable to connect to jabber server')
             sys.exit(2)
+
     finally:
         # Cleanup
         logger.info('Removing pipe file %s', pipe_file)

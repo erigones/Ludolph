@@ -51,6 +51,12 @@ class Zabbix(LudolphPlugin):
 
     def __init__(self, config, *args, **kwargs):
         """
+        Login to zabbix.
+        """
+        self.init(config)
+
+    def init(self, config):
+        """
         Initialize zapi and try to login.
         """
         # HTTP authentication?
@@ -72,6 +78,13 @@ class Zabbix(LudolphPlugin):
                             config.get('zabbix', 'password'), save=True)
         except ZabbixAPIException as e:
             logger.critical('Zabbix API login error (%s)', e)
+
+    def reload(self, config):
+        """
+        Logout and login zapi.
+        """
+        self.zapi.auth = ''  # Logout
+        self.init(config)
 
     @zabbix_command
     @command

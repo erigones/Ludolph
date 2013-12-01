@@ -49,13 +49,26 @@ case "$1" in
             log_failure_msg "I can't stop $DESC $NAME" "Maybe it's NOT running?"
         fi
         ;;
+    reload)
+        if [ -e $PIDFILE ]; then
+            if kill -0 $(cat $PIDFILE) >/dev/null 2>&1; then
+                log_daemon_msg "Reloading $DESC" "$NAME"
+                start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile $PIDFILE
+                log_end_msg $?
+            else
+                log_failure_msg "I can't reload $DESC $NAME" "Maybe it's NOT running?"
+            fi
+        else
+            log_failure_msg "I can't reload $DESC $NAME" "Maybe it's NOT running?"
+        fi
+        ;;
     restart|force-reload)
         $0 stop
         sleep 1
         $0 start
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+        echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
         exit 1
         ;;
 esac
