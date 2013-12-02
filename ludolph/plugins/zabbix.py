@@ -6,15 +6,14 @@ This file is part of Ludolph.
 See the file LICENSE for copying permission.
 """
 import logging
-from tabulate import tabulate
 from datetime import datetime, timedelta
 
 from ludolph.command import command, parameter_required
+from ludolph.message import tabulate
 from ludolph.plugins.plugin import LudolphPlugin
 from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException
 
 TIMEOUT = 10
-TABLEFMT = 'simple'
 
 logger = logging.getLogger(__name__)
 
@@ -168,12 +167,12 @@ class Zabbix(LudolphPlugin):
             host = hosts[trigger['hostid']]
             hostname = host['name']
             if int(host['maintenance_status']):
-                hostname += '*'  # some kind of maintenance
+                hostname += '+'  # some kind of maintenance
 
             # Trigger description
             desc = str(trigger['description'])
             if trigger['error'] or int(trigger['value_flags']):
-                desc += '*'  # some kind of trigger error
+                desc += '+'  # some kind of trigger error
 
             # Priority
             prio = self.zapi.get_severity(trigger['priority'])
@@ -189,15 +188,14 @@ class Zabbix(LudolphPlugin):
             else:
                 ack = 'No'
 
-            table.append([eventid, hostname, desc, prio, age, ack])
+            table.append(['*%s*' % eventid, hostname, desc, prio, age, ack])
 
         if table:
-            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) + '\n\n'
+            out = str(tabulate(table, headers=headers)) + '\n\n'
         else:
             out = ''
 
-        out += '%d issues are shown.\n%s' % (
-            len(triggers), self.zapi.server + '/dashboard.php')
+        out += '*%d* issues are shown.\n%s' % (len(triggers), self.zapi.server)
 
         return out
 
@@ -220,7 +218,7 @@ class Zabbix(LudolphPlugin):
             'message': str(msg['from'].bare),
         })
 
-        return 'Event ID %s acknowledged' % eventid
+        return 'Event ID *%s* acknowledged' % eventid
 
     @zabbix_command
     @parameter_required(1)
@@ -238,7 +236,7 @@ class Zabbix(LudolphPlugin):
 
         self.zapi.maintenance.delete([mid])
 
-        return 'Maintenance ID %s deleted' % mid
+        return 'Maintenance ID *%s* deleted' % mid
 
     @zabbix_command
     @parameter_required(2)
@@ -302,8 +300,8 @@ class Zabbix(LudolphPlugin):
         # Create maintenance period
         res = self.zapi.maintenance.create(options)
 
-        return 'Added maintenance ID %s for %s %s' % (res['maintenanceids'][0],
-                                                      'host' if hosts else 'group', names)
+        return 'Added maintenance ID *%s* for %s %s' % (res['maintenanceids'][0],
+                                                        'host' if hosts else 'group', names)
 
     @zabbix_command
     @command
@@ -326,7 +324,7 @@ class Zabbix(LudolphPlugin):
         headers = ['ID', 'Name', 'Desc', 'Since', 'Till', 'Hosts', 'Groups']
         for i in maintenances:
             table.append([
-                i['maintenanceid'],
+                '*%s*' % i['maintenanceid'],
                 i['name'],
                 i['description'],
                 self.zapi.timestamp_to_datetime(i['active_since']),
@@ -336,10 +334,10 @@ class Zabbix(LudolphPlugin):
             ])
 
         if table:
-            out = str(tabulate(table, headers=headers, tablefmt=TABLEFMT)) + '\n\n'
+            out = str(tabulate(table, headers=headers)) + '\n\n'
         else:
             out = ''
 
-        out += '%d maintenances are shown.\n%s' % (len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
+        out += '*%d* maintenances are shown.\n%s' % (len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
 
         return out

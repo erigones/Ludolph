@@ -7,15 +7,13 @@ See the file LICENSE for copying permission.
 """
 import time
 import logging
-from tabulate import tabulate
 
 from ludolph.__init__ import __doc__ as ABOUT
 from ludolph.__init__ import __version__ as VERSION
+from ludolph.message import tabulate
 from ludolph.command import command, parameter_required, admin_required
 from ludolph.plugins.plugin import LudolphPlugin
 
-TIMEOUT = 10
-TABLEFMT = 'simple'
 
 logger = logging.getLogger(__name__)
 
@@ -38,40 +36,41 @@ class Base(LudolphPlugin):
             cmd = self.xmpp.commands[cmdline[1]]
             # Remove whitespaces from __doc__ lines
             desc = '\n'.join(map(str.strip, cmd['doc'].split('\n')))
-            # Command name + module
-            title = '* ' + cmdline[1] + ' (' + cmd['module'] + ')'
-            out = (title, '', desc)
+            # *Command name* (module) + desc
+            return '*%s* (%s)\n\n%s' % (cmdline[1], cmd['module'], desc)
 
-        else:
-            # Create dict with module name as key and list of commands as value
-            cmd_map = {}
-            for cmd_name in self.xmpp.available_commands():
-                cmd = self.xmpp.commands[cmd_name]
-                mod_name = cmd['module']
+        # Create dict with module name as key and list of commands as value
+        cmd_map = {}
+        for cmd_name in self.xmpp.available_commands():
+            cmd = self.xmpp.commands[cmd_name]
+            mod_name = cmd['module']
 
-                if not mod_name in cmd_map:
-                    cmd_map[mod_name] = []
+            if not mod_name in cmd_map:
+                cmd_map[mod_name] = []
 
-                cmd_map[mod_name].append(cmd_name)
+            cmd_map[mod_name].append(cmd_name)
 
-            out = ['List of available Ludolph commands:']
-            for mod_name, cmd_names in cmd_map.items():
-                out.append('\n * ' + mod_name + ' * ')
-                for name in cmd_names:
-                    cmd = self.xmpp.commands[name]
-                    try:
-                        # First line of __doc__
-                        desc = cmd['doc'].split('\n')[0]
-                        # Lowercase first char and remove trailing dot
-                        desc = desc[0].lower() + desc[1:].rstrip('.')
-                    except IndexError:
-                        desc = ''
-                    # Append line of command + description
-                    out.append('\t* %s - %s' % (name, desc))
+        out = 'List of available Ludolph commands:\n'
 
-            out.append('\nUse "help <command>" for more information about the command usage')
+        for mod_name, cmd_names in cmd_map.items():
+            # Item: module name
+            out += '\n* `%s`\n\n' % mod_name
 
-        return '\n'.join(out)
+            for name in cmd_names:
+                try:
+                    # First line of __doc__
+                    desc = self.xmpp.commands[name]['doc'].split('\n')[0]
+                    # Lowercase first char and remove trailing dot
+                    desc = ' - ' + desc[0].lower() + desc[1:].rstrip('.')
+                except IndexError:
+                    desc = ''
+
+                # SubItem: line of command + description
+                out += '  * *%s*%s\n' % (name, desc)
+
+        out += '\nUse ``help <command>`` for more information about the command usage'
+
+        return out
 
     @command
     def version(self, msg):
@@ -103,9 +102,9 @@ class Base(LudolphPlugin):
         out = []
 
         for i in roster.keys():
-            out.append((str(i), roster[i]['subscription'],))
+            out.append(('*%s*' % i, roster[i]['subscription']))
 
-        return str(tabulate(out, headers=['JID', 'subscription'], tablefmt=TABLEFMT))
+        return tabulate(out, headers=['JID', 'subscription'])
 
     @admin_required
     @parameter_required(1)
@@ -119,9 +118,9 @@ class Base(LudolphPlugin):
         if user in self.xmpp.client_roster.keys():
             self.xmpp.send_presence(pto=user, ptype='unsubscribe')
             self.xmpp.del_roster_item(user)
-            return 'User ' + user + ' removed from roster'
+            return 'User *' + user + '* removed from roster'
         else:
-            return 'User ' + user + ' cannot be removed from roster'
+            return 'User *' + user + '* cannot be removed from roster'
 
     @command
     def uptime(self, msg):
@@ -151,4 +150,4 @@ class Base(LudolphPlugin):
 
         self.xmpp.muc.invite(self.xmpp.room, user)
 
-        return 'Inviting %s to MUC room %s' % (user, self.xmpp.room)
+        return 'Inviting *%s* to MUC room %s' % (user, self.xmpp.room)

@@ -13,6 +13,8 @@ COMMANDS = {}  # command : {name, module, doc}
 USERS = set()  # List of users
 ADMINS = set() # List of admins
 
+__all__ = ['command', 'parameter_required', 'admin_required']
+
 
 def command(f):
     """
@@ -29,10 +31,10 @@ def command(f):
             # Reply with output of function
             out = f(obj, msg, *args, **kwargs)
             logger.debug('Command output: "%s"', out)
-            return msg.reply(out).send()
+            return obj.xmpp.msg_reply(msg, out)
         else:
             logger.warning('Unauthorized command "%s" from "%s"', msg['body'], user)
-            msg.reply('Permission denied').send()
+            obj.xmpp.msg_reply(msg, 'Permission denied')
             return None
 
     # Create command name - skip methods which start with underscore
@@ -74,7 +76,7 @@ def parameter_required(count=1):
                 return f(obj, msg, *params, **kwargs)
             else:
                 logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], obj.xmpp.get_jid(msg))
-                msg.reply('Missing parameter').send()
+                obj.xmpp.msg_reply(msg, 'Missing parameter')
                 return None
 
         return wrap
@@ -94,7 +96,7 @@ def admin_required(f):
             return f(obj, msg, *args, **kwargs)
         else:
             logger.warning('Unauthorized command "%s" from user "%s"', msg['body'], user)
-            msg.reply('Permission denied').send()
+            obj.xmpp.msg_reply(msg, 'Permission denied')
             return None
 
     return wrap

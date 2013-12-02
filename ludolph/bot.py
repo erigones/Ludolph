@@ -13,9 +13,12 @@ import logging
 from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
 
+from ludolph.message import LudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
 
 logger = logging.getLogger(__name__)
+
+__all__ = ['LudolphBot']
 
 
 class LudolphBot(ClientXMPP):
@@ -309,7 +312,7 @@ class LudolphBot(ClientXMPP):
         # Configure room and say hello from jabber bot if this is a presence stanza
         if presence['from'] == '%s/%s' % (self.room, self.nick):
             self._room_config()
-            self.send_message(mto=self.room, mbody='%s is here!' % self.nick, mtype='groupchat')
+            self.msg_send(self.room, '%s is here!' % self.nick, mtype='groupchat')
             self._muc_ready = True
             self.send_presence(pto=presence['from'])
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
@@ -327,7 +330,7 @@ class LudolphBot(ClientXMPP):
             muc = presence['muc']
             logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is joining MUC room',
                         muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
-            self.send_message(mto=presence['from'].bare, mbody='Hello %s!' % muc['nick'], mtype='groupchat')
+            self.msg_send(presence['from'].bare, 'Hello %s!' % muc['nick'], mtype='groupchat')
 
     def available_commands(self, reset=False):
         """
@@ -424,7 +427,7 @@ class LudolphBot(ClientXMPP):
                         else:
                             mtype = 'normal'
 
-                        self.send_message(mto=data[0], mbody=data[1], mtype=mtype)
+                        self.msg_send(data[0], data[1], mtype=mtype)
 
                     else:
                         logger.warning('Bad message format ("%s")', line)
@@ -434,3 +437,18 @@ class LudolphBot(ClientXMPP):
                 if self.stop.is_set():
                     self._end_thread('mon_thread', early=True)
                     return
+
+    def msg_send(self, mto, mbody, **kwargs):
+        """
+        Create message and send it.
+        """
+        return LudolphMessage.create(mbody, **kwargs).send(self, mto)
+
+    def msg_reply(self, msg, mbody, **kwargs):
+        """
+        Set message reply text and html, and send it.
+        """
+        if mbody is None:
+            return None  # Command performs custom message sending
+
+        return LudolphMessage.create(mbody, **kwargs).reply(msg)
