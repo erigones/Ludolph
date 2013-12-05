@@ -11,9 +11,7 @@ List of available Ludolph commands::
  * ludolph.plugins.zabbix *
     * ack - acknowledge event
     * alerts - show a list of current zabbix alerts
-    * outage - show maintenance periods
-    * outage-add - set maintenance period for specified host and time
-    * outage-del - delete maintenance period specified by maintenance ID
+    * outage - show, create or delete maintenance periods
     * zabbix-version - show version of Zabbix API
 
  * ludolph.plugins.base *

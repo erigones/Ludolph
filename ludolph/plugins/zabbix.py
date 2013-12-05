@@ -100,11 +100,13 @@ class Zabbix(LudolphPlugin):
 
     @zabbix_command
     @command
-    def alerts(self, msg):
+    def alerts(self, msg, notes=False):
         """
         Show a list of current zabbix alerts.
 
-        Usage: alerts
+        Use optional "notes" parameter to display all notes attached to every event ID.
+
+        Usage: alerts [notes]
         """
         # Get triggers
         triggers = self.zapi.trigger.get({
@@ -120,6 +122,14 @@ class Zabbix(LudolphPlugin):
                 'sortfield': 'lastchange',
                 'sortorder': 'DESC',  # ZBX_SORT_DOWN
         })
+
+        # Get notes = event acknowledges
+        if notes:
+            events = self.zapi.event.get({
+                    'eventids': [t['lastEvent']['eventid'] for t in triggers if t['lastEvent']],
+                    'output': 'extend',
+                    'select_acknowledges': 'extend',
+            })
 
         # Output
         headers = ['EventID', 'Severity', 'Host', 'Issue', 'Age', 'Ack']
@@ -163,7 +173,20 @@ class Zabbix(LudolphPlugin):
             #last = self.zapi.convert_datetime(dt)
             age = '^%s^' % self.zapi.get_age(dt)
 
-            table.append([eventid, prio, hostname, desc, age, ack])
+            row = [eventid, prio, hostname, desc, age, ack]
+
+            if notes:
+                acknowledges = ''
+                for i, e in enumerate(events):
+                    if e['eventid'] == event['eventid']:
+                        for a in e['acknowledges']:
+                            acknowledges = '\n\t\t%s: %s' % (self.zapi.get_datetime(a['clock']), a['message']) + acknowledges
+                        del events[i]
+                        break
+
+                row.append(acknowledges)
+
+            table.append(row)
 
         if table:
             out = str(tabulate(table, headers=headers)) + '\n\n'
@@ -177,28 +200,32 @@ class Zabbix(LudolphPlugin):
     @zabbix_command
     @parameter_required(1)
     @command
-    def ack(self, msg, eventid):
+    def ack(self, msg, eventid, note=None):
         """
-        Acknowledge event.
+        Acknowledge event with optional note.
 
-        Usage: ack <event ID>
+        Usage: ack <event ID> [note]
         """
         try:
             eventid = int(eventid)
         except ValueError:
             return 'Integer required'
 
+        message = '%s: ' % self.xmpp.get_jid(msg)
+
+        if note:
+            message += note
+        else:
+            message += 'ack'
+
         self.zapi.event.acknowledge({
             'eventids': [eventid],
-            'message': 'Ack by %s' % self.xmpp.get_jid(msg),
+            'message': message,
         })
 
         return 'Event ID *%s* acknowledged' % eventid
 
-    @zabbix_command
-    @parameter_required(1)
-    @command
-    def outage_del(self, msg, mid):
+    def _outage_del(self, msg, mid):
         """
         Delete maintenance period specified by maintenance ID.
 
@@ -213,10 +240,7 @@ class Zabbix(LudolphPlugin):
 
         return 'Maintenance ID *%s* deleted' % mid
 
-    @zabbix_command
-    @parameter_required(2)
-    @command
-    def outage_add(self, msg, host_or_group, duration):
+    def _outage_add(self, msg, host_or_group, duration):
         """
         Set maintenance period for specified host and time.
 
@@ -282,12 +306,24 @@ class Zabbix(LudolphPlugin):
 
     @zabbix_command
     @command
-    def outage(self, msg):
+    def outage(self, msg, mid_or_host_or_group=None, duration=None):
         """
-        Show maintenance periods.
+        Show, create or delete maintenance periods.
 
+        Show all maintenance periods.
         Usage: outage
+
+        Set maintenance period for specified host and time.
+        Usage: outage <host/group name> <duration in minutes>
+
+        Delete maintenance period specified by maintenance ID.
+        Usage: outage <maintenance ID>
         """
+        if duration:
+            return self._outage_add(msg, mid_or_host_or_group, duration)
+        elif mid_or_host_or_group:
+            return self._outage_del(msg, mid_or_host_or_group)
+
         # Display list of maintenances
         maintenances = self.zapi.maintenance.get({
             'output': 'extend',

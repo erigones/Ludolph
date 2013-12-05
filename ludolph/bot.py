@@ -362,9 +362,12 @@ class LudolphBot(ClientXMPP):
             for key in self.available_commands():
                 if key.startswith(cmdstr):
                     cmd = self.commands[key]
+                    cmdstr = key
                     break
             else:
                 return None
+
+        cmd['str'] = cmdstr
 
         return cmd
 

@@ -23,21 +23,20 @@ class Base(LudolphPlugin):
     Ludolph jabber bot base commands.
     """
     @command
-    def help(self, msg):
+    def help(self, msg, cmdstr=None):
         """
         Show this help.
 
-        Usage: help
+        Usage: help [command]
         """
-        cmdline = msg['body'].strip().split()
-
         # Global help or command help?
-        if len(cmdline) > 1 and cmdline[1] in self.xmpp.available_commands():
-            cmd = self.xmpp.commands[cmdline[1]]
-            # Remove whitespaces from __doc__ lines
-            desc = '\n'.join(map(str.strip, cmd['doc'].split('\n')))
-            # *Command name* (module) + desc
-            return '*%s* (%s)\n\n%s' % (cmdline[1], cmd['module'], desc)
+        if cmdstr:
+            cmd = self.xmpp.get_command(cmdstr)
+            if cmd:
+                # Remove whitespaces from __doc__ lines
+                desc = '\n'.join(map(str.strip, cmd['doc'].split('\n')))
+                # *Command name* (module) + desc
+                return '*%s* (%s)\n\n%s' % (cmd['str'], cmd['module'], desc)
 
         # Create dict with module name as key and list of commands as value
         cmd_map = {}
@@ -137,16 +136,18 @@ class Base(LudolphPlugin):
         return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
 
     @admin_required
-    @parameter_required(1)
     @command
-    def muc_invite(self, msg, user):
+    def muc_invite(self, msg, user=None):
         """
-        Invite user to multi-user chat room (admin only).
+        Invite user or yourself to multi-user chat room (admin only).
 
-        Usage: muc-invite <JID>
+        Usage: muc-invite [JID]
         """
         if not self.xmpp.room:
             return 'MUC room disabled'
+
+        if not user:
+            user = self.xmpp.get_jid(msg)
 
         self.xmpp.muc.invite(self.xmpp.room, user)
 
