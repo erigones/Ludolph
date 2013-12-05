@@ -111,60 +111,38 @@ class Zabbix(LudolphPlugin):
                 'maintenance': False,
                 'skipDependent': True,
                 'filter': {'priority': None, 'value': 1},  # TRIGGER_VALUE_TRUE
-                'selectHosts': ['hostid', 'name'],
+                'selectHosts': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
+                'selectLastEvent':  'extend',  # API_OUTPUT_EXTEND
                 'output': ['triggerid', 'value_flags', 'error', 'url', 'expression', 'description', 'priority', 'type'],
                 'sortfield': 'lastchange',
                 'sortorder': 'DESC',  # ZBX_SORT_DOWN
         })
 
-        for tnum, trigger in enumerate(triggers):
+        # Output
+        headers = ['EventID', 'Severity', 'Host', 'Issue', 'Age', 'Ack']
+        table = []
+
+        for trigger in triggers:
             # If trigger is lost (broken expression) we skip it
             if not trigger['hosts']:
-                del triggers[tnum]
                 continue
 
-            host = trigger['hosts'][0]
-            trigger['hostid'] = host['hostid']
-            trigger['hostname'] = host['name']
-
-            triggers[tnum] = trigger
-
-        # Get hosts
-        hosts = self.zapi.host.get({
-            'hostids': [int(i['hostid']) for i in triggers],
-            'output': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
-            'selectInventory': ['hostid'],
-            'selectScreens': 'count',  # API_OUTPUT_COUNT
-            'preservekeys': True,
-        })
-
-        # Output
-        headers = ['EventID', 'Host', 'Issue', 'Severity', 'Age', 'Ack']
-        table = []
-        for trigger in triggers:
-            # Get last event
-            events = self.zapi.event.get({
-                    'output': 'extend',
-                    'select_acknowledges': 'extend',
-                    'triggerids': trigger['triggerid'],
-                    'filter': {
-                            'object': 0,  # EVENT_OBJECT_TRIGGER
-                            'value': 1,  # TRIGGER_VALUE_TRUE
-                            'value_changed': 1,  # TRIGGER_VALUE_CHANGED_YES
-                    },
-                    'sortfield': ['object', 'objectid', 'eventid'],
-                    'sortorder': 'DESC',
-                    'limit': 1,
-            })
-
             # Event
-            if not events:
-                continue  # WTF?
-            event = events[0]
-            eventid = event['eventid']
+            event = trigger['lastEvent']
+            if event:
+                eventid = '*%s*' % event['eventid']
+                # Ack
+                if int(event['acknowledged']):
+                    ack = '^*ACK*^'
+                else:
+                    ack = ''
+            else:
+                # WTF?
+                eventid = '*????*'
+                ack = ''
 
             # Host and hostname
-            host = hosts[trigger['hostid']]
+            host = trigger['hosts'][0]
             hostname = host['name']
             if int(host['maintenance_status']):
                 hostname += '+'  # some kind of maintenance
@@ -172,7 +150,7 @@ class Zabbix(LudolphPlugin):
             # Trigger description
             desc = str(trigger['description'])
             if trigger['error'] or int(trigger['value_flags']):
-                desc += '+'  # some kind of trigger error
+                desc += ' *+*'  # some kind of trigger error
 
             # Priority
             prio = self.zapi.get_severity(trigger['priority'])
@@ -180,15 +158,9 @@ class Zabbix(LudolphPlugin):
             # Last change and age
             dt = self.zapi.get_datetime(trigger['lastchange'])
             #last = self.zapi.convert_datetime(dt)
-            age = self.zapi.get_age(dt)
+            age = '^%s^' % self.zapi.get_age(dt)
 
-            # Ack
-            if int(event['acknowledged']):
-                ack = 'Yes'
-            else:
-                ack = 'No'
-
-            table.append(['*%s*' % eventid, hostname, desc, prio, age, ack])
+            table.append([eventid, prio, hostname, desc, age, ack])
 
         if table:
             out = str(tabulate(table, headers=headers)) + '\n\n'
@@ -322,15 +294,26 @@ class Zabbix(LudolphPlugin):
 
         table = []
         headers = ['ID', 'Name', 'Desc', 'Since', 'Till', 'Hosts', 'Groups']
+
         for i in maintenances:
+            if i['hosts']:
+                hosts = '\n\t\t^%s^' % ', '.join([h['name'] for h in i['hosts']])
+            else:
+                hosts = '\n'
+
+            if i['groups']:
+                groups = '\n\t\t^%s^' % ', '.join([g['name'] for g in i['groups']])
+            else:
+                groups = '\n'
+
             table.append([
                 '*%s*' % i['maintenanceid'],
                 i['name'],
                 i['description'],
                 self.zapi.timestamp_to_datetime(i['active_since']),
                 self.zapi.timestamp_to_datetime(i['active_till']),
-                ', '.join([h['name'] for h in i['hosts']]),
-                ', '.join([g['name'] for g in i['groups']]),
+                hosts,
+                groups,
             ])
 
         if table:

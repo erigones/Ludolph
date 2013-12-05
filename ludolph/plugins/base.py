@@ -54,7 +54,7 @@ class Base(LudolphPlugin):
 
         for mod_name, cmd_names in cmd_map.items():
             # Item: module name
-            out += '\n* `%s`\n\n' % mod_name
+            out += '\n* %s\n\n' % mod_name
 
             for name in cmd_names:
                 try:
@@ -68,7 +68,7 @@ class Base(LudolphPlugin):
                 # SubItem: line of command + description
                 out += '  * *%s*%s\n' % (name, desc)
 
-        out += '\nUse ``help <command>`` for more information about the command usage'
+        out += '\nUse "help <command>" for more information about the command usage'
 
         return out
 
@@ -102,7 +102,7 @@ class Base(LudolphPlugin):
         out = []
 
         for i in roster.keys():
-            out.append(('*%s*' % i, roster[i]['subscription']))
+            out.append(('%s' % i, roster[i]['subscription']))
 
         return tabulate(out, headers=['JID', 'subscription'])
 
