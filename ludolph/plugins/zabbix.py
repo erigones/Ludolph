@@ -190,7 +190,7 @@ class Zabbix(LudolphPlugin):
 
         self.zapi.event.acknowledge({
             'eventids': [eventid],
-            'message': str(msg['from'].bare),
+            'message': 'Ack by %s' % self.xmpp.get_jid(msg),
         })
 
         return 'Event ID *%s* acknowledged' % eventid
@@ -234,10 +234,12 @@ class Zabbix(LudolphPlugin):
             now = _now.strftime('%s')
             end = _end.strftime('%s')
 
+        jid = self.xmpp.get_jid(msg)
+
         options = {
                 'active_since': now,
                 'active_till': end,
-                'description': str(msg['from'].bare),
+                'description': str(jid),
                 'maintenance_type': 0,  # with data collection
                 'timeperiods': [{
                     'timeperiod_type': 0,  # one time only
@@ -296,27 +298,29 @@ class Zabbix(LudolphPlugin):
         })
 
         table = []
-        headers = ['ID', 'Name', 'Desc', 'Since', 'Till', 'Hosts', 'Groups']
+        headers = ['ID', 'Name', 'Desc', 'Hosts', 'Groups', 'Since - Till']
 
         for i in maintenances:
             if i['hosts']:
-                hosts = '\n\t\t^%s^' % ', '.join([h['name'] for h in i['hosts']])
+                hosts = '^%s^' % ', '.join([h['name'] for h in i['hosts']])
             else:
-                hosts = '\n'
+                hosts = ''
 
             if i['groups']:
-                groups = '\n\t\t^%s^' % ', '.join([g['name'] for g in i['groups']])
+                groups = '^%s^' % ', '.join([g['name'] for g in i['groups']])
             else:
-                groups = '\n'
+                groups = ''
+
+            since = self.zapi.timestamp_to_datetime(i['active_since'])
+            until = self.zapi.timestamp_to_datetime(i['active_till'])
 
             table.append([
                 '*%s*' % i['maintenanceid'],
                 i['name'],
                 i['description'],
-                self.zapi.timestamp_to_datetime(i['active_since']),
-                self.zapi.timestamp_to_datetime(i['active_till']),
                 hosts,
                 groups,
+                '\n\t%s - %s' % (since, until),
             ])
 
         if table:
