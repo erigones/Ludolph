@@ -200,7 +200,7 @@ class Zabbix(LudolphPlugin):
     @zabbix_command
     @parameter_required(1)
     @command
-    def ack(self, msg, eventid, note=None):
+    def ack(self, msg, eventid, *note):
         """
         Acknowledge event with optional note.
 
@@ -214,7 +214,7 @@ class Zabbix(LudolphPlugin):
         message = '%s: ' % self.xmpp.get_jid(msg)
 
         if note:
-            message += note
+            message += ' '.join(note)
         else:
             message += 'ack'
 
