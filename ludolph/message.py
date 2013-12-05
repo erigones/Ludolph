@@ -27,6 +27,8 @@ TEXTILE = (
         (r(r'([Aa]verage)'), r'%{color:#FF9900}*\1*%'),
         (r(r'([Ww]arning)'), r'%{color:#FFCC00}*\1*%'),
         #(r(r'([Ii]nformation)'), r'%{color:#FFFF00}*\1*%'),
+        (r(r'(Monitored)'), r'%{color:#00FF00}*\1*%'),
+        (r(r'(Not\ monitored)'), r'%{color:#FF0000}*\1*%'),
 )
 
 

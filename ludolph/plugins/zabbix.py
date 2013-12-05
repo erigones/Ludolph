@@ -118,7 +118,7 @@ class Zabbix(LudolphPlugin):
                 'filter': {'priority': None, 'value': 1},  # TRIGGER_VALUE_TRUE
                 'selectHosts': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
                 'selectLastEvent':  'extend',  # API_OUTPUT_EXTEND
-                'output': ['triggerid', 'value_flags', 'error', 'url', 'expression', 'description', 'priority', 'type'],
+                'output': ['triggerid', 'value_flags', 'error', 'url', 'expression', 'description', 'priority', 'type', 'comments'],
                 'sortfield': 'lastchange',
                 'sortorder': 'DESC',  # ZBX_SORT_DOWN
         })
@@ -129,6 +129,8 @@ class Zabbix(LudolphPlugin):
                     'eventids': [t['lastEvent']['eventid'] for t in triggers if t['lastEvent']],
                     'output': 'extend',
                     'select_acknowledges': 'extend',
+                    'sortfield': 'eventid',
+                    'sortorder': 'DESC',
             })
 
         # Output
@@ -158,12 +160,12 @@ class Zabbix(LudolphPlugin):
             host = trigger['hosts'][0]
             hostname = host['name']
             if int(host['maintenance_status']):
-                hostname += '+'  # some kind of maintenance
+                hostname += '**+**'  # some kind of maintenance
 
             # Trigger description
             desc = str(trigger['description'])
             if trigger['error'] or int(trigger['value_flags']):
-                desc += ' *+*'  # some kind of trigger error
+                desc += '**+**'  # some kind of trigger error
 
             # Priority
             prio = self.zapi.get_severity(trigger['priority']).ljust(12)
@@ -175,15 +177,17 @@ class Zabbix(LudolphPlugin):
 
             row = [eventid, prio, hostname, desc, age, ack]
 
+            if trigger['comments']:
+                row.append('\n\t\t^%s^' % trigger['comments'].strip())
+
             if notes:
                 acknowledges = ''
                 for i, e in enumerate(events):
                     if e['eventid'] == event['eventid']:
                         for a in e['acknowledges']:
-                            acknowledges = '\n\t\t%s: %s' % (self.zapi.get_datetime(a['clock']), a['message']) + acknowledges
+                            acknowledges = '\n\t\t__%s: %s__' % (self.zapi.get_datetime(a['clock']), a['message'].rstrip()) + acknowledges
                         del events[i]
                         break
-
                 row.append(acknowledges)
 
             table.append(row)
@@ -193,7 +197,7 @@ class Zabbix(LudolphPlugin):
         else:
             out = ''
 
-        out += '*%d* issues are shown.\n%s' % (len(triggers), self.zapi.server)
+        out += '*%d* issues are shown.\n%s' % (len(triggers), self.zapi.server + '/tr_status.php?groupid=0&hostid=0')
 
         return out
 
@@ -274,7 +278,7 @@ class Zabbix(LudolphPlugin):
 
         # Get hosts
         hosts = self.zapi.host.get({
-            'filter': {'name': [host_or_group]},
+            'search': {'name': host_or_group},
             'output': ['hostid', 'name'],
         })
 
@@ -285,7 +289,7 @@ class Zabbix(LudolphPlugin):
         if not hosts:
             # Get groups
             groups = self.zapi.hostgroup.get({
-                'filter': {'name': [host_or_group]},
+                'search': {'name': host_or_group},
                 'output': ['groupids', 'name'],
             })
 
@@ -295,7 +299,7 @@ class Zabbix(LudolphPlugin):
             else:
                 return "Host/Group not found"
 
-        names = ','.join(names)
+        names = ', '.join(names)
         options['name'] = 'Maintenance for %s - %s' % (names, now)
 
         # Create maintenance period
@@ -338,12 +342,12 @@ class Zabbix(LudolphPlugin):
 
         for i in maintenances:
             if i['hosts']:
-                hosts = '^%s^' % ', '.join([h['name'] for h in i['hosts']])
+                hosts = '\n\t^hosts:\t%s^' % str(', '.join([h['name'] for h in i['hosts']]).rstrip())
             else:
                 hosts = ''
 
             if i['groups']:
-                groups = '^%s^' % ', '.join([g['name'] for g in i['groups']])
+                groups = '\n\t^groups:\t%s^' % str(', '.join([g['name'] for g in i['groups']]).rstrip())
             else:
                 groups = ''
 
@@ -365,5 +369,110 @@ class Zabbix(LudolphPlugin):
             out = ''
 
         out += '*%d* maintenances are shown.\n%s' % (len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
+
+        return out
+
+    @zabbix_command
+    @command
+    def hosts(self, msg, hoststr=None):
+        """
+        Show a list of hosts.
+
+        Usage: hosts [host name search string]
+        """
+        params = {
+            'output': ['hostid', 'name', 'available', 'maintenance_status', 'status'],
+            'selectInventory': 1,  # All inventory items
+            'sortfield': ['name', 'hostid'],
+            'sortorder': 'ASC',
+        }
+
+        if hoststr:
+            params['search'] = {'name': hoststr}
+
+        # Get hosts
+        hosts = self.zapi.host.get(params)
+        table = []
+
+        for host in hosts:
+            hostid = '*%s*' % host['hostid']
+            hostname = host['name']
+
+            if int(host['maintenance_status']):
+                hostname += '**+**'  # some kind of maintenance
+
+            if int(host['status']):
+                status = 'Not monitored'
+            else:
+                status = 'Monitored'
+
+            ae = int(host['available'])
+            available = 'Z'
+            if ae == 1:
+                available = '%{color:#00FF00}Z%'
+            elif ae == 2:
+                available = '%{color:#FF0000}Z%'
+
+            inventory = []
+            if host['inventory']:
+                for key, value in host['inventory'].items():
+                    if value and key not in ('inventory_mode', 'hostid'):
+                        inventory.append('**%s**: %s' % (str(key), str(value)))
+            if inventory:
+                inventory = '\n\t\t^%s^\n' % str(', '.join(inventory)).strip()
+            else:
+                inventory = ''
+
+            table.append([hostid, hostname, status, available, inventory])
+
+        if table:
+            out = str(tabulate(table)) + '\n\n'
+        else:
+            out = ''
+
+        out += '*%d* hosts are shown.\n%s' % (len(hosts), self.zapi.server + '/hosts.php?groupid=0')
+
+        return out
+
+    @zabbix_command
+    @command
+    def groups(self, msg, groupstr=None):
+        """
+        Show a list of host groups.
+
+        Usage: groups [group name search string]
+        """
+        params = {
+            'output': ['groupid', 'name'],
+            'selectHosts': ['hostid', 'name'],
+            'sortfield': ['name', 'groupid'],
+            'sortorder': 'ASC',
+        }
+
+        if groupstr:
+            params['search'] = {'name': groupstr}
+
+        # Get groups
+        groups = self.zapi.hostgroup.get(params)
+        table = []
+
+        for group in groups:
+            groupid = '*%s*' % group['groupid']
+            groupname = group['name']
+            hosts = ['**%s**: %s' % (h['hostid'], h['name'])for h in group['hosts'] if h]
+
+            if hosts:
+                hosts = '\n\t\t^%s^\n' % str(', '.join(hosts)).rstrip()
+            else:
+                hosts = '\n'
+
+            table.append([groupid, groupname, hosts])
+
+        if table:
+            out = str(tabulate(table)) + '\n\n'
+        else:
+            out = ''
+
+        out += '*%d* hostgroups are shown.\n%s' % (len(groups), self.zapi.server + '/hostgroups.php')
 
         return out
