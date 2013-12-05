@@ -349,6 +349,25 @@ class LudolphBot(ClientXMPP):
 
         return self._commands
 
+    def get_command(self, cmdstr):
+        """
+        Find text in available commands and return command dict.
+        """
+        if not cmdstr:
+            return None
+
+        if cmdstr in self.available_commands():
+            cmd = self.commands[cmdstr]
+        else:
+            for key in self.available_commands():
+                if key.startswith(cmdstr):
+                    cmd = self.commands[key]
+                    break
+            else:
+                return None
+
+        return cmd
+
     def message(self, msg, types=('chat', 'normal')):
         """
         Incoming message handler.
@@ -356,18 +375,24 @@ class LudolphBot(ClientXMPP):
         if msg['type'] not in types:
             return
 
-        # Seek received text in available commands
-        cmd = msg['body'].split()[0].strip()
+        # Seek received text in available commands and get command
+        cmd = self.get_command(msg['body'].split()[0].strip())
 
-        if cmd in self.available_commands():
-            # Find and run command
-            cmd = self.commands[cmd]
-            f = getattr(self.plugins[cmd['module']], cmd['name'])
-            return f(msg)
+        if cmd:
+            start_time = time.time()
+            f_cmd = getattr(self.plugins[cmd['module']], cmd['name'])
+            # Run command
+            out = f_cmd(msg)
+
+            if out:
+                cmd_time = time.time() - start_time
+                logger.info('Command %s.%s finished in %g seconds', cmd['module'], cmd['name'], cmd_time)
+
+            return out
         else:
             # Send message that command was not understood and what to do
-            msg.reply('Sorry, I don\'t understand "%s"\n'
-                      'Please type "help" for more info' % msg['body']).send()
+            return msg.reply('Sorry, I don\'t understand "%s"\n'
+                             'Please type "help" for more info' % msg['body']).send()
 
     def muc_message(self, msg):
         """

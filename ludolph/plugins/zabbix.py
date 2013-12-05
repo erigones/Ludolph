@@ -45,6 +45,9 @@ def zabbix_command(f):
 class Zabbix(LudolphPlugin):
     """
     Zabbix API connector for LudolphBot.
+
+    Zabbix >= 2.0.6 is required.
+    https://www.zabbix.com/documentation/2.0/manual/appendix/api/api
     """
     zapi = None
 
@@ -153,7 +156,7 @@ class Zabbix(LudolphPlugin):
                 desc += ' *+*'  # some kind of trigger error
 
             # Priority
-            prio = self.zapi.get_severity(trigger['priority'])
+            prio = self.zapi.get_severity(trigger['priority']).ljust(12)
 
             # Last change and age
             dt = self.zapi.get_datetime(trigger['lastchange'])

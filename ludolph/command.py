@@ -25,15 +25,17 @@ def command(f):
 
     def wrap(obj, msg, *args, **kwargs):
         user = obj.xmpp.get_jid(msg)
+        cmd = '%s.%s' % (f.__module__, f.__name__)
 
         if not USERS or user in USERS:
-            logger.info('User "%s" requested command "%s"', user, msg['body'])
+            logger.info('User "%s" requested command "%s" (%s)', user, msg['body'], cmd)
             # Reply with output of function
             out = f(obj, msg, *args, **kwargs)
             logger.debug('Command output: "%s"', out)
-            return obj.xmpp.msg_reply(msg, out)
+            obj.xmpp.msg_reply(msg, out)
+            return True
         else:
-            logger.warning('Unauthorized command "%s" from "%s"', msg['body'], user)
+            logger.warning('Unauthorized command "%s" (%s) from "%s"', msg['body'], cmd, user)
             obj.xmpp.msg_reply(msg, 'Permission denied')
             return None
 
@@ -71,11 +73,13 @@ def parameter_required(count=1):
         def wrap(obj, msg, *args, **kwargs):
             #Try to get command parameter
             params = msg['body'].strip().split()[1:]
+
             if len(params) == count:
                 params.extend(args)
                 return f(obj, msg, *params, **kwargs)
             else:
-                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], obj.xmpp.get_jid(msg))
+                user = obj.xmpp.get_jid(msg)
+                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], user)
                 obj.xmpp.msg_reply(msg, 'Missing parameter')
                 return None
 
