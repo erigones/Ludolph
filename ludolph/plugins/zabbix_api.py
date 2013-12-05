@@ -83,7 +83,11 @@ class ZabbixAPIException(Exception):
          -32602 - Invalid params (eg already exists)
          -32500 - no permissions
     """
-    pass
+    def __init__(self, message, *args, **kwargs):
+        # Remove sensitive information
+        message = re.sub(r'("password": )".*?"', r'\1"***"', message)
+        message = re.sub(r'("auth": )".*?"', r'\1"***"', message)
+        super(ZabbixAPIException, self).__init__(message, *args, **kwargs)
 
 
 class Already_Exists(ZabbixAPIException):
