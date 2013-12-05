@@ -29,7 +29,14 @@ def command(f):
 
         if not USERS or user in USERS:
             logger.info('User "%s" requested command "%s" (%s)', user, msg['body'], cmd)
-            # Reply with output of function
+            # Parse optional parameters
+            if f.func_defaults:
+                required_pos = len(args) + 1
+                optional_end = required_pos + len(f.func_defaults)
+                optional_args = msg['body'].strip().split()[required_pos:optional_end]
+                args += tuple(optional_args)
+
+            # Reply with function output
             out = f(obj, msg, *args, **kwargs)
             logger.debug('Command output: "%s"', out)
             obj.xmpp.msg_reply(msg, out)
@@ -74,14 +81,14 @@ def parameter_required(count=1):
             #Try to get command parameter
             params = msg['body'].strip().split()[1:]
 
-            if len(params) == count:
-                params.extend(args)
-                return f(obj, msg, *params, **kwargs)
-            else:
+            if len(params) < count:
                 user = obj.xmpp.get_jid(msg)
                 logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], user)
                 obj.xmpp.msg_reply(msg, 'Missing parameter')
                 return None
+            else:
+                params.extend(args)
+                return f(obj, msg, *params, **kwargs)
 
         return wrap
     return parameter_required_decorator
