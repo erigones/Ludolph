@@ -75,7 +75,15 @@ class LudolphMessage(object):
         """
         Remove tags from text.
         """
-        return text  # TODO
+        html = self.t.encode_html(text)
+        html = self.t.span(html)
+        html = '<div>%s</div>' % html
+
+        try:
+            return ET.tostring(ET.XML(html), method='text')
+        except ET.ParseError as e:
+            logger.error('Could not convert text to html and back to text: %s', e)
+            return text
 
     def _text2html(self, text):
         """
@@ -84,7 +92,6 @@ class LudolphMessage(object):
         html = _normalize_newlines(text)
         html = self._replace(TEXTILE, html)
         html = self.t.encode_html(html)
-        #html = self.t.block(html)
         html = self.t.span(html)
         html = self._replace([('\n', '<br/>\n')], html)
         html = '<div style="%s">\n%s\n</div>' % (HTMLSTYLE, html)
