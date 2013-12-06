@@ -11,6 +11,7 @@ List of available Ludolph commands::
  * ludolph.plugins.zabbix *
     * ack - acknowledge event with optional note
     * alerts - show a list of current zabbix alerts
+    * duty - show a list of users in duty user group
     * groups - show a list of host groups
     * hosts - show a list of hosts
     * outage - show, create or delete maintenance periods

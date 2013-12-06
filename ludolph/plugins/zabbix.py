@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-13 Erigones s. r. o.
+Copyright (C) 2012-2013 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -14,6 +14,7 @@ from ludolph.plugins.plugin import LudolphPlugin
 from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException
 
 TIMEOUT = 10
+DUTY_GROUP = 'On-Call Duty'
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,7 @@ class Zabbix(LudolphPlugin):
         # Output
         headers = ['EventID', 'Severity', 'Host', 'Issue', 'Age', 'Ack']
         table = []
+        out = ''
 
         for trigger in triggers:
             # If trigger is lost (broken expression) we skip it
@@ -194,8 +196,6 @@ class Zabbix(LudolphPlugin):
 
         if table:
             out = str(tabulate(table, headers=headers)) + '\n\n'
-        else:
-            out = ''
 
         out += '*%d* issues are shown.\n%s' % (len(triggers), self.zapi.server + '/tr_status.php?groupid=0&hostid=0')
 
@@ -337,6 +337,7 @@ class Zabbix(LudolphPlugin):
             'selectGroups': 'extend',
         })
 
+        out = ''
         table = []
         headers = ['ID', 'Name', 'Desc', 'Hosts', 'Groups', 'Since - Till']
 
@@ -365,8 +366,6 @@ class Zabbix(LudolphPlugin):
 
         if table:
             out = str(tabulate(table, headers=headers)) + '\n\n'
-        else:
-            out = ''
 
         out += '*%d* maintenances are shown.\n%s' % (len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
 
@@ -393,6 +392,7 @@ class Zabbix(LudolphPlugin):
         # Get hosts
         hosts = self.zapi.host.get(params)
         table = []
+        out = ''
 
         for host in hosts:
             hostid = '*%s*' % host['hostid']
@@ -427,8 +427,6 @@ class Zabbix(LudolphPlugin):
 
         if table:
             out = str(tabulate(table)) + '\n\n'
-        else:
-            out = ''
 
         out += '*%d* hosts are shown.\n%s' % (len(hosts), self.zapi.server + '/hosts.php?groupid=0')
 
@@ -455,6 +453,7 @@ class Zabbix(LudolphPlugin):
         # Get groups
         groups = self.zapi.hostgroup.get(params)
         table = []
+        out = ''
 
         for group in groups:
             groupid = '*%s*' % group['groupid']
@@ -470,9 +469,46 @@ class Zabbix(LudolphPlugin):
 
         if table:
             out = str(tabulate(table)) + '\n\n'
-        else:
-            out = ''
 
         out += '*%d* hostgroups are shown.\n%s' % (len(groups), self.zapi.server + '/hostgroups.php')
+
+        return out
+
+    @zabbix_command
+    @command
+    def duty(self, msg):
+        """
+        Show a list of users in duty user group.
+
+        Usage: duty
+        """
+        params = {
+                'filter': {'name': DUTY_GROUP},
+                'output': ['usrgrpid', 'name', 'users_status'],
+                'selectUsers': 'extend',  # API_OUTPUT_EXTEND
+        }
+
+        # Get groups
+        duty = self.zapi.usergroup.get(params)
+        table = []
+        out = ''
+
+        if not len(duty):
+            return 'Duty user group ("%s") not found' % DUTY_GROUP
+
+        for u in duty[0]['users']:
+            alias = u['alias']
+
+            if int(u['users_status']):
+                status = '%{color:#FF0000}disabled%'
+            else:
+                status = '%{color:#00FF00}enabled%'
+
+            table.append([alias, status])
+
+        if table:
+            out = str(tabulate(table)) + '\n\n'
+
+        out += '*%d* users in duty group.' % len(duty[0]['users'])
 
         return out
