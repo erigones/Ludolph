@@ -9,8 +9,10 @@ Features
 List of available Ludolph commands::
 
  * ludolph.plugins.zabbix *
-    * ack - acknowledge event
+    * ack - acknowledge event with optional note
     * alerts - show a list of current zabbix alerts
+    * groups - show a list of host groups
+    * hosts - show a list of hosts
     * outage - show, create or delete maintenance periods
     * zabbix-version - show version of Zabbix API
 
