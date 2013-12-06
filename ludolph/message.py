@@ -10,6 +10,7 @@ import logging
 from textile import Textile
 from textile.functions import _normalize_newlines
 from sleekxmpp.xmlstream import ET
+from HTMLParser import HTMLParser
 try:
     from xml.etree.ElementTree import ParseError
 except ImportError:
@@ -41,6 +42,25 @@ def tabulate(data, *args, **kwargs):
     Tabulate wrapper.
     """
     return '\n'.join(['\t'.join(row) for row in data])
+
+
+class MLStripper(HTMLParser):
+    """http://stackoverflow.com/a/925630"""
+    def __init__(self):
+        self.reset()
+        self.fed = []
+
+    def handle_data(self, d):
+        self.fed.append(d)
+
+    def get_data(self):
+        return ''.join(self.fed)
+
+
+def strip_tags(html):
+    s = MLStripper()
+    s.feed(html)
+    return s.get_data()
 
 
 class LudolphMessage(object):
@@ -79,15 +99,9 @@ class LudolphMessage(object):
         """
         Remove tags from text.
         """
-        html = self.t.encode_html(text)
-        html = self.t.span(html)
-        html = '<div>%s</div>' % html
+        html = self.t.span(text)
 
-        try:
-            return ET.tostring(ET.XML(html), method='text')
-        except (ParseError, SyntaxError) as e:
-            logger.error('Could not convert text to html and back to text: %s', e)
-            return text
+        return strip_tags(html)
 
     def _text2html(self, text):
         """
