@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-13 Erigones s. r. o.
+Copyright (C) 2012-2013 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -163,8 +163,14 @@ The example file is located in: %s\n\n""" % (
     logger.info('Loaded configuration from %s', cfg_fp.name)
 
     # Load plugins
-    def load_plugins(config):
+    def load_plugins(config, reinit=False):
         plugins = {}
+
+        if reinit:
+            logger.info('Reinitializing commands')
+            from ludolph.command import COMMANDS
+            COMMANDS.clear()
+
         for plugin in config.sections():
             plugin = plugin.lower().strip()
             if plugin in config_base_sections:
@@ -174,6 +180,8 @@ The example file is located in: %s\n\n""" % (
                 clsname = plugin[0].upper() + plugin[1:]
                 modname = 'ludolph.plugins.' + plugin
                 module = __import__(modname, fromlist=[clsname])
+                if reinit:
+                    reload(module)
                 plugins[modname] = getattr(module, clsname)
             except Exception as ex:
                 logger.critical('Could not load plugin %s', plugin)
@@ -216,7 +224,7 @@ The example file is located in: %s\n\n""" % (
         def sighup(signalnum, handler):
             config = load_config(cfg_fp, reopen=True)
             logger.info('Reloaded configuration from %s', cfg_fp.name)
-            plugins = load_plugins(config)
+            plugins = load_plugins(config, reinit=True)
             xmpp.reload(config, plugins=plugins)
 
         signal.signal(signal.SIGINT, xmpp.shutdown)

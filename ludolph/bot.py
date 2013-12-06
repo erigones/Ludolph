@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-13 Erigones s. r. o.
+Copyright (C) 2012-2013 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -180,12 +180,13 @@ class LudolphBot(ClientXMPP):
             for plugin, cls in plugins.items():
                 if init or plugin not in self.plugins:
                     logger.info('Initializing plugin %s', plugin)
-                    self.plugins[plugin] = cls(config)
-                    # xmpp attribute pointing to this instance is available in plugin object
-                    setattr(self.plugins[plugin], 'xmpp', self)
+                    self.plugins[plugin] = cls(config, reinit=False)
                 else:
                     logger.info('Reloading plugin %s', plugin)
-                    self.plugins[plugin].reload(config)
+                    del self.plugins[plugin]
+                    self.plugins[plugin] = cls(config, reinit=True)
+                # xmpp attribute pointing to this instance is available in plugin object
+                setattr(self.plugins[plugin], 'xmpp', self)
 
         cmds = self.available_commands(reset=True)
         logger.info('Registered commands: %s', ', '.join(cmds))
