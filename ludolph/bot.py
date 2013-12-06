@@ -287,7 +287,7 @@ class LudolphBot(ClientXMPP):
 
         if self.room and self.muc:
             logger.info('Initializing multi-user chat room %s', self.room)
-            self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory, wait=True)
+            self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory)
 
     def roster_cleanup(self):
         """
@@ -435,7 +435,7 @@ class LudolphBot(ClientXMPP):
             self._muc_ready = False
             self.muc.leaveMUC(self.room, self.nick)
             logger.info('Reinitializing multi-user chat room %s', self.room)
-            self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory, wait=True)
+            self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory)
 
     def mon_thread(self):
         """
