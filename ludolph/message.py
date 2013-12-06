@@ -10,6 +10,10 @@ import logging
 from textile import Textile
 from textile.functions import _normalize_newlines
 from sleekxmpp.xmlstream import ET
+try:
+    from xml.etree.ElementTree import ParseError
+except ImportError:
+    from xml.parsers.expat import ExpatError as ParseError
 
 
 __all__ = ['tabulate', 'LudolphMessage']
@@ -81,7 +85,7 @@ class LudolphMessage(object):
 
         try:
             return ET.tostring(ET.XML(html), method='text')
-        except ET.ParseError as e:
+        except (ParseError, SyntaxError) as e:
             logger.error('Could not convert text to html and back to text: %s', e)
             return text
 
@@ -98,7 +102,7 @@ class LudolphMessage(object):
 
         try:
             return ET.XML(html)
-        except ET.ParseError as e:
+        except (ParseError, SyntaxError) as e:
             logger.error('Could not parse html: %s', e)
             return None
 
