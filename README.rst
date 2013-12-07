@@ -3,10 +3,18 @@ Ludolph
 
 Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support
 
+.. image:: https://badge.fury.io/py/ludolph.png
+    :target: http://badge.fury.io/py/ludolph
+
 Features
 --------
 
-List of available Ludolph commands::
+* Simple and modular design
+* Alerts from Zabbix
+* Multi-User Chat (XEP-0045)
+* Colorful messages (XEP-0071)
+* Roster management and ACL configuration
+* Plugins and commands: ``Ludolph: help``::
 
  * ludolph.plugins.zabbix *
     * ack - acknowledge event with optional note
@@ -49,7 +57,6 @@ Installation Notes
 
 - sleekxmpp (1.1.11+)
 - dnspython (1.10.0+) (or dnspython3 when using Python 3)
-- textile (2.1.5+)
 
 
 Links
