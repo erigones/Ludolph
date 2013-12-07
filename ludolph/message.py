@@ -5,76 +5,63 @@ This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
 """
-import re
 import logging
-from textile import Textile
-from textile.functions import _normalize_newlines
+from re import compile as r
 from sleekxmpp.xmlstream import ET
-from HTMLParser import HTMLParser
 try:
     from xml.etree.ElementTree import ParseError
 except ImportError:
     from xml.parsers.expat import ExpatError as ParseError
 
-
-__all__ = ['tabulate', 'LudolphMessage']
-
 logger = logging.getLogger(__name__)
-r = re.compile
 
-HTMLSTYLE = ''
-TEXTILE = (
-        (r(r'(PROBLEM|OFF)'), r'%{color:#FF0000}*\1*%'),
-        (r(r'(OK|ON)'), r'%{color:#00FF00}*\1*%'),
-        (r(r'([Dd]isaster)'), r'%{color:#FF0000}*\1*%'),
-        (r(r'([Cc]ritical)'), r'%{color:#FF3300}*\1*%'),
-        (r(r'([Hh]igh)'), r'%{color:#FF6600}*\1*%'),
-        (r(r'([Aa]verage)'), r'%{color:#FF9900}*\1*%'),
-        (r(r'([Ww]arning)'), r'%{color:#FFCC00}*\1*%'),
-        #(r(r'([Ii]nformation)'), r'%{color:#FFFF00}*\1*%'),
-        (r(r'(Monitored)'), r'%{color:#00FF00}*\1*%'),
-        (r(r'(Not\ monitored)'), r'%{color:#FF0000}*\1*%'),
-)
+__all__ = ['LudolphMessage', ]
 
+TEXT2BODY = [
+        (r(r'\*\*(.+?)\*\*'), r'*\1*'),
+        (r(r'__(.+?)__'), r'\1'),
+        (r(r'\^\^(.+?)\^\^'), r'\1'),
+        (r(r'~~(.+?)~~'), r'\1'),
+        (r(r'%{(.+?)}(.+)%'), r'\2'),
+]
 
-def tabulate(data, *args, **kwargs):
-    """
-    Tabulate wrapper.
-    """
-    return '\n'.join(['\t'.join(row) for row in data])
-
-
-class MLStripper(HTMLParser):
-    """http://stackoverflow.com/a/925630"""
-    def __init__(self):
-        self.reset()
-        self.fed = []
-
-    def handle_data(self, d):
-        self.fed.append(d)
-
-    def get_data(self):
-        return ''.join(self.fed)
-
-
-def strip_tags(html):
-    s = MLStripper()
-    s.feed(html)
-    return s.get_data()
+TEXT2HTML = [
+        ('&', '&#38;'),
+        ('<', '&#60;'),
+        ('>', '&#62;'),
+        ("'", '&#39;'),
+        ('"', '&#34;'),
+        (r(r'\*\*(.+?)\*\*'), r'<b>\1</b>'),
+        (r(r'__(.+?)__'), r'<i>\1</i>'),
+        (r(r'\^\^(.+?)\^\^'), r'<sup>\1</sup>'),
+        (r(r'~~(.+?)~~'), r'<sub>\1</sub>'),
+        (r(r'%{(.+?)}(.+)%'), r'<span style="\1">\2</span>'),
+        (r(r'(PROBLEM|OFF)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
+        (r(r'(OK|ON)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
+        (r(r'([Dd]isaster)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
+        (r(r'([Cc]ritical)'), r'<span style="color:#FF3300;"><strong>\1</strong></span>'),
+        (r(r'([Hh]igh)'), r'<span style="color:#FF6600;"><strong>\1</strong></span>'),
+        (r(r'([Aa]verage)'), r'<span style="color:#FF9900;"><strong>\1</strong></span>'),
+        (r(r'([Ww]arning)'), r'<span style="color:#FFCC00;"><strong>\1</strong></span>'),
+        #(r(r'([Ii]nformation)'), r'<span style="color:#FFFF00;"><strong>\1</strong></span>'),
+        (r(r'(Monitored)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
+        (r(r'(Not\ monitored)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
+        ('\n', '<br/>\n'),
+]
 
 
 class LudolphMessage(object):
     """
     Creating and sending bot's messages (replies).
     """
-    t = Textile(restricted=False)
+    mbody = None
+    mhtml = None
+    mtype = None
 
     def __init__(self, mbody, mhtml=None, mtype=None):
         """
         Construct message body in plain text and html.
         """
-        self.mbody = mbody
-        self.mhtml = mhtml
         self.mtype = mtype
 
         if mbody is not None:
@@ -82,6 +69,8 @@ class LudolphMessage(object):
 
         if mhtml is None and mbody is not None:
             self.mhtml = self._text2html(mbody)
+        else:
+            self.mhtml = mhtml
 
     def _replace(self, replist, text):
         """
@@ -99,20 +88,16 @@ class LudolphMessage(object):
         """
         Remove tags from text.
         """
-        html = self.t.span(text)
+        body = self._replace(TEXT2BODY, text.strip())
 
-        return strip_tags(html)
+        return body
 
     def _text2html(self, text):
         """
         Convert text to html.
         """
-        html = _normalize_newlines(text)
-        html = self._replace(TEXTILE, html)
-        html = self.t.encode_html(html)
-        html = self.t.span(html)
-        html = self._replace([('\n', '<br/>\n')], html)
-        html = '<div style="%s">\n%s\n</div>' % (HTMLSTYLE, html)
+        html = self._replace(TEXT2HTML, text.strip())
+        html = '<div>\n' + html + '\n</div>'
 
         try:
             return ET.XML(html)

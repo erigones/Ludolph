@@ -22,9 +22,9 @@ with codecs.open('README.rst', 'r', encoding='UTF-8') as readme:
     LONG_DESCRIPTION = ''.join(readme)
 
 if sys.version_info[0] < 3:
-    DEPS = ['sleekxmpp>=1.1.11', 'dnspython', 'textile']
+    DEPS = ['sleekxmpp>=1.1.11', 'dnspython']
 else:
-    DEPS = ['sleekxmpp>=1.1.11', 'dnspython3', 'textile']
+    DEPS = ['sleekxmpp>=1.1.11', 'dnspython3']
 
 CLASSIFIERS = [
     'Environment :: Console',
