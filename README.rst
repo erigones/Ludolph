@@ -1,7 +1,7 @@
 Ludolph
 #######
 
-Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support
+Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support.
 
 .. image:: https://badge.fury.io/py/ludolph.png
     :target: http://badge.fury.io/py/ludolph
@@ -14,7 +14,7 @@ Features
 * Multi-User Chat (XEP-0045)
 * Colorful messages (XEP-0071)
 * Roster management and ACL configuration
-* Plugins and commands: ``Ludolph: help``::
+* Plugins and commands::
 
  * ludolph.plugins.zabbix *
     * ack - acknowledge event with optional note
@@ -35,8 +35,8 @@ Features
     * version - display Ludolph version
 
 
-Installation Notes
-------------------
+Installation
+------------
 
 - Install the latest released version using pip::
 
@@ -70,4 +70,9 @@ Links
 License
 -------
 
-For more information see the `LICENSE <https://github.com/erigones/Ludolph/blob/master/LICENSE>`_ file
+For more information see the `LICENSE <https://github.com/erigones/Ludolph/blob/master/LICENSE>`_ file.
+
+
+####
+
+The Zabbix plugin is inspired by `Dante <http://www.digmia.com>`_.
