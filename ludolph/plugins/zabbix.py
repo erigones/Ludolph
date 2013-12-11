@@ -27,7 +27,7 @@ def zabbix_command(f):
         def api_error(errmsg='Zabbix API not available'):
             # Log and reply with error message
             logger.error(errmsg)
-            msg.reply(errmsg).send()
+            obj.xmpp.msg_reply(msg, 'ERROR: ' + errmsg)
             return None
 
         # Was never logged in. Repair authentication and restart Ludolph.
@@ -200,7 +200,7 @@ class Zabbix(LudolphPlugin):
         try:
             eventid = int(eventid)
         except ValueError:
-            return 'Integer required'
+            return 'ERROR: Integer required'
 
         message = '%s: ' % self.xmpp.get_jid(msg)
 
@@ -225,7 +225,7 @@ class Zabbix(LudolphPlugin):
         try:
             mid = int(mid)
         except ValueError:
-            return 'Integer required'
+            return 'ERROR: Integer required'
 
         self.zapi.maintenance.delete([mid])
 
@@ -241,7 +241,7 @@ class Zabbix(LudolphPlugin):
         try:
             duration = int(duration)
         except ValueError:
-            return 'Integer required'
+            return 'ERROR: Integer required'
 
         period = timedelta(minutes=duration)
         _now = datetime.now()
@@ -282,7 +282,7 @@ class Zabbix(LudolphPlugin):
                 options['groupids'] = [i['groupid'] for i in groups]
                 names = [i['name'] for i in groups]
             else:
-                return "Host/Group not found"
+                return "ERROR: Host/Group not found"
 
         names = ', '.join(names)
         options['name'] = 'Maintenance for %s - %s' % (names, now)
@@ -445,7 +445,7 @@ class Zabbix(LudolphPlugin):
         })
 
         if not len(duty):
-            return 'Duty user group ("%s") not found' % DUTY_GROUP
+            return 'ERROR: Duty user group ("%s") not found' % DUTY_GROUP
 
         for u in duty[0]['users']:
             if int(u['users_status']):

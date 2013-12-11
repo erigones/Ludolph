@@ -43,7 +43,7 @@ def command(f):
             return True
         else:
             logger.warning('Unauthorized command "%s" (%s) from "%s"', msg['body'], cmd, user)
-            obj.xmpp.msg_reply(msg, 'Permission denied')
+            obj.xmpp.msg_reply(msg, 'ERROR: Permission denied')
             return None
 
     # Create command name - skip methods which start with underscore
@@ -84,7 +84,7 @@ def parameter_required(count=1):
             if len(params) < count:
                 user = obj.xmpp.get_jid(msg)
                 logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], user)
-                obj.xmpp.msg_reply(msg, 'Missing parameter')
+                obj.xmpp.msg_reply(msg, 'ERROR: Missing parameter')
                 return None
             else:
                 params.extend(args)
@@ -107,7 +107,7 @@ def admin_required(f):
             return f(obj, msg, *args, **kwargs)
         else:
             logger.warning('Unauthorized command "%s" from user "%s"', msg['body'], user)
-            obj.xmpp.msg_reply(msg, 'Permission denied')
+            obj.xmpp.msg_reply(msg, 'ERROR: Permission denied')
             return None
 
     return wrap

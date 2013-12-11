@@ -142,7 +142,7 @@ class Base(LudolphPlugin):
         Usage: muc-invite [JID]
         """
         if not self.xmpp.room:
-            return 'MUC room disabled'
+            return 'ERROR: MUC room disabled'
 
         if not user:
             user = self.xmpp.get_jid(msg)
