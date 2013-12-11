@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timedelta
 
 from ludolph.command import command, parameter_required
+from ludolph.message import red, green
 from ludolph.plugins.plugin import LudolphPlugin
 from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException
 
@@ -150,12 +151,12 @@ class Zabbix(LudolphPlugin):
             host = trigger['hosts'][0]
             hostname = host['name']
             if int(host['maintenance_status']):
-                hostname += '**+**'  # some kind of maintenance
+                hostname += ' **++**'  # some kind of maintenance
 
             # Trigger description
             desc = str(trigger['description'])
             if trigger['error'] or int(trigger['value_flags']):
-                desc += '**+**'  # some kind of trigger error
+                desc += ' **??**'  # some kind of trigger error
 
             # Priority
             prio = self.zapi.get_severity(trigger['priority']).ljust(12)
@@ -166,8 +167,11 @@ class Zabbix(LudolphPlugin):
             age = '^^%s^^' % self.zapi.get_age(dt)
 
             comments = ''
+            if trigger['error']:
+                comments += '\n\t\t^^**Error:** %s^^' % trigger['error']
+
             if trigger['comments']:
-                comments = '\n\t\t^^%s^^' % trigger['comments'].strip()
+                comments += '\n\t\t^^%s^^' % trigger['comments'].strip()
 
             acknowledges = ''
             if notes:
@@ -362,7 +366,7 @@ class Zabbix(LudolphPlugin):
 
         for host in hosts:
             if int(host['maintenance_status']):
-                host['name'] += '**+**'  # some kind of maintenance
+                host['name'] += ' **++**'  # some kind of maintenance
 
             if int(host['status']):
                 status = 'Not monitored'
@@ -372,9 +376,9 @@ class Zabbix(LudolphPlugin):
             ae = int(host['available'])
             available = 'Z'
             if ae == 1:
-                available = '%{color:#00FF00}Z%'
+                available = green('Z')
             elif ae == 2:
-                available = '%{color:#FF0000}Z%'
+                available = red('Z')
 
             _inventory = []
             if host['inventory']:
@@ -445,9 +449,9 @@ class Zabbix(LudolphPlugin):
 
         for u in duty[0]['users']:
             if int(u['users_status']):
-                status = '%{color:#FF0000}disabled%'
+                status = red('disabled')
             else:
-                status = '%{color:#00FF00}enabled%'
+                status = green('enabled')
 
             out += '%s\t%s\n' % (u['alias'], status)
 

@@ -15,7 +15,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['LudolphMessage', ]
+__all__ = ['red', 'green', 'blue', 'LudolphMessage']
 
 TEXT2BODY = [
         (r(r'\*\*(.+?)\*\*'), r'*\1*'),
@@ -48,6 +48,18 @@ TEXT2HTML = [
         (r(r'(Not\ monitored)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
         ('\n', '<br/>\n'),
 ]
+
+
+def red(s):
+    return '%%{color:#FF0000}%s%%' % s
+
+
+def green(s):
+    return '%%{color:#00FF00}%s%%' % s
+
+
+def blue(s):
+    return '%%{color:#0000FF}%s%%' % s
 
 
 class LudolphMessage(object):
