@@ -9,7 +9,7 @@ import json
 import logging
 import requests
 
-from ludolph.command import command, parameter_required
+from ludolph.command import command, parameter_required, admin_required
 from ludolph.message import red, green, blue
 from ludolph.plugins.plugin import LudolphPlugin
 
@@ -187,6 +187,7 @@ class Erigones(LudolphPlugin):
 
         return status, res
 
+    @admin_required
     @parameter_required(2)
     @command
     def es(self, msg, action, resource, *parameters):
@@ -213,6 +214,7 @@ class Erigones(LudolphPlugin):
 
         return json.dumps(out, indent=4)
 
+    @admin_required
     @command
     def vm_list(self, msg):
         """
