@@ -225,7 +225,7 @@ class Erigones(LudolphPlugin):
         code, res = self._es(msg, 'get', '/vm/status')
 
         if code != 200:
-            return res
+            return str(res)
 
         out = ''
 

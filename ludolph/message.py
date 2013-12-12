@@ -78,12 +78,12 @@ class LudolphMessage(object):
         self.mtype = mtype
 
         if mbody is not None:
-            self.mbody = self._text2body(mbody)
+            self.mbody = self._text2body(str(mbody))
 
         if mhtml is None and mbody is not None:
-            self.mhtml = self._text2html(mbody)
+            self.mhtml = self._text2html(str(mbody))
         else:
-            self.mhtml = mhtml
+            self.mhtml = str(mhtml)
 
     def _replace(self, replist, text):
         """
