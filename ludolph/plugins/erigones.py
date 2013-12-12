@@ -69,7 +69,8 @@ class Erigones(LudolphPlugin):
         status_code = r.status_code
 
         if 'task_id' in r.headers:  # Task status stream
-            self.xmpp.msg_send(self.xmpp.get_jid(msg), 'Waiting for pending task %s ...' % blue(r.headers['task_id']))
+            msg_body = 'Waiting for pending task %s ...' % blue(r.headers['task_id'])
+            self.xmpp.msg_send(msg['from'].bare, msg_body, mtype=msg['type'])
 
             for i in r.iter_content():
                 if not i.isspace():
