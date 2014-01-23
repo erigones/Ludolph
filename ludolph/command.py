@@ -11,7 +11,7 @@ logger = getLogger(__name__)
 
 COMMANDS = {}  # command : {name, module, doc}
 USERS = set()  # List of users
-ADMINS = set() # List of admins
+ADMINS = set()  # List of admins
 
 __all__ = ['command', 'parameter_required', 'admin_required']
 

@@ -18,36 +18,36 @@ logger = logging.getLogger(__name__)
 __all__ = ['red', 'green', 'blue', 'LudolphMessage']
 
 TEXT2BODY = [
-        (r(r'\*\*(.+?)\*\*'), r'*\1*'),
-        (r(r'__(.+?)__'), r'\1'),
-        (r(r'\^\^(.+?)\^\^'), r'\1'),
-        (r(r'~~(.+?)~~'), r'\1'),
-        (r(r'%{(.+?)}(.+)%'), r'\2'),
+    (r(r'\*\*(.+?)\*\*'), r'*\1*'),
+    (r(r'__(.+?)__'), r'\1'),
+    (r(r'\^\^(.+?)\^\^'), r'\1'),
+    (r(r'~~(.+?)~~'), r'\1'),
+    (r(r'%{(.+?)}(.+)%'), r'\2'),
 ]
 
 TEXT2HTML = [
-        ('&', '&#38;'),
-        ('<', '&#60;'),
-        ('>', '&#62;'),
-        ("'", '&#39;'),
-        ('"', '&#34;'),
-        (r(r'\*\*(.+?)\*\*'), r'<b>\1</b>'),
-        (r(r'__(.+?)__'), r'<i>\1</i>'),
-        (r(r'\^\^(.+?)\^\^'), r'<sup>\1</sup>'),
-        (r(r'~~(.+?)~~'), r'<sub>\1</sub>'),
-        (r(r'%{(.+?)}(.+)%'), r'<span style="\1">\2</span>'),
-        (r(r'(ERROR)'), r'<span style="color:#FF0000;">\1</span>'),
-        (r(r'(PROBLEM|OFF)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
-        (r(r'(OK|ON)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
-        (r(r'([Dd]isaster)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
-        (r(r'([Cc]ritical)'), r'<span style="color:#FF3300;"><strong>\1</strong></span>'),
-        (r(r'([Hh]igh)'), r'<span style="color:#FF6600;"><strong>\1</strong></span>'),
-        (r(r'([Aa]verage)'), r'<span style="color:#FF9900;"><strong>\1</strong></span>'),
-        (r(r'([Ww]arning)'), r'<span style="color:#FFCC00;"><strong>\1</strong></span>'),
-        #(r(r'([Ii]nformation)'), r'<span style="color:#FFFF00;"><strong>\1</strong></span>'),
-        (r(r'(Monitored)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
-        (r(r'(Not\ monitored)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
-        ('\n', '<br/>\n'),
+    ('&', '&#38;'),
+    ('<', '&#60;'),
+    ('>', '&#62;'),
+    ("'", '&#39;'),
+    ('"', '&#34;'),
+    (r(r'\*\*(.+?)\*\*'), r'<b>\1</b>'),
+    (r(r'__(.+?)__'), r'<i>\1</i>'),
+    (r(r'\^\^(.+?)\^\^'), r'<sup>\1</sup>'),
+    (r(r'~~(.+?)~~'), r'<sub>\1</sub>'),
+    (r(r'%{(.+?)}(.+)%'), r'<span style="\1">\2</span>'),
+    (r(r'(ERROR)'), r'<span style="color:#FF0000;">\1</span>'),
+    (r(r'(PROBLEM|OFF)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
+    (r(r'(OK|ON)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
+    (r(r'([Dd]isaster)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
+    (r(r'([Cc]ritical)'), r'<span style="color:#FF3300;"><strong>\1</strong></span>'),
+    (r(r'([Hh]igh)'), r'<span style="color:#FF6600;"><strong>\1</strong></span>'),
+    (r(r'([Aa]verage)'), r'<span style="color:#FF9900;"><strong>\1</strong></span>'),
+    (r(r'([Ww]arning)'), r'<span style="color:#FFCC00;"><strong>\1</strong></span>'),
+    #(r(r'([Ii]nformation)'), r'<span style="color:#FFFF00;"><strong>\1</strong></span>'),
+    (r(r'(Monitored)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
+    (r(r'(Not\ monitored)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
+    ('\n', '<br/>\n'),
 ]
 
 
@@ -85,15 +85,16 @@ class LudolphMessage(object):
         else:
             self.mhtml = str(mhtml)
 
-    def _replace(self, replist, text):
+    @staticmethod
+    def _replace(replist, text):
         """
         Helper for replacing text parts according to replist.
         """
-        for r, t in replist:
-            if isinstance(r, basestring):
-                text = text.replace(r, t)
+        for rx, te in replist:
+            if isinstance(rx, basestring):
+                text = text.replace(rx, te)
             else:
-                text = r.sub(t, text)
+                text = rx.sub(te, text)
 
         return text
 

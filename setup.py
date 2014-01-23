@@ -14,6 +14,7 @@ try:
 except ImportError:
     from distutils.core import setup
 
+# noinspection PyPep8Naming
 from ludolph.__init__ import __version__ as VERSION
 
 DESCRIPTION = 'Monitoring Jabber Bot'
@@ -44,18 +45,18 @@ packages = [
 ]
 
 setup(
-    name = 'ludolph',
-    version = VERSION,
-    description = DESCRIPTION,
-    long_description = LONG_DESCRIPTION,
-    author = 'Erigones',
-    author_email = 'erigones [at] erigones.com',
-    url = 'https://github.com/erigones/Ludolph/',
-    license = 'GPLv3',
-    packages = packages,
-    scripts = ['bin/ludolph'],
-    install_requires = DEPS,
-    platforms = 'Linux',
-    classifiers = CLASSIFIERS,
-    include_package_data = True
+    name='ludolph',
+    version=VERSION,
+    description=DESCRIPTION,
+    long_description=LONG_DESCRIPTION,
+    author='Erigones',
+    author_email='erigones [at] erigones.com',
+    url='https://github.com/erigones/Ludolph/',
+    license='GPLv3',
+    packages=packages,
+    scripts=['bin/ludolph'],
+    install_requires=DEPS,
+    platforms='Linux',
+    classifiers=CLASSIFIERS,
+    include_package_data=True
 )

@@ -12,6 +12,7 @@ import time
 import logging
 from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
+from sleekxmpp.exceptions import IqError
 
 from ludolph.message import LudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
@@ -42,6 +43,7 @@ class LudolphBot(ClientXMPP):
     xmpp = None
     maxhistory = '1024'
 
+    # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
         self._load_config(config)
         logger.info('Initializing *%s* jabber bot', self.nick)
@@ -126,6 +128,7 @@ class LudolphBot(ClientXMPP):
 
         # Admins
         self.admins.clear()
+        # noinspection PyTypeChecker
         self.admins.update(read_jid_array('xmpp', 'admins', keywords=('users',)))
         logger.info('Current admins: %s', ', '.join(self.admins))
 
@@ -142,12 +145,14 @@ class LudolphBot(ClientXMPP):
         # MUC room users
         self.room_users.clear()
         if self.room:
+            # noinspection PyTypeChecker
             self.room_users.update(read_jid_array('xmpp', 'room_users', keywords=('users', 'admins')))
             logger.info('Current room users: %s', ', '.join(self.room_users))
 
         # MUC room admins
         self.room_admins.clear()
         if self.room:
+            # noinspection PyTypeChecker
             self.room_admins.update(read_jid_array('xmpp', 'room_admins', keywords=('users', 'admins', 'room_users')))
             logger.info('Current room admins: %s', ', '.join(self.room_admins))
 
@@ -233,9 +238,18 @@ class LudolphBot(ClientXMPP):
             self.room_config['fields']['members_by_default']['value'] = True
 
         logger.info('Setting new configuration for MUC room %s', self.room)
-        self.muc.setRoomConfig(self.room, self.room_config)
+        try:
+            self.muc.setRoomConfig(self.room, self.room_config)
+        except IqError as e:
+            logger.error('Could not configure MUC room. Error was: %s (condition=%s, etype=%s)',
+                         e.text, e.condition, e.etype)
+
         logger.info('Setting member list for MUC room %s', self.room)
-        self._room_members()
+        try:
+            self._room_members()
+        except IqError as e:
+            logger.error('Could not configure MUC room member list. Error was: %s (condition=%s, etype=%s)',
+                         e.text, e.condition, e.etype)
 
     def _jid_in_room(self, jid):
         """
@@ -277,6 +291,7 @@ class LudolphBot(ClientXMPP):
 
         return jid
 
+    # noinspection PyUnusedLocal
     def session_start(self, event):
         """
         Process the session_start event.
@@ -413,8 +428,10 @@ class LudolphBot(ClientXMPP):
         nick = self.nick + ':'
         if msg['body'].startswith(nick) and self.get_jid(msg):
             msg['body'] = msg['body'].lstrip(nick).lstrip()
+            # noinspection PyTypeChecker
             return self.message(msg, types=('groupchat',))
 
+    # noinspection PyUnusedLocal
     def shutdown(self, signalnum, handler):
         """
         Shutdown signal handler.
@@ -441,6 +458,7 @@ class LudolphBot(ClientXMPP):
         """
         Processing input from the monitoring pipe file.
         """
+        # noinspection PyTypeChecker
         with os.fdopen(os.open(self.pipe_file, os.O_RDONLY | os.O_NONBLOCK)) as fifo:
             logger.info('Processing input from monitoring pipe file')
             while not self.stop.is_set():
@@ -473,6 +491,7 @@ class LudolphBot(ClientXMPP):
         """
         return LudolphMessage.create(mbody, **kwargs).send(self, mto)
 
+    # noinspection PyMethodMayBeStatic
     def msg_reply(self, msg, mbody, **kwargs):
         """
         Set message reply text and html, and send it.

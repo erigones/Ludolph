@@ -16,9 +16,11 @@ import logging
 if sys.version_info[0] < 3:
     from ConfigParser import RawConfigParser
 else:
+    # noinspection PyUnresolvedReferences
     from configparser import RawConfigParser
 
 from ludolph.bot import LudolphBot
+# noinspection PyPep8Naming
 from ludolph.__init__ import __version__ as VERSION
 
 LOGFORMAT = '%(asctime)s %(levelname)-8s %(name)s: %(message)s'
@@ -43,8 +45,9 @@ def daemonize():
     # Become session leader of this new session.
     # Also be guaranteed not to have a controlling terminal
     os.chdir('/')
+    # noinspection PyArgumentList
     os.setsid()
-    os.umask(0)
+    os.umask(0o022)
 
     try:
         pid = os.fork()  # Fork #2
@@ -109,6 +112,7 @@ The example file is located in: %s\n\n""" % (
         sys.exit(1)
 
     # Read and parse configuration
+    # noinspection PyShadowingNames
     def load_config(fp, reopen=False):
         config = RawConfigParser()
         if reopen:
@@ -163,6 +167,7 @@ The example file is located in: %s\n\n""" % (
     logger.info('Loaded configuration from %s', cfg_fp.name)
 
     # Load plugins
+    # noinspection PyShadowingNames
     def load_plugins(config, reinit=False):
         plugins = {}
 
@@ -221,6 +226,7 @@ The example file is located in: %s\n\n""" % (
     try:
         xmpp = LudolphBot(config, plugins=plugins)
 
+        # noinspection PyUnusedLocal,PyShadowingNames
         def sighup(signalnum, handler):
             config = load_config(cfg_fp, reopen=True)
             logger.info('Reloaded configuration from %s', cfg_fp.name)

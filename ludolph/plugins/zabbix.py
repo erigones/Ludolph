@@ -52,6 +52,7 @@ class Zabbix(LudolphPlugin):
     """
     zapi = None
 
+    # noinspection PyMissingConstructor,PyUnusedLocal
     def __init__(self, config, **kwargs):
         """
         Login to zabbix.
@@ -82,6 +83,7 @@ class Zabbix(LudolphPlugin):
         except ZabbixAPIException as e:
             logger.critical('Zabbix API login error (%s)', e)
 
+    # noinspection PyUnusedLocal
     @zabbix_command
     @command
     def zabbix_version(self, msg):
@@ -92,40 +94,41 @@ class Zabbix(LudolphPlugin):
         """
         return 'Zabbix API version: ' + self.zapi.api_version()
 
+    # noinspection PyUnusedLocal
     @zabbix_command
     @command
-    def alerts(self, msg, notes=False):
+    def alerts(self, msg):
         """
-        Show a list of current zabbix alerts.
+        Show a list of current zabbix alerts with notes attach to each event ID.
 
-        Use optional "notes" parameter to display all notes attached to each vent ID.
-
-        Usage: alerts [notes]
+        Usage: alerts
         """
+        notes = True
         out = ''
         # Get triggers
         triggers = self.zapi.trigger.get({
-                'groupids': None,
-                'hostids': None,
-                'monitored': True,
-                'maintenance': False,
-                'skipDependent': True,
-                'filter': {'priority': None, 'value': 1},  # TRIGGER_VALUE_TRUE
-                'selectHosts': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
-                'selectLastEvent':  'extend',  # API_OUTPUT_EXTEND
-                'output': ['triggerid', 'value_flags', 'error', 'url', 'expression', 'description', 'priority', 'type', 'comments'],
-                'sortfield': 'lastchange',
-                'sortorder': 'DESC',  # ZBX_SORT_DOWN
+            'groupids': None,
+            'hostids': None,
+            'monitored': True,
+            'maintenance': False,
+            'skipDependent': True,
+            'filter': {'priority': None, 'value': 1},  # TRIGGER_VALUE_TRUE
+            'selectHosts': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
+            'selectLastEvent':  'extend',  # API_OUTPUT_EXTEND
+            'output': ['triggerid', 'value_flags', 'error', 'url', 'expression',
+                       'description', 'priority', 'type', 'comments'],
+            'sortfield': 'lastchange',
+            'sortorder': 'DESC',  # ZBX_SORT_DOWN
         })
 
         # Get notes = event acknowledges
         if notes:
             events = self.zapi.event.get({
-                    'eventids': [t['lastEvent']['eventid'] for t in triggers if t['lastEvent']],
-                    'output': 'extend',
-                    'select_acknowledges': 'extend',
-                    'sortfield': 'eventid',
-                    'sortorder': 'DESC',
+                'eventids': [t['lastEvent']['eventid'] for t in triggers if t['lastEvent']],
+                'output': 'extend',
+                'select_acknowledges': 'extend',
+                'sortfield': 'eventid',
+                'sortorder': 'DESC',
             })
 
         for trigger in triggers:
@@ -178,11 +181,13 @@ class Zabbix(LudolphPlugin):
                 for i, e in enumerate(events):
                     if e['eventid'] == event['eventid']:
                         for a in e['acknowledges']:
-                            acknowledges = '\n\t\t__%s: %s__' % (self.zapi.get_datetime(a['clock']), a['message']) + acknowledges
+                            acknowledges = '\n\t\t__%s: %s__' % (self.zapi.get_datetime(a['clock']),
+                                                                 a['message']) + acknowledges
                         del events[i]
                         break
 
-            out += '**%s**\t%s\t%s\t%s\t%s\t%s%s%s\n' % (eventid, prio, hostname, desc, age, ack, comments, acknowledges)
+            out += '**%s**\t%s\t%s\t%s\t%s\t%s%s%s\n' % (eventid, prio, hostname, desc, age,
+                                                         ack, comments, acknowledges)
 
         out += '\n**%d** issues are shown.\n%s/tr_status.php?groupid=0&hostid=0' % (len(triggers), self.zapi.server)
 
@@ -216,6 +221,7 @@ class Zabbix(LudolphPlugin):
 
         return 'Event ID **%s** acknowledged' % eventid
 
+    # noinspection PyUnusedLocal
     def _outage_del(self, msg, mid):
         """
         Delete maintenance period specified by maintenance ID.
@@ -250,15 +256,15 @@ class Zabbix(LudolphPlugin):
         end = _end.strftime('%s')
         jid = self.xmpp.get_jid(msg)
         options = {
-                'active_since': now,
-                'active_till': end,
-                'description': str(jid),
-                'maintenance_type': 0,  # with data collection
-                'timeperiods': [{
-                    'timeperiod_type': 0,  # one time only
-                    'start_date': now,
-                    'period': period.seconds,
-                }],
+            'active_since': now,
+            'active_till': end,
+            'description': str(jid),
+            'maintenance_type': 0,  # with data collection
+            'timeperiods': [{
+                'timeperiod_type': 0,  # one time only
+                'start_date': now,
+                'period': period.seconds,
+            }],
         }
 
         # Get hosts
@@ -284,6 +290,7 @@ class Zabbix(LudolphPlugin):
             else:
                 return "ERROR: Host/Group not found"
 
+        # noinspection PyUnboundLocalVariable
         names = ', '.join(names)
         options['name'] = 'Maintenance for %s - %s' % (names, now)
 
@@ -291,7 +298,7 @@ class Zabbix(LudolphPlugin):
         res = self.zapi.maintenance.create(options)
 
         return 'Added maintenance ID **%s** for %s %s' % (res['maintenanceids'][0],
-                                                        'host' if hosts else 'group', names)
+                                                          'host' if hosts else 'group', names)
 
     @zabbix_command
     @command
@@ -336,12 +343,15 @@ class Zabbix(LudolphPlugin):
 
             since = self.zapi.timestamp_to_datetime(i['active_since'])
             until = self.zapi.timestamp_to_datetime(i['active_till'])
-            out += '**%s**\t%s\t%s%s%s\n\t%s - %s\n' % (i['maintenanceid'], i['name'], i['description'], hosts, groups, since, until)
+            out += '**%s**\t%s\t%s%s%s\n\t%s - %s\n' % (i['maintenanceid'], i['name'], i['description'],
+                                                        hosts, groups, since, until)
 
-        out += '\n**%d** maintenances are shown.\n%s' % (len(maintenances), self.zapi.server + '/maintenance.php?groupid=0')
+        out += '\n**%d** maintenances are shown.\n%s' % (len(maintenances),
+                                                         self.zapi.server + '/maintenance.php?groupid=0')
 
         return out
 
+    # noinspection PyUnusedLocal
     @zabbix_command
     @command
     def hosts(self, msg, hoststr=None):
@@ -397,6 +407,7 @@ class Zabbix(LudolphPlugin):
 
         return out
 
+    # noinspection PyUnusedLocal
     @zabbix_command
     @command
     def groups(self, msg, groupstr=None):
@@ -428,6 +439,7 @@ class Zabbix(LudolphPlugin):
 
         return out
 
+    # noinspection PyUnusedLocal
     @zabbix_command
     @command
     def duty(self, msg):
@@ -439,9 +451,9 @@ class Zabbix(LudolphPlugin):
         out = ''
         # Get group
         duty = self.zapi.usergroup.get({
-                'filter': {'name': DUTY_GROUP},
-                'output': ['usrgrpid', 'name', 'users_status'],
-                'selectUsers': 'extend',  # API_OUTPUT_EXTEND
+            'filter': {'name': DUTY_GROUP},
+            'output': ['usrgrpid', 'name', 'users_status'],
+            'selectUsers': 'extend',  # API_OUTPUT_EXTEND
         })
 
         if not len(duty):

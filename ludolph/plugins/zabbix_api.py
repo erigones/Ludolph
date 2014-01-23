@@ -41,6 +41,7 @@ import time
 try:
     import urllib2
 except ImportError:
+    # noinspection PyUnresolvedReferences,PyPep8Naming
     import urllib.request as urllib2  # python3
 
 from collections import deque
@@ -162,6 +163,7 @@ class ZabbixAPI(object):
         self.graphprototype = ZabbixAPISubClass(self, dict({'prefix': 'graphprototype'}, **kwargs))
         self.itemprototype = ZabbixAPISubClass(self, dict({'prefix': 'itemprototype'}, **kwargs))
         self.webcheck = ZabbixAPISubClass(self, dict({'prefix': 'webcheck'}, **kwargs))
+        self.trends = ZabbixAPISubClass(self, dict({'prefix': 'trends'}, **kwargs))
 
         self.debug('url: %s', self.url)
 

@@ -8,7 +8,9 @@ See the file LICENSE for copying permission.
 import time
 import logging
 
+# noinspection PyPep8Naming
 from ludolph.__init__ import __doc__ as ABOUT
+# noinspection PyPep8Naming
 from ludolph.__init__ import __version__ as VERSION
 from ludolph.command import command, parameter_required, admin_required
 from ludolph.plugins.plugin import LudolphPlugin
@@ -20,6 +22,7 @@ class Base(LudolphPlugin):
     """
     Ludolph jabber bot base commands.
     """
+    # noinspection PyUnusedLocal
     @command
     def help(self, msg, cmdstr=None):
         """
@@ -69,6 +72,7 @@ class Base(LudolphPlugin):
 
         return out
 
+    # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
     def version(self, msg):
         """
@@ -78,6 +82,7 @@ class Base(LudolphPlugin):
         """
         return 'Version: ' + VERSION
 
+    # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
     def about(self, msg):
         """
@@ -87,6 +92,7 @@ class Base(LudolphPlugin):
         """
         return ABOUT.strip()
 
+    # noinspection PyUnusedLocal
     @admin_required
     @command
     def roster_list(self, msg):
@@ -103,6 +109,7 @@ class Base(LudolphPlugin):
 
         return out
 
+    # noinspection PyUnusedLocal
     @admin_required
     @parameter_required(1)
     @command
@@ -119,6 +126,7 @@ class Base(LudolphPlugin):
         else:
             return 'User **' + user + '** cannot be removed from roster'
 
+    # noinspection PyUnusedLocal
     @command
     def uptime(self, msg):
         """
@@ -126,6 +134,7 @@ class Base(LudolphPlugin):
 
         Usage: uptime
         """
+        # noinspection PyProtectedMember
         u = time.time() - self.xmpp._start_time
         m, s = divmod(u, 60)
         h, m = divmod(m, 60)

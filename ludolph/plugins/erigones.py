@@ -7,6 +7,7 @@ See the file LICENSE for copying permission.
 """
 import json
 import logging
+# noinspection PyPackageRequirements
 import requests
 
 from ludolph.command import command, parameter_required, admin_required
@@ -47,6 +48,7 @@ class Erigones(LudolphPlugin):
         'Content-Type': 'application/json; indent=4',
     }
 
+    # noinspection PyMissingConstructor,PyUnusedLocal
     def __init__(self, config, **kwargs):
         """
         Initialize configuration and login to erigones.
@@ -214,6 +216,7 @@ class Erigones(LudolphPlugin):
 
         return json.dumps(out, indent=4)
 
+    # noinspection PyTypeChecker
     @admin_required
     @command
     def vm_list(self, msg):
