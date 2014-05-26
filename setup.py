@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2012-2013 Erigones s. r. o.
+# Copyright (C) 2012-2014 Erigones s. r. o.
 # All Rights Reserved
 #
 # This software is licensed as described in the README.rst and LICENSE
@@ -23,9 +23,9 @@ with codecs.open('README.rst', 'r', encoding='UTF-8') as readme:
     LONG_DESCRIPTION = ''.join(readme)
 
 if sys.version_info[0] < 3:
-    DEPS = ['sleekxmpp>=1.1.11', 'dnspython']
+    DEPS = ['sleekxmpp>=1.1.11', 'bottle', 'dnspython']
 else:
-    DEPS = ['sleekxmpp>=1.1.11', 'dnspython3']
+    DEPS = ['sleekxmpp>=1.1.11', 'bottle', 'dnspython3']
 
 CLASSIFIERS = [
     'Environment :: Console',
