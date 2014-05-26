@@ -1,31 +1,32 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-2013 Erigones s. r. o.
+Copyright (C) 2012-2014 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
 """
 import logging
-from re import compile as r
+import re
 from sleekxmpp.xmlstream import ET
 try:
     from xml.etree.ElementTree import ParseError
 except ImportError:
     from xml.parsers.expat import ExpatError as ParseError
 
+__all__ = ('red', 'green', 'blue', 'LudolphMessage')
+
 logger = logging.getLogger(__name__)
+r = re.compile
 
-__all__ = ['red', 'green', 'blue', 'LudolphMessage']
-
-TEXT2BODY = [
+TEXT2BODY = (
     (r(r'\*\*(.+?)\*\*'), r'*\1*'),
     (r(r'__(.+?)__'), r'\1'),
     (r(r'\^\^(.+?)\^\^'), r'\1'),
     (r(r'~~(.+?)~~'), r'\1'),
     (r(r'%{(.+?)}(.+)%'), r'\2'),
-]
+)
 
-TEXT2HTML = [
+TEXT2HTML = (
     ('&', '&#38;'),
     ('<', '&#60;'),
     ('>', '&#62;'),
@@ -48,7 +49,7 @@ TEXT2HTML = [
     (r(r'(Monitored)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
     (r(r'(Not\ monitored)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
     ('\n', '<br/>\n'),
-]
+)
 
 
 def red(s):
@@ -91,10 +92,11 @@ class LudolphMessage(object):
         Helper for replacing text parts according to replist.
         """
         for rx, te in replist:
-            if isinstance(rx, basestring):
-                text = text.replace(rx, te)
-            else:
+            # noinspection PyProtectedMember
+            if isinstance(rx, re._pattern_type):
                 text = rx.sub(te, text)
+            else:
+                text = text.replace(rx, te)
 
         return text
 
