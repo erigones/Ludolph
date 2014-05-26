@@ -32,7 +32,6 @@ Currently, not all of the API is implemented, and some functionality is broken. 
 import base64
 import hashlib
 import logging
-import string
 import re
 import datetime
 import json
@@ -289,8 +288,9 @@ class ZabbixAPI(object):
 
         if self.httpuser:
             self.debug('HTTP Auth enabled')
-            auth = 'Basic ' + string.strip(base64.encodestring(self.httpuser + ':' + self.httppasswd))
-            headers['Authorization'] = auth
+            x = self.httpuser + ':' + self.httppasswd
+            auth = base64.b64encode(x.encode('utf-8'))
+            headers['Authorization'] = 'Basic ' + auth.decode('ascii')
 
         self.r_query.append(str(json_obj))
         self.debug('Sending: %s', json_obj)
