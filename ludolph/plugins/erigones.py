@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-2013 Erigones s. r. o.
+Copyright (C) 2012-2014 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -49,15 +49,20 @@ class Erigones(LudolphPlugin):
     }
 
     # noinspection PyMissingConstructor,PyUnusedLocal
-    def __init__(self, config, **kwargs):
+    def __init__(self, xmpp, config, **kwargs):
         """
         Initialize configuration and login to erigones.
         """
-        self.api_url = config.get('erigones', 'api_url').rstrip('/')
-        self.credentials = {
-            'username': config.get('erigones', 'username'),
-            'password': config.get('erigones', 'password'),
-        }
+        self.xmpp = xmpp
+        config = dict(config)
+
+        try:
+            self.api_url = config['api_url'].rstrip('/')
+            self.credentials = {'username': config['username'], 'password': config['password']}
+        except KeyError:
+            logger.error('Erigones plugin configuration missing')
+            raise
+
         self._login()
 
     def __es(self, action, resource, params=None, data=None, msg=None):

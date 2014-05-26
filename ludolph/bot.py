@@ -1,12 +1,11 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2013 Erigones s. r. o.
+Copyright (C) 2012-2014 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
 """
 
-import os
 import ssl
 import time
 import logging
@@ -16,10 +15,13 @@ from sleekxmpp.exceptions import IqError
 
 from ludolph.message import LudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
+from ludolph.web import WebServer
 
 logger = logging.getLogger(__name__)
 
-__all__ = ['LudolphBot']
+__all__ = ('LudolphBot',)
+
+PLUGINS = {}  # {modname : instance}
 
 
 class LudolphBot(ClientXMPP):
@@ -30,7 +32,7 @@ class LudolphBot(ClientXMPP):
     _commands = None  # Cached sorted list of commands
     _muc_ready = False
     commands = COMMANDS
-    plugins = None
+    plugins = PLUGINS
     users = USERS
     admins = ADMINS
     room = None
@@ -39,15 +41,15 @@ class LudolphBot(ClientXMPP):
     room_admins = set()
     muc = None
     nick = 'Ludolph'
-    pipe_file = None
     xmpp = None
-    maxhistory = '1024'
+    maxhistory = '4096'
+    webserver = None
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
-        self._load_config(config)
+        self._load_config(config, init=True)
         logger.info('Initializing *%s* jabber bot', self.nick)
-        self._load_plugins(config, plugins)
+        self._load_plugins(config, plugins, init=True)
 
         # Initialize the SleekXMPP client
         ClientXMPP.__init__(self, config.get('xmpp', 'username'), config.get('xmpp', 'password'))
@@ -70,20 +72,19 @@ class LudolphBot(ClientXMPP):
             self.add_event_handler('groupchat_message', self.muc_message, threaded=True)
             self.add_event_handler('muc::%s::got_online' % self.room, self.muc_online, threaded=True)
 
-        # Start the monitoring thread for reading the pipe file
-        self._start_thread('mon_thread', self.mon_thread)
+        # Start the web server thread for processing HTTP requests
+        if self.webserver:
+            self._start_thread('webserver', self.webserver.start, track=False)
 
         # Save start time
         self._start_time = time.time()
 
-    def _load_config(self, config):
+    def _load_config(self, config, init=False):
         """
         Load bot settings from config object.
+        The init parameter indicates whether this is a first-time initialization or a reload.
         """
         logger.info('Configuring jabber bot')
-
-        # Global stuff
-        self.pipe_file = config.get('global', 'pipe_file')
 
         # Get nick name
         if config.has_option('xmpp', 'nick'):
@@ -128,7 +129,6 @@ class LudolphBot(ClientXMPP):
 
         # Admins
         self.admins.clear()
-        # noinspection PyTypeChecker
         self.admins.update(read_jid_array('xmpp', 'admins', keywords=('users',)))
         logger.info('Current admins: %s', ', '.join(self.admins))
 
@@ -145,14 +145,12 @@ class LudolphBot(ClientXMPP):
         # MUC room users
         self.room_users.clear()
         if self.room:
-            # noinspection PyTypeChecker
             self.room_users.update(read_jid_array('xmpp', 'room_users', keywords=('users', 'admins')))
             logger.info('Current room users: %s', ', '.join(self.room_users))
 
         # MUC room admins
         self.room_admins.clear()
         if self.room:
-            # noinspection PyTypeChecker
             self.room_admins.update(read_jid_array('xmpp', 'room_admins', keywords=('users', 'admins', 'room_users')))
             logger.info('Current room admins: %s', ', '.join(self.room_admins))
 
@@ -162,7 +160,16 @@ class LudolphBot(ClientXMPP):
                 logger.error('Room admin "%s" is not specified in room_users. '
                              'This may lead to unexpected behaviour. ', i)
 
-    def _load_plugins(self, config, plugins, init=True):
+        # Web server (any change in configuration requires restart)
+        if init and not self.webserver:
+            if config.has_option('webserver', 'host') and config.has_option('webserver', 'port'):
+                host = config.get('webserver', 'host').strip()
+                port = config.getint('webserver', 'port')
+
+                if host and port:  # Enable server (will be started in __init__)
+                    self.webserver = WebServer(host, port)
+
+    def _load_plugins(self, config, plugins, init=False):
         """
         Initialize plugins.
         The init parameter indicates whether this is a first-time initialization or a reload.
@@ -170,31 +177,50 @@ class LudolphBot(ClientXMPP):
         if init:
             # First-time plugin initialization -> include ourself to plugins dict
             self.xmpp = self
-            self.plugins = {__name__: self}
+            self.plugins.clear()
+            self.plugins[__name__] = self
         else:
             # Bot reload - remove disabled plugins
-            for enabled_plugin in self.plugins.keys():
+            for enabled_plugin in list(self.plugins.keys()):  # Copy for python 3
                 if enabled_plugin == __name__:
                     continue  # Skip ourself
 
-                if not plugins or enabled_plugin not in plugins:
-                    logger.info('Disabling plugin %s', enabled_plugin)
+                if enabled_plugin not in plugins:
+                    logger.info('Disabling plugin: %s', enabled_plugin)
                     del self.plugins[enabled_plugin]
 
         if plugins:
-            for plugin, cls in plugins.items():
-                if init or plugin not in self.plugins:
-                    logger.info('Initializing plugin %s', plugin)
-                    self.plugins[plugin] = cls(config, reinit=False)
+            for modname, plugin in plugins.items():
+                if init or modname not in self.plugins:
+                    logger.info('Initializing plugin: %s', modname)
+                    reinit = False
                 else:
-                    logger.info('Reloading plugin %s', plugin)
-                    del self.plugins[plugin]
-                    self.plugins[plugin] = cls(config, reinit=True)
-                # xmpp attribute pointing to this instance is available in plugin object
-                setattr(self.plugins[plugin], 'xmpp', self)
+                    logger.info('Reloading plugin: %s', modname)
+                    del self.plugins[modname]
+                    reinit = True
 
-        cmds = self.available_commands(reset=True)
-        logger.info('Registered commands: %s', ', '.join(cmds))
+                try:
+                    cfg = config.items(plugin[0])  # Get only plugin config section as list of (name, value) tuples
+                    obj = plugin[1](self, cfg, reinit=reinit)
+                except Exception as ex:
+                    logger.critical('Could not load plugin: %s', modname)
+                    logger.exception(ex)
+                else:
+                    self.plugins[modname] = obj
+
+        # Update commands cache
+        if self.available_commands(reset=True):
+            logger.info('Registered commands:\n%s', '\n'.join(self.display_commands()))
+        else:
+            logger.warning('NO commands registered')
+
+        if self.webserver:
+            if self.webserver.webhooks:
+                logger.info('Registered webhooks:\n%s', '\n'.join(self.webserver.display_webhooks()))
+            else:
+                logger.warning('NO webhooks registered')
+        else:
+            logger.warning('Web server support disabled - webhooks will not work')
 
     def _room_members(self):
         """
@@ -348,14 +374,20 @@ class LudolphBot(ClientXMPP):
                         muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
             self.msg_send(presence['from'].bare, 'Hello %s!' % muc['nick'], mtype='groupchat')
 
+    def display_commands(self):
+        """
+        Return list of available commands suitable for logging.
+        """
+        return ['%s [%s]' % (name, cmd[1].split('.')[-1]) for name, cmd in self.commands.items()]
+
     def available_commands(self, reset=False):
         """
         List of all available bot commands.
         """
         # Remove commands from disabled plugins
         if reset:
-            for cmd_name, cmd in self.commands.items():
-                if cmd['module'] not in self.plugins:
+            for cmd_name, cmd in list(self.commands.items()):  # Create a list in python 3
+                if cmd[1] not in self.plugins:  # module name not in plugins
                     del self.commands[cmd_name]
             self._commands = None
 
@@ -378,12 +410,9 @@ class LudolphBot(ClientXMPP):
             for key in self.available_commands():
                 if key.startswith(cmdstr):
                     cmd = self.commands[key]
-                    cmdstr = key
                     break
             else:
                 return None
-
-        cmd['str'] = cmdstr
 
         return cmd
 
@@ -399,13 +428,13 @@ class LudolphBot(ClientXMPP):
 
         if cmd:
             start_time = time.time()
-            f_cmd = getattr(self.plugins[cmd['module']], cmd['name'])
+            f_cmd = getattr(self.plugins[cmd[1]], cmd[0])  # Get command bound method from plugin
             # Run command
             out = f_cmd(msg)
 
             if out:
                 cmd_time = time.time() - start_time
-                logger.info('Command %s.%s finished in %g seconds', cmd['module'], cmd['name'], cmd_time)
+                logger.info('Command %s.%s finished in %g seconds', cmd[1], cmd[0], cmd_time)
 
             return out
         else:
@@ -428,7 +457,6 @@ class LudolphBot(ClientXMPP):
         nick = self.nick + ':'
         if msg['body'].startswith(nick) and self.get_jid(msg):
             msg['body'] = msg['body'].lstrip(nick).lstrip()
-            # noinspection PyTypeChecker
             return self.message(msg, types=('groupchat',))
 
     # noinspection PyUnusedLocal
@@ -438,14 +466,29 @@ class LudolphBot(ClientXMPP):
         """
         logger.info('Requested shutdown (%s)', signalnum)
 
-        return self.abort()
+        if self.webserver:
+            self.webserver.stop()
+
+        self.abort()
+
+    def prereload(self):
+        """
+        Cleanup during reload phase. Runs before plugin loading in main.
+        """
+        logger.info('Reinitializing commands')
+        self.commands.clear()
+
+        if self.webserver:
+            logger.info('Reinitializing webhooks')
+            self.webserver.webhooks.clear()
+            self.webserver.reset_webapp()
 
     def reload(self, config, plugins=None):
         """
         Reload bot configuration and plugins.
         """
         logger.info('Requested reload')
-        self._load_config(config)
+        self._load_config(config, init=False)
         self._load_plugins(config, plugins, init=False)
 
         if self.room and self.muc:
@@ -453,37 +496,6 @@ class LudolphBot(ClientXMPP):
             self.muc.leaveMUC(self.room, self.nick)
             logger.info('Reinitializing multi-user chat room %s', self.room)
             self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory)
-
-    def mon_thread(self):
-        """
-        Processing input from the monitoring pipe file.
-        """
-        # noinspection PyTypeChecker
-        with os.fdopen(os.open(self.pipe_file, os.O_RDONLY | os.O_NONBLOCK)) as fifo:
-            logger.info('Processing input from monitoring pipe file')
-            while not self.stop.is_set():
-                line = fifo.readline().strip()
-                if line:
-                    data = line.split(';', 1)
-                    if len(data) == 2:
-                        logger.info('Sending monitoring message to "%s"', data[0])
-                        logger.debug('\twith body: "%s"', data[1])
-
-                        if data[0] == self.room:
-                            mtype = 'groupchat'
-                        else:
-                            mtype = 'normal'
-
-                        self.msg_send(data[0], data[1], mtype=mtype)
-
-                    else:
-                        logger.warning('Bad message format ("%s")', line)
-
-                time.sleep(1)
-
-                if self.stop.is_set():
-                    self._end_thread('mon_thread', early=True)
-                    return
 
     def msg_send(self, mto, mbody, **kwargs):
         """

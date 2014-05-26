@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2013 Erigones s. r. o.
+Copyright (C) 2012-2014 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -8,24 +8,27 @@ See the LICENSE file for copying permission.
 
 import os
 import sys
+import imp
 import signal
 import logging
 
+PY3 = sys.version_info[0] > 2
 # In order to make sure that Unicode is handled properly
 # in Python 2.x, reset the default encoding.
-if sys.version_info[0] < 3:
-    from ConfigParser import RawConfigParser
-else:
+if PY3:
     # noinspection PyUnresolvedReferences
     from configparser import RawConfigParser
+else:
+    from ConfigParser import RawConfigParser
 
+from ludolph.utils import parse_loglevel
 from ludolph.bot import LudolphBot
 # noinspection PyPep8Naming
-from ludolph.__init__ import __version__ as VERSION
+from ludolph import __version__ as VERSION
 
 LOGFORMAT = '%(asctime)s %(levelname)-8s %(name)s: %(message)s'
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('ludolph.main')
 
 
 def daemonize():
@@ -91,16 +94,16 @@ def start():
     cfg = 'ludolph.cfg'
     cfg_fp = None
     cfg_lo = ((os.path.expanduser('~'), '.' + cfg), (sys.prefix, 'etc', cfg), ('/etc', cfg))
-    config_base_sections = ('global', 'xmpp')
+    config_base_sections = ('global', 'xmpp', 'webserver')
 
     # Try to read config file from ~/.ludolph.cfg or /etc/ludolph.cfg
     for i in cfg_lo:
-            try:
-                cfg_fp = open(os.path.join(*i))
-            except IOError:
-                continue
-            else:
-                break
+        try:
+            cfg_fp = open(os.path.join(*i))
+        except IOError:
+            continue
+        else:
+            break
 
     if not cfg_fp:
         sys.stderr.write("""\nLudolph can't start!\n
@@ -123,7 +126,7 @@ The example file is located in: %s\n\n""" % (
 
     # Prepare logging configuration
     logconfig = {
-        'level': logging.getLevelName(config.get('global', 'loglevel')),
+        'level': parse_loglevel(config.get('global', 'loglevel')),
         'format': LOGFORMAT,
     }
 
@@ -156,8 +159,6 @@ The example file is located in: %s\n\n""" % (
     sys.excepthook = log_except_hook
 
     # Default configuration
-    pipe_file = config.get('global', 'pipe_file')
-    pipe_mode = '0600'
     use_tls = True
     use_ssl = False
     address = []
@@ -171,25 +172,24 @@ The example file is located in: %s\n\n""" % (
     def load_plugins(config, reinit=False):
         plugins = {}
 
-        if reinit:
-            logger.info('Reinitializing commands')
-            from ludolph.command import COMMANDS
-            COMMANDS.clear()
-
         for plugin in config.sections():
             plugin = plugin.lower().strip()
+
             if plugin in config_base_sections:
                 continue
-            logger.info('Loading plugin: %s', plugin)
+
+            modname = 'ludolph.plugins.' + plugin
+            logger.info('Loading plugin: %s', modname)
+
             try:
                 clsname = plugin[0].upper() + plugin[1:]
-                modname = 'ludolph.plugins.' + plugin
                 module = __import__(modname, fromlist=[clsname])
-                if reinit:
-                    reload(module)
-                plugins[modname] = getattr(module, clsname)
+                if reinit and getattr(module, '_loaded_', False):
+                    imp.reload(module)
+                module._loaded_ = True
+                plugins[modname] = (plugin, getattr(module, clsname))
             except Exception as ex:
-                logger.critical('Could not load plugin %s', plugin)
+                logger.critical('Could not load plugin: %s', modname)
                 logger.exception(ex)
 
         return plugins
@@ -210,45 +210,28 @@ The example file is located in: %s\n\n""" % (
     if config.has_option('xmpp', 'ssl'):
         use_ssl = config.getboolean('xmpp', 'ssl')
 
-    # Create pipe file with desired permissions
-    if config.has_option('global', 'pipe_mode'):
-        pipe_mode = config.get('global', 'pipe_mode')
-
-    logger.info('Creating pipe file %s', pipe_file)
-    try:
-        os.remove(pipe_file)
-    except os.error:
-        pass
-
-    os.mkfifo(pipe_file, int(pipe_mode, 8))
-
     # Here we go
-    try:
-        xmpp = LudolphBot(config, plugins=plugins)
+    xmpp = LudolphBot(config, plugins=plugins)
 
-        # noinspection PyUnusedLocal,PyShadowingNames
-        def sighup(signalnum, handler):
-            config = load_config(cfg_fp, reopen=True)
-            logger.info('Reloaded configuration from %s', cfg_fp.name)
-            plugins = load_plugins(config, reinit=True)
-            xmpp.reload(config, plugins=plugins)
+    # noinspection PyUnusedLocal,PyShadowingNames
+    def sighup(signalnum, handler):
+        config = load_config(cfg_fp, reopen=True)
+        logger.info('Reloaded configuration from %s', cfg_fp.name)
+        xmpp.prereload()
+        plugins = load_plugins(config, reinit=True)
+        xmpp.reload(config, plugins=plugins)
 
-        signal.signal(signal.SIGINT, xmpp.shutdown)
-        signal.signal(signal.SIGTERM, xmpp.shutdown)
-        signal.signal(signal.SIGHUP, sighup)
-        #signal.siginterrupt(signal.SIGHUP, false)  # http://stackoverflow.com/a/4302037
+    signal.signal(signal.SIGINT, xmpp.shutdown)
+    signal.signal(signal.SIGTERM, xmpp.shutdown)
+    signal.signal(signal.SIGHUP, sighup)
+    #signal.siginterrupt(signal.SIGHUP, false)  # http://stackoverflow.com/a/4302037
 
-        if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):
-            xmpp.process(block=True)
-            sys.exit(ret)
-        else:
-            logger.error('Ludolph is unable to connect to jabber server')
-            sys.exit(2)
-
-    finally:
-        # Cleanup
-        logger.info('Removing pipe file %s', pipe_file)
-        os.remove(pipe_file)
+    if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):
+        xmpp.process(block=True)
+        sys.exit(ret)
+    else:
+        logger.error('Ludolph is unable to connect to jabber server')
+        sys.exit(2)
 
 
 if __name__ == '__main__':

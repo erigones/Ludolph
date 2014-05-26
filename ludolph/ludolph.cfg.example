@@ -12,14 +12,11 @@ logfile = /tmp/ludolph.log
 # Log level (required)
 loglevel = INFO
 
-# Pipe file processed by bot and used by external apps to send messages.
-# The monitoring server should have permission to write here and
-# Ludolph should be able to read from it. (required)
-pipe_file = /tmp/ludolph.msg
-
-# Pipe file permissions in numeric format. The default is appropriate when 
-# running the bot under the same user as the monitoringserver.
-#pipe_mode = 0600
+[webserver]
+# Start web server listening on host:port. Needed for webhooks functionality.
+# Setting host or port to empty value will completely disable the web server.
+host = 127.0.0.1
+port = 8922
 
 [xmpp]
 # Jabberbot nick name

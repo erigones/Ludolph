@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-2013 Erigones s. r. o.
+Copyright (C) 2012-2014 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -13,6 +13,7 @@ from ludolph.__init__ import __doc__ as ABOUT
 # noinspection PyPep8Naming
 from ludolph.__init__ import __version__ as VERSION
 from ludolph.command import command, parameter_required, admin_required
+from ludolph.web import webhook
 from ludolph.plugins.plugin import LudolphPlugin
 
 logger = logging.getLogger(__name__)
@@ -35,15 +36,15 @@ class Base(LudolphPlugin):
             cmd = self.xmpp.get_command(cmdstr)
             if cmd:
                 # Remove whitespaces from __doc__ lines
-                desc = '\n'.join(map(str.strip, cmd['doc'].split('\n')))
+                desc = '\n'.join(map(str.strip, cmd[-1].split('\n')))
                 # **Command name** (module) + desc
-                return '**%s** (%s)\n\n%s' % (cmd['str'], cmd['module'], desc)
+                return '**%s** (%s)\n\n%s' % (cmd[0], cmd[1], desc)
 
         # Create dict with module name as key and list of commands as value
         cmd_map = {}
         for cmd_name in self.xmpp.available_commands():
             cmd = self.xmpp.commands[cmd_name]
-            mod_name = cmd['module']
+            mod_name = cmd[1]
 
             if not mod_name in cmd_map:
                 cmd_map[mod_name] = []
@@ -59,7 +60,7 @@ class Base(LudolphPlugin):
             for name in cmd_names:
                 try:
                     # First line of __doc__
-                    desc = self.xmpp.commands[name]['doc'].split('\n')[0]
+                    desc = self.xmpp.commands[name][-1].split('\n')[0]
                     # Lowercase first char and remove trailing dot
                     desc = ' - ' + desc[0].lower() + desc[1:].rstrip('.')
                 except IndexError:
@@ -91,6 +92,13 @@ class Base(LudolphPlugin):
         Usage: about
         """
         return ABOUT.strip()
+
+    @webhook('/')
+    def index(self):
+        """
+        Default web app page.
+        """
+        return ABOUT
 
     # noinspection PyUnusedLocal
     @admin_required

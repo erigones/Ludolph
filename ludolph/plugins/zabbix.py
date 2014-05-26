@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-2013 Erigones s. r. o.
+Copyright (C) 2012-2014 Erigones s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -8,6 +8,8 @@ See the file LICENSE for copying permission.
 import logging
 from datetime import datetime, timedelta
 
+from ludolph.utils import parse_loglevel
+from ludolph.web import webhook, request, abort
 from ludolph.command import command, parameter_required
 from ludolph.message import red, green
 from ludolph.plugins.plugin import LudolphPlugin
@@ -19,7 +21,7 @@ TIMEOUT = 10
 DUTY_GROUP = 'On-Call Duty'
 
 
-def zabbix_command(f):
+def zabbix_command(fun):
     """
     Decorator for executing zabbix API commands and checking zabbix API errors.
     """
@@ -35,7 +37,7 @@ def zabbix_command(f):
             return api_error()
 
         try:
-            return f(obj, msg, *args, **kwargs)
+            return fun(obj, msg, *args, **kwargs)
         except ZabbixAPIException as ex:
             # API command problem
             return api_error('Zabbix API error (%s)' % ex)
@@ -53,35 +55,53 @@ class Zabbix(LudolphPlugin):
     zapi = None
 
     # noinspection PyMissingConstructor,PyUnusedLocal
-    def __init__(self, config, **kwargs):
+    def __init__(self, xmpp, config, **kwargs):
         """
         Login to zabbix.
         """
-        self.init(config)
+        self.xmpp = xmpp
+        self.init(dict(config))
 
     def init(self, config):
         """
         Initialize zapi and try to login.
         """
         # HTTP authentication?
-        httpuser = None
-        httppasswd = None
-        if config.has_option('zabbix', 'httpuser'):
-            httpuser = config.get('zabbix', 'httpuser')
-        if config.has_option('zabbix', 'httppasswd'):
-            httppasswd = config.get('zabbix', 'httppasswd')
+        httpuser = config.get('httpuser', None)
+        httppasswd = config.get('httppasswd', None)
 
-        self.zapi = ZabbixAPI(server=config.get('zabbix', 'server'),
-                              user=httpuser, passwd=httppasswd, timeout=TIMEOUT,
-                              log_level=logging.getLevelName(config.get('global', 'loglevel')))
+        self.zapi = ZabbixAPI(server=config['server'], user=httpuser, passwd=httppasswd, timeout=TIMEOUT,
+                              log_level=parse_loglevel(config.get('loglevel', 'INFO')))
 
         # Login and save zabbix credentials
         try:
             logger.info('Zabbix API login')
-            self.zapi.login(config.get('zabbix', 'username'),
-                            config.get('zabbix', 'password'), save=True)
+            self.zapi.login(config['username'], config['password'], save=True)
         except ZabbixAPIException as e:
             logger.critical('Zabbix API login error (%s)', e)
+
+    @webhook('/alert', methods=('POST',))
+    def alert(self):
+        """
+        Process zabbix alert request and send xmpp message to user/room.
+        """
+        jid = request.forms.get('jid', None)
+
+        if not jid:
+            logger.warning('Missing JID in alert request')
+            abort(400, 'Missing JID in alert request')
+
+        if jid == self.xmpp.room:
+            mtype = 'groupchat'
+        else:
+            mtype = 'normal'
+
+        msg = request.forms.get('msg', '')
+        logger.info('Sending monitoring alert to "%s"', jid)
+        logger.debug('\twith body: "%s"', msg)
+        self.xmpp.msg_send(jid, msg, mtype=mtype)
+
+        return 'OK'
 
     # noinspection PyUnusedLocal
     @zabbix_command
