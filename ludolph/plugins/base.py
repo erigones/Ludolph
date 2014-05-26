@@ -164,7 +164,7 @@ class Base(LudolphPlugin):
     @webhook('/')
     def index(self):
         """
-        Default web app page.
+        Default web page.
         """
         return ABOUT
 
