@@ -13,7 +13,7 @@ from ludolph.__init__ import __doc__ as ABOUT
 # noinspection PyPep8Naming
 from ludolph.__init__ import __version__ as VERSION
 from ludolph.command import command, parameter_required, admin_required
-from ludolph.web import webhook
+from ludolph.web import webhook, request, abort
 from ludolph.plugins.plugin import LudolphPlugin
 
 logger = logging.getLogger(__name__)
@@ -93,13 +93,6 @@ class Base(LudolphPlugin):
         """
         return ABOUT.strip()
 
-    @webhook('/')
-    def index(self):
-        """
-        Default web app page.
-        """
-        return ABOUT
-
     # noinspection PyUnusedLocal
     @admin_required
     @command
@@ -112,7 +105,7 @@ class Base(LudolphPlugin):
         roster = self.xmpp.client_roster
         out = ''
 
-        for i in roster.keys():
+        for i in roster:
             out += '%s\t%s\n' % (i, roster[i]['subscription'])
 
         return out
@@ -127,7 +120,7 @@ class Base(LudolphPlugin):
 
         Usage: roster-remove <JID>
         """
-        if user in self.xmpp.client_roster.keys():
+        if user in self.xmpp.client_roster:
             self.xmpp.send_presence(pto=user, ptype='unsubscribe')
             self.xmpp.del_roster_item(user)
             return 'User **' + user + '** removed from roster'
@@ -167,3 +160,52 @@ class Base(LudolphPlugin):
         self.xmpp.muc.invite(self.xmpp.room, user)
 
         return 'Inviting **%s** to MUC room %s' % (user, self.xmpp.room)
+
+    @webhook('/')
+    def index(self):
+        """
+        Default web app page.
+        """
+        return ABOUT
+
+    @webhook('/ping')
+    def ping(self):
+        """
+        Ping-pong.
+        """
+        return 'pong'
+
+    @webhook('/broadcast', methods=('POST',))
+    def broadcast(self):
+        """
+        Send private message to every user in roster.
+        """
+        msg = request.forms.get('msg', None)
+
+        if not msg:
+            logger.warning('Missing msg parameter in broadcast request')
+            abort(400, 'Missing msg parameter')
+
+        for jid in self.xmpp.client_roster:
+            self.xmpp.msg_send(jid, msg)
+
+        return 'Message sent (%dx)' % len(self.xmpp.client_roster)
+
+    @webhook('/room', methods=('POST',))
+    def roomtalk(self):
+        """
+        Send message to chat room.
+        """
+        if not self.xmpp.room:
+            logger.warning('Multi-user chat support is disabled (room request)')
+            abort(400, 'MUC disabled')
+
+        msg = request.forms.get('msg', None)
+
+        if not msg:
+            logger.warning('Missing msg parameter in room request')
+            abort(400, 'Missing msg parameter')
+
+        self.xmpp.msg_send(self.xmpp.room, msg, mtype='groupchat')
+
+        return 'Message sent'

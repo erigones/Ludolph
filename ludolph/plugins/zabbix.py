@@ -101,7 +101,7 @@ class Zabbix(LudolphPlugin):
         logger.debug('\twith body: "%s"', msg)
         self.xmpp.msg_send(jid, msg, mtype=mtype)
 
-        return 'OK'
+        return 'Message sent'
 
     # noinspection PyUnusedLocal
     @zabbix_command
