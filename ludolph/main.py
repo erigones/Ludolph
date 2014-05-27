@@ -121,6 +121,7 @@ The example file is located in: %s\n\n""" % (
         if reopen:
             fp = open(fp.name)
         config.readfp(fp)
+        fp.close()
         return config
     config = load_config(cfg_fp)
 
@@ -152,10 +153,9 @@ The example file is located in: %s\n\n""" % (
     # Setup logging
     logging.basicConfig(**logconfig)
 
-    # All exceptions will be logged
+    # All exceptions will be logged without exit
     def log_except_hook(*exc_info):
         logger.critical('Unhandled exception!', exc_info=exc_info)
-        #sys.exit(99)
     sys.excepthook = log_except_hook
 
     # Default configuration
