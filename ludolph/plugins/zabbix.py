@@ -206,8 +206,8 @@ class Zabbix(LudolphPlugin):
                         del events[i]
                         break
 
-            out += '**%s**\t%s\t%s\t%s\t%s\t%s%s%s\n' % (eventid, prio, hostname, desc, age,
-                                                         ack, comments, acknowledges)
+            out += '**%s**\t%s\t%s\t%s\t%s\t%s%s%s\n\n' % (eventid, prio, hostname, desc, age,
+                                                           ack, comments, acknowledges)
 
         out += '\n**%d** issues are shown.\n%s/tr_status.php?groupid=0&hostid=0' % (len(triggers), self.zapi.server)
 
@@ -360,7 +360,7 @@ class Zabbix(LudolphPlugin):
 
             since = self.zapi.timestamp_to_datetime(i['active_since'])
             until = self.zapi.timestamp_to_datetime(i['active_till'])
-            out += '**%s**\t%s - %s\t__%s__%s%s\n' % (i['maintenanceid'], since, until, i['name'], hosts, groups)
+            out += '**%s**\t%s - %s\t__%s__%s%s\n\n' % (i['maintenanceid'], since, until, i['name'], hosts, groups)
 
         out += '\n**%d** maintenances are shown.\n%s' % (len(maintenances),
                                                          self.zapi.server + '/maintenance.php?groupid=0')
