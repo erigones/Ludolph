@@ -278,7 +278,6 @@ class Zabbix(LudolphPlugin):
         options = {
             'active_since': now,
             'active_till': end,
-            'description': str(jid),
             'maintenance_type': 0,  # with data collection
             'timeperiods': [{
                 'timeperiod_type': 0,  # one time only
@@ -296,8 +295,7 @@ class Zabbix(LudolphPlugin):
         if hosts:
             options['hostids'] = [i['hostid'] for i in hosts]
             names = [i['name'] for i in hosts]
-
-        if not hosts:
+        else:
             # Get groups
             groups = self.zapi.hostgroup.get({
                 'search': {'name': host_or_group},
@@ -310,15 +308,14 @@ class Zabbix(LudolphPlugin):
             else:
                 return "ERROR: Host/Group not found"
 
-        # noinspection PyUnboundLocalVariable
-        names = ', '.join(names)
-        options['name'] = 'Maintenance for %s - %s' % (names, now)
+        items = ', '.join(names)
+        options['name'] = ('Maintenance %s by %s' % (now, jid))[:128]
+        options['description'] = items
 
         # Create maintenance period
         res = self.zapi.maintenance.create(options)
 
-        return 'Added maintenance ID **%s** for %s %s' % (res['maintenanceids'][0],
-                                                          'host' if hosts else 'group', names)
+        return 'Added maintenance ID **%s** for %s %s' % (res['maintenanceids'][0], 'host' if hosts else 'group', items)
 
     @zabbix_command
     @command
@@ -363,8 +360,7 @@ class Zabbix(LudolphPlugin):
 
             since = self.zapi.timestamp_to_datetime(i['active_since'])
             until = self.zapi.timestamp_to_datetime(i['active_till'])
-            out += '**%s**\t%s\t%s%s%s\n\t%s - %s\n' % (i['maintenanceid'], i['name'], i['description'],
-                                                        hosts, groups, since, until)
+            out += '**%s**\t%s - %s\t__%s__%s%s\n' % (i['maintenanceid'], since, until, i['name'], hosts, groups)
 
         out += '\n**%d** maintenances are shown.\n%s' % (len(maintenances),
                                                          self.zapi.server + '/maintenance.php?groupid=0')
