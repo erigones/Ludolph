@@ -16,6 +16,7 @@ from sleekxmpp.exceptions import IqError
 from ludolph.message import LudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
 from ludolph.web import WebServer
+from ludolph.cron import Cron
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class LudolphBot(ClientXMPP):
     xmpp = None
     maxhistory = '4096'
     webserver = None
+    cron = None
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
@@ -74,6 +76,10 @@ class LudolphBot(ClientXMPP):
         # Start the web server thread for processing HTTP requests
         if self.webserver:
             self._start_thread('webserver', self.webserver.start, track=False)
+
+        # Start the scheduler thread for running periodic cron jobs
+        if self.cron:
+            self._start_thread('cron', self.cron.run, track=False)
 
         # Save start time
         self._start_time = time.time()
@@ -168,6 +174,11 @@ class LudolphBot(ClientXMPP):
                 if host and port:  # Enable server (will be started in __init__)
                     self.webserver = WebServer(host, port)
 
+        # Cron (any change in configuration requires restart)
+        if init and not self.cron:
+            if config.has_option('cron', 'enabled') and config.getboolean('cron', 'enabled'):
+                self.cron = Cron()
+
     def _load_plugins(self, config, plugins, init=False):
         """
         Initialize plugins.
@@ -209,17 +220,25 @@ class LudolphBot(ClientXMPP):
 
         # Update commands cache
         if self.commands.all(reset=True):
-            logger.info('Registered commands:\n%s', '\n'.join(self.commands.display()))
+            logger.info('Registered commands:\n%s\n', '\n'.join(self.commands.display()))
         else:
             logger.warning('NO commands registered')
 
         if self.webserver:
             if self.webserver.webhooks:
-                logger.info('Registered webhooks:\n%s', '\n'.join(self.webserver.display_webhooks()))
+                logger.info('Registered webhooks:\n%s\n', '\n'.join(self.webserver.display_webhooks()))
             else:
                 logger.warning('NO webhooks registered')
         else:
             logger.warning('Web server support disabled - webhooks will not work')
+
+        if self.cron:
+            if self.cron.crontab:
+                logger.info('Registered cron jobs:\n%s\n', '\n'.join(self.cron.display_cronjobs()))
+            else:
+                logger.warning('NO cron jobs registered')
+        else:
+            logger.warning('Cron support disabled - cron jobs will not work')
 
     def _room_members(self):
         """
@@ -426,6 +445,9 @@ class LudolphBot(ClientXMPP):
         if self.webserver:
             self.webserver.stop()
 
+        if self.cron:
+            self.cron.stop()
+
         self.abort()
 
     def prereload(self):
@@ -437,6 +459,9 @@ class LudolphBot(ClientXMPP):
         if self.webserver:
             self.webserver.reset_webhooks()
             self.webserver.reset_webapp()
+
+        if self.cron:
+            self.cron.reset()
 
     def reload(self, config, plugins=None):
         """

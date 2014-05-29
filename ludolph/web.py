@@ -7,6 +7,7 @@ See the LICENSE file for copying permission.
 """
 import logging
 import socket
+from functools import wraps
 # noinspection PyUnresolvedReferences
 from bottle import Bottle, ServerAdapter, abort, request
 
@@ -87,13 +88,14 @@ class WebServer(ServerAdapter):
 
     def display_webhooks(self):
         """Return list of available webhooks suitable for logging"""
-        return ['%s - %s [%s]' % (hook[1], name, hook[0].split('.')[-1]) for name, hook in self.webhooks.items()]
+        return ['%s [%s]: %s' % (name, hook[0].split('.')[-1], hook[1]) for name, hook in self.webhooks.items()]
 
 
 def _webview(fun):
     """
     Wrapper for bottle callbacks responsible for finding back the bound method. Inspired by err bot.
     """
+    @wraps(fun)
     def wrap(*args, **kwargs):
         from ludolph.bot import PLUGINS
 

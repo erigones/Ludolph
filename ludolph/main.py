@@ -94,7 +94,7 @@ def start():
     cfg = 'ludolph.cfg'
     cfg_fp = None
     cfg_lo = ((os.path.expanduser('~'), '.' + cfg), (sys.prefix, 'etc', cfg), ('/etc', cfg))
-    config_base_sections = ('global', 'xmpp', 'webserver')
+    config_base_sections = ('global', 'xmpp', 'webserver', 'cron')
 
     # Try to read config file from ~/.ludolph.cfg or /etc/ludolph.cfg
     for i in cfg_lo:

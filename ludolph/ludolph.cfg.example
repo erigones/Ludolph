@@ -18,6 +18,10 @@ loglevel = INFO
 host = 127.0.0.1
 port = 8922
 
+[cron]
+# Enable cron scheduler process. Needed for cronjob functionality.
+enabled = False
+
 [xmpp]
 # Jabberbot nick name
 nickname = Ludolph
