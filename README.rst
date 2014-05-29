@@ -55,8 +55,9 @@ Installation
 
 **Dependencies:**
 
-- sleekxmpp (1.1.11+)
-- dnspython (1.10.0+) (or dnspython3 when using Python 3)
+- `dnspython <http://www.dnspython.org/>`_ (1.10.0+) (or dnspython3 when using Python 3)
+- `sleekxmpp <http://sleekxmpp.com/>`_ (1.1.11+)
+- `bottle <http://bottlepy.org/>`_ (0.12.7+)
 
 
 Links
