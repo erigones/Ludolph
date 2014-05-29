@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from ludolph.utils import parse_loglevel
 from ludolph.web import webhook, request, abort
+from ludolph.cron import cronjob
 from ludolph.command import command, parameter_required
 from ludolph.message import red, green
 from ludolph.plugins.plugin import LudolphPlugin
@@ -301,7 +302,7 @@ class Zabbix(LudolphPlugin):
 
         if hosts:
             options['hostids'] = [i['hostid'] for i in hosts]
-            names = [i['name'] for i in hosts]
+            desc = 'hosts: ' + ', '.join([i['name'] for i in hosts])
         else:
             # Get groups
             groups = self.zapi.hostgroup.get({
@@ -311,18 +312,17 @@ class Zabbix(LudolphPlugin):
 
             if groups:
                 options['groupids'] = [i['groupid'] for i in groups]
-                names = [i['name'] for i in groups]
+                desc = 'groups: ' + ', '.join([i['name'] for i in groups])
             else:
                 return "ERROR: Host/Group not found"
 
-        items = ', '.join(names)
         options['name'] = ('Maintenance %s by %s' % (now, jid))[:128]
-        options['description'] = items
+        options['description'] = desc
 
         # Create maintenance period
         res = self.zapi.maintenance.create(options)
 
-        return 'Added maintenance ID **%s** for %s %s' % (res['maintenanceids'][0], 'host' if hosts else 'group', items)
+        return 'Added maintenance ID **%s** for %s' % (res['maintenanceids'][0], desc)
 
     @zabbix_command
     @command
@@ -350,29 +350,59 @@ class Zabbix(LudolphPlugin):
             'output': 'extend',
             'sortfield': ['maintenanceid', 'name'],
             'sortorder': 'ASC',
-            'selectHosts': 'extend',
-            'selectGroups': 'extend',
         })
 
         for i in maintenances:
-            if i['hosts']:
-                hosts = '\n\t^^hosts:\t%s^^' % ', '.join([h['name'] for h in i['hosts']])
+            if i['description']:
+                desc = '\n\t^^%s^^' % i['description']
             else:
-                hosts = ''
-
-            if i['groups']:
-                groups = '\n\t^^groups:\t%s^^' % ', '.join([g['name'] for g in i['groups']])
-            else:
-                groups = ''
+                desc = ''
 
             since = self.zapi.timestamp_to_datetime(i['active_since'])
             until = self.zapi.timestamp_to_datetime(i['active_till'])
-            out.append('**%s**\t%s - %s\t__%s__%s%s\n' % (i['maintenanceid'], since, until, i['name'], hosts, groups))
+            out.append('**%s**\t%s - %s\t__%s__%s\n' % (i['maintenanceid'], since, until, i['name'], desc))
 
         out.append('\n**%d** maintenances are shown.\n%s' % (len(maintenances),
                                                              self.zapi.server + '/maintenance.php?groupid=0'))
 
         return '\n'.join(out)
+
+    @cronjob(minute=range(0, 60, 5))
+    def maintenance(self):
+        """
+        Cron job for cleaning outdated outages and informing about incoming outage end.
+        """
+        maintenances = self.zapi.maintenance.get({
+            'output': 'extend',
+            'sortfield': ['maintenanceid', 'name'],
+            'sortorder': 'ASC',
+        })
+        now = datetime.now()
+        in5 = now + timedelta(minutes=5)
+
+        for i in maintenances:
+            until = self.zapi.get_datetime(i['active_till'])
+            mid = i['maintenanceid']
+            name = i['name']
+            desc = i['description'] or ''
+
+            if until < now:
+                logger.info('Deleting maintenance %s (%s)', mid, name)
+                self.zapi.maintenance.delete([mid])
+                msg = 'Maintenance ID **%s** ^^(%s)^^ deleted' % (mid, desc)
+            elif until < in5:
+                logger.info('Sending notification about maintenance %s (%s) end', mid, name)
+                msg = 'Maintenance ID **%s** ^^(%s)^^ is going to end %s' % (mid, desc,
+                                                                             until.strftime('on %Y-%m-%d at %H:%M:%S'))
+            else:
+                continue
+
+            jid = name.split()[-1]
+
+            if '@' in jid:
+                self.xmpp.msg_send(jid.strip(), msg)
+            else:
+                logging.warning('Missing JID in maintenance %s (%s)"', mid, i['name'])
 
     # noinspection PyUnusedLocal
     @zabbix_command
