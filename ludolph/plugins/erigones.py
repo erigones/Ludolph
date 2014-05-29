@@ -235,7 +235,7 @@ class Erigones(LudolphPlugin):
         if code != 200:
             return str(res)
 
-        out = ''
+        out = []
 
         for vm in res['result']:
             if vm['status'] == 'running':
@@ -247,8 +247,8 @@ class Erigones(LudolphPlugin):
             else:
                 color = lambda x: x
 
-            out += '**%s** (%s)\t%s\t(%d)\n' % (vm['hostname'], vm['alias'], color(vm['status']), len(vm['tasks']))
+            out.append('**%s** (%s)\t%s\t(%d)' % (vm['hostname'], vm['alias'], color(vm['status']), len(vm['tasks'])))
 
-        out += '\n**%d** servers are shown.' % len(res['result'])
+        out.append('\n**%d** servers are shown.' % len(res['result']))
 
-        return out
+        return '\n'.join(out)

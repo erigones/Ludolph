@@ -51,11 +51,11 @@ class Base(LudolphPlugin):
 
             cmd_map[mod_name].append(cmd_name)
 
-        out = 'List of available Ludolph commands:\n'
+        out = ['List of available Ludolph commands:']
 
         for mod_name, cmd_names in cmd_map.items():
             # Item: module name
-            out += '\n* %s\n\n' % mod_name
+            out.append('\n* %s\n' % mod_name)
 
             for name in cmd_names:
                 try:
@@ -67,11 +67,11 @@ class Base(LudolphPlugin):
                     desc = ''
 
                 # SubItem: line of command + description
-                out += '  * **%s**%s\n' % (name, desc)
+                out.append('  * **%s**%s' % (name, desc))
 
-        out += '\nUse "help <command>" for more information about the command usage'
+        out.append('\nUse "help <command>" for more information about the command usage')
 
-        return out
+        return '\n'.join(out)
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
@@ -103,12 +103,8 @@ class Base(LudolphPlugin):
         Usage: roster-list
         """
         roster = self.xmpp.client_roster
-        out = ''
 
-        for i in roster:
-            out += '%s\t%s\n' % (i, roster[i]['subscription'])
-
-        return out
+        return  '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
 
     # noinspection PyUnusedLocal
     @admin_required

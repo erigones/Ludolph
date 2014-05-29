@@ -124,7 +124,7 @@ class Zabbix(LudolphPlugin):
         Usage: alerts
         """
         notes = True
-        out = ''
+        out = []
         # Get triggers
         triggers = self.zapi.trigger.get({
             'groupids': None,
@@ -206,12 +206,13 @@ class Zabbix(LudolphPlugin):
                         del events[i]
                         break
 
-            out += '**%s**\t%s\t%s\t%s\t%s\t%s%s%s\n\n' % (eventid, prio, hostname, desc, age,
-                                                           ack, comments, acknowledges)
+            out.append('**%s**\t%s\t%s\t%s\t%s\t%s%s%s\n' % (eventid, prio, hostname, desc, age,
+                                                             ack, comments, acknowledges))
 
-        out += '\n**%d** issues are shown.\n%s/tr_status.php?groupid=0&hostid=0' % (len(triggers), self.zapi.server)
+        out.append('\n**%d** issues are shown.\n%s/tr_status.php?groupid=0&hostid=0' % (len(triggers),
+                                                                                        self.zapi.server))
 
-        return out
+        return '\n'.join(out)
 
     @zabbix_command
     @parameter_required(1)
@@ -227,12 +228,12 @@ class Zabbix(LudolphPlugin):
         except ValueError:
             return 'ERROR: Integer required'
 
-        message = '%s: ' % self.xmpp.get_jid(msg)
-
         if note:
-            message += ' '.join(note)
+            note = ' '.join(note)
         else:
-            message += 'ack'
+            note = 'ack'
+
+        message = '%s: %s' % (self.xmpp.get_jid(msg), note)
 
         self.zapi.event.acknowledge({
             'eventids': [eventid],
@@ -337,7 +338,7 @@ class Zabbix(LudolphPlugin):
         elif mid_or_host_or_group:
             return self._outage_del(msg, mid_or_host_or_group)
 
-        out = ''
+        out = []
         # Display list of maintenances
         maintenances = self.zapi.maintenance.get({
             'output': 'extend',
@@ -360,12 +361,12 @@ class Zabbix(LudolphPlugin):
 
             since = self.zapi.timestamp_to_datetime(i['active_since'])
             until = self.zapi.timestamp_to_datetime(i['active_till'])
-            out += '**%s**\t%s - %s\t__%s__%s%s\n\n' % (i['maintenanceid'], since, until, i['name'], hosts, groups)
+            out.append('**%s**\t%s - %s\t__%s__%s%s\n' % (i['maintenanceid'], since, until, i['name'], hosts, groups))
 
-        out += '\n**%d** maintenances are shown.\n%s' % (len(maintenances),
-                                                         self.zapi.server + '/maintenance.php?groupid=0')
+        out.append('\n**%d** maintenances are shown.\n%s' % (len(maintenances),
+                                                             self.zapi.server + '/maintenance.php?groupid=0'))
 
-        return out
+        return '\n'.join(out)
 
     # noinspection PyUnusedLocal
     @zabbix_command
@@ -376,7 +377,7 @@ class Zabbix(LudolphPlugin):
 
         Usage: hosts [host name search string]
         """
-        out = ''
+        out = []
         params = {
             'output': ['hostid', 'name', 'available', 'maintenance_status', 'status'],
             'selectInventory': 1,  # All inventory items
@@ -417,11 +418,11 @@ class Zabbix(LudolphPlugin):
             else:
                 inventory = ''
 
-            out += '**%s**\t%s\t%s\t%s%s\n' % (host['hostid'], host['name'], status, available, inventory)
+            out.append('**%s**\t%s\t%s\t%s%s' % (host['hostid'], host['name'], status, available, inventory))
 
-        out += '\n**%d** hosts are shown.\n%s/hosts.php?groupid=0' % (len(hosts), self.zapi.server)
+        out.append('\n**%d** hosts are shown.\n%s/hosts.php?groupid=0' % (len(hosts), self.zapi.server))
 
-        return out
+        return '\n'.join(out)
 
     # noinspection PyUnusedLocal
     @zabbix_command
@@ -432,7 +433,7 @@ class Zabbix(LudolphPlugin):
 
         Usage: groups [group name search string]
         """
-        out = ''
+        out = []
         params = {
             'output': ['groupid', 'name'],
             'selectHosts': ['hostid', 'name'],
@@ -449,11 +450,11 @@ class Zabbix(LudolphPlugin):
         for group in groups:
             _hosts = ['**%s**: %s' % (h['hostid'], h['name']) for h in group['hosts'] if h]
             hosts = '\n\t\t^^%s ^^' % ', '.join(_hosts)
-            out += '**%s**\t%s%s\n' % (group['groupid'], group['name'], hosts)
+            out.append('**%s**\t%s%s' % (group['groupid'], group['name'], hosts))
 
-        out += '\n**%d** hostgroups are shown.\n%s/hostgroups.php' % (len(groups), self.zapi.server)
+        out.append('\n**%d** hostgroups are shown.\n%s/hostgroups.php' % (len(groups), self.zapi.server))
 
-        return out
+        return '\n'.join(out)
 
     # noinspection PyUnusedLocal
     @zabbix_command
@@ -464,13 +465,13 @@ class Zabbix(LudolphPlugin):
 
         Usage: duty
         """
-        out = ''
         # Get group
         duty = self.zapi.usergroup.get({
             'filter': {'name': DUTY_GROUP},
             'output': ['usrgrpid', 'name', 'users_status'],
             'selectUsers': 'extend',  # API_OUTPUT_EXTEND
         })
+        out = []
 
         if not len(duty):
             return 'ERROR: Duty user group ("%s") not found' % DUTY_GROUP
@@ -481,8 +482,8 @@ class Zabbix(LudolphPlugin):
             else:
                 status = green('enabled')
 
-            out += '%s\t%s\n' % (u['alias'], status)
+            out.append('%s\t%s' % (u['alias'], status))
 
-        out += '\n**%d** users in duty group.' % len(duty[0]['users'])
+        out.append('\n**%d** users in duty group.' % len(duty[0]['users']))
 
-        return out
+        return '\n'.join(out)
