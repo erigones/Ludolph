@@ -217,30 +217,36 @@ class Zabbix(LudolphPlugin):
     @zabbix_command
     @parameter_required(1)
     @command
-    def ack(self, msg, eventid, *note):
+    def ack(self, msg, eventid, *eventids_or_note):
         """
-        Acknowledge event with optional note.
+        Acknowledge event(s) with optional note.
 
-        Usage: ack <event ID> [note]
+        Usage: ack <event ID> [event ID2] [event ID3] ... [note]
         """
         try:
-            eventid = int(eventid)
+            eventids = [int(eventid)]
         except ValueError:
             return 'ERROR: Integer required'
 
-        if note:
-            note = ' '.join(note)
-        else:
-            note = 'ack'
+        note = 'ack'
+
+        for i, arg in enumerate(eventids_or_note):
+            try:
+                eid = int(arg)
+            except ValueError:
+                note = ' '.join(eventids_or_note[i:])
+                break
+            else:
+                eventids.append(eid)
 
         message = '%s: %s' % (self.xmpp.get_jid(msg), note)
 
-        self.zapi.event.acknowledge({
-            'eventids': [eventid],
+        res = self.zapi.event.acknowledge({
+            'eventids': eventids,
             'message': message,
         })
 
-        return 'Event ID **%s** acknowledged' % eventid
+        return 'Event ID(s) **%s** acknowledged' % ','.join(map(str, res.get('eventids', ())))
 
     # noinspection PyUnusedLocal
     def _outage_del(self, msg, mid):
