@@ -29,7 +29,6 @@ class LudolphBot(ClientXMPP):
     Ludolph bot.
     """
     _start_time = None
-    _commands = None  # Cached sorted list of commands
     _muc_ready = False
     commands = COMMANDS
     plugins = PLUGINS
@@ -181,7 +180,7 @@ class LudolphBot(ClientXMPP):
             self.plugins[__name__] = self
         else:
             # Bot reload - remove disabled plugins
-            for enabled_plugin in list(self.plugins.keys()):  # Copy for python 3
+            for enabled_plugin in tuple(self.plugins.keys()):  # Copy for python 3
                 if enabled_plugin == __name__:
                     continue  # Skip ourself
 
@@ -209,8 +208,8 @@ class LudolphBot(ClientXMPP):
                     self.plugins[modname] = obj
 
         # Update commands cache
-        if self.available_commands(reset=True):
-            logger.info('Registered commands:\n%s', '\n'.join(self.display_commands()))
+        if self.commands.all(reset=True):
+            logger.info('Registered commands:\n%s', '\n'.join(self.commands.display()))
         else:
             logger.warning('NO commands registered')
 
@@ -374,48 +373,6 @@ class LudolphBot(ClientXMPP):
                         muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
             self.msg_send(presence['from'].bare, 'Hello %s!' % muc['nick'], mtype='groupchat')
 
-    def display_commands(self):
-        """
-        Return list of available commands suitable for logging.
-        """
-        return ['%s [%s]' % (name, cmd[1].split('.')[-1]) for name, cmd in self.commands.items()]
-
-    def available_commands(self, reset=False):
-        """
-        List of all available bot commands.
-        """
-        # Remove commands from disabled plugins
-        if reset:
-            for cmd_name, cmd in list(self.commands.items()):  # Create a list in python 3
-                if cmd[1] not in self.plugins:  # module name not in plugins
-                    del self.commands[cmd_name]
-            self._commands = None
-
-        # Sort and cache
-        if self._commands is None:
-            self._commands = sorted(self.commands.keys())
-
-        return self._commands
-
-    def get_command(self, cmdstr):
-        """
-        Find text in available commands and return command dict.
-        """
-        if not cmdstr:
-            return None
-
-        if cmdstr in self.available_commands():
-            cmd = self.commands[cmdstr]
-        else:
-            for key in self.available_commands():
-                if key.startswith(cmdstr):
-                    cmd = self.commands[key]
-                    break
-            else:
-                return None
-
-        return cmd
-
     def message(self, msg, types=('chat', 'normal')):
         """
         Incoming message handler.
@@ -424,7 +381,7 @@ class LudolphBot(ClientXMPP):
             return
 
         # Seek received text in available commands and get command
-        cmd = self.get_command(msg['body'].split()[0].strip())
+        cmd = self.commands.get_command(msg['body'].split()[0].strip())
 
         if cmd:
             start_time = time.time()
@@ -475,12 +432,10 @@ class LudolphBot(ClientXMPP):
         """
         Cleanup during reload phase. Runs before plugin loading in main.
         """
-        logger.info('Reinitializing commands')
-        self.commands.clear()
+        self.commands.reset()
 
         if self.webserver:
-            logger.info('Reinitializing webhooks')
-            self.webserver.webhooks.clear()
+            self.webserver.reset_webhooks()
             self.webserver.reset_webapp()
 
     def reload(self, config, plugins=None):

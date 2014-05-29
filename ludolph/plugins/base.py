@@ -33,7 +33,7 @@ class Base(LudolphPlugin):
         """
         # Global help or command help?
         if cmdstr:
-            cmd = self.xmpp.get_command(cmdstr)
+            cmd = self.xmpp.commands.get_command(cmdstr)
             if cmd:
                 # Remove whitespaces from __doc__ lines
                 desc = '\n'.join(map(str.strip, cmd[-1].split('\n')))
@@ -42,7 +42,7 @@ class Base(LudolphPlugin):
 
         # Create dict with module name as key and list of commands as value
         cmd_map = {}
-        for cmd_name in self.xmpp.available_commands():
+        for cmd_name in self.xmpp.commands.all():
             cmd = self.xmpp.commands[cmd_name]
             mod_name = cmd[1]
 
@@ -104,7 +104,7 @@ class Base(LudolphPlugin):
         """
         roster = self.xmpp.client_roster
 
-        return  '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
+        return '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
 
     # noinspection PyUnusedLocal
     @admin_required

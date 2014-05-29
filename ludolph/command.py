@@ -7,13 +7,54 @@ See the LICENSE file for copying permission.
 """
 from logging import getLogger
 
+__all__ = ('command', 'parameter_required', 'admin_required')
+
 logger = getLogger(__name__)
 
-COMMANDS = {}  # command : (name, module, doc)
+
+class Commands(dict):
+    """
+    Command names to (name, module, doc) mapping.
+    """
+    _cache = None  # Cached sorted list of commands
+
+    def reset(self):
+        """Used before bot reload"""
+        logger.info('Reinitializing commands')
+        self.clear()
+
+    def all(self, reset=False):
+        """List of all available bot commands"""
+        if self._cache is None or reset:
+            self._cache = sorted(self.keys())
+
+        return self._cache
+
+    def display(self):
+        """Return list of available commands suitable for logging output"""
+        return ['%s [%s]' % (name, cmd[1].split('.')[-1]) for name, cmd in self.items()]
+
+    def get_command(self, cmdstr):
+        """Find text in available commands and return command tuple"""
+        if not cmdstr:
+            return None
+
+        if cmdstr in self.all():
+            cmd = self[cmdstr]
+        else:
+            for key in self.all():
+                if key.startswith(cmdstr):
+                    cmd = self[key]
+                    break
+            else:
+                return None
+
+        return cmd
+
+
+COMMANDS = Commands()  # command : (name, module, doc)
 USERS = set()  # List of users
 ADMINS = set()  # List of admins
-
-__all__ = ('command', 'parameter_required', 'admin_required')
 
 
 def command(fun):

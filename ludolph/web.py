@@ -73,8 +73,13 @@ class WebServer(ServerAdapter):
         global WEBAPP
         WEBAPP.run(server=self)
 
+    def reset_webhooks(self):
+        logger.info('Reinitializing webhooks')
+        self.webhooks.clear()
+
     def reset_webapp(self):
         if self.server:
+            logger.info('Reinitializing web server')
             global WEBAPP
             del WEBAPP
             WEBAPP = LudolphBottle()
