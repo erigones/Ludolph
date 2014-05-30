@@ -402,7 +402,7 @@ class Zabbix(LudolphPlugin):
             if '@' in jid:
                 self.xmpp.msg_send(jid.strip(), msg)
             else:
-                logging.warning('Missing JID in maintenance %s (%s)"', mid, i['name'])
+                logging.warning('Missing JID in maintenance %s (%s)"', mid, name)
 
     # noinspection PyUnusedLocal
     @zabbix_command
