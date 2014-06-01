@@ -152,7 +152,7 @@ def _cronjob(fun):
             obj = PLUGINS[CRONJOBS[fun.__name__].fun.__module__]
             obj_fun = getattr(obj, fun.__name__)
         except (KeyError, AttributeError) as e:
-            logger.error('Cron job "%s" is not registered', fun.__name__, e)
+            logger.error('Cron job "%s" is not registered (%s)', fun.__name__, e)
             return None
         else:
             return obj_fun(*args, **kwargs)
