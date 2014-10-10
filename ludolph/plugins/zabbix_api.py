@@ -60,6 +60,7 @@ RE_HIDE_AUTH = (
     (re.compile(r'("auth": )".*?"'), r'\1"***"'),
     (re.compile(r'("password": )".*?"'), r'\1"***"'),
 )
+RELOGIN_INTERVAL = 180  # seconds
 
 
 def hide_auth(msg):
@@ -96,6 +97,7 @@ class ZabbixAPI(object):
     params = None
     method = None
     id = 0
+    last_login = None
 
     def __init__(self, server='http://localhost/zabbix', user=None, passwd=None,
                  log_level=logging.WARNING, timeout=10, r_query_len=10, **kwargs):
@@ -244,6 +246,8 @@ class ZabbixAPI(object):
         return json.dumps(obj)
 
     def login(self, user=None, password=None, save=True):
+        self.last_login = time.time()
+
         if user and password:
             l_user = user
             l_password = password
@@ -264,6 +268,15 @@ class ZabbixAPI(object):
         obj = self.json_obj('user.authenticate', {'user': l_user, 'password': l_password})
         result = self.do_request(obj)
         self.auth = result['result']
+
+    def relogin(self):
+        try:
+            self.auth = ''  # reset auth before relogin
+            self.login()
+        except ZabbixAPIException as e:
+            self.log(logging.ERROR, 'Zabbix API relogin error (%s)', e)
+            self.auth = ''  # logged_in() will always return False
+            raise e
 
     def logged_in(self):
         return bool(self.auth)
@@ -352,7 +365,12 @@ class ZabbixAPI(object):
 
     def check_auth(self):
         if not self.logged_in():
-            raise ZabbixAPIException('Not logged in.')
+            if self.last_login and (time.time() - self.last_login) > RELOGIN_INTERVAL:
+                self.log(logging.WARNING, 'Zabbix API not logged in. Performing Zabbix API relogin after %d seconds',
+                         RELOGIN_INTERVAL)
+                self.relogin()  # Will raise exception in case of login error
+            else:
+                raise ZabbixAPIException('Not logged in.')
 
 
 class ZabbixAPISubClass(object):
@@ -378,7 +396,7 @@ class ZabbixAPISubClass(object):
 
     def universal(self, method, opts):
         """
-        Check authentication and perform actual API request and re-login if needed.
+        Check authentication and perform actual API request and relogin if needed.
         """
         start_time = time.time()
         self.parent.check_auth()
@@ -389,16 +407,9 @@ class ZabbixAPISubClass(object):
             return self.parent.do_request(self.parent.json_obj(method, opts))['result']
         except ZabbixAPIException as ex:
             if str(ex).find('Not authorized while sending') >= 0:
-                self.parent.log(logging.WARNING, 'Zabbix API not logged in (%s). Performing Zabbix API re-login', ex)
-                try:
-                    self.parent.auth = ''  # reset auth before re-login
-                    self.parent.login()
-                except ZabbixAPIException as e:
-                    self.parent.log(logging.ERROR, 'Zabbix API login error (%s)', e)
-                    self.parent.auth = ''  # logged_in() will always return False
-                    raise e
-                else:
-                    return self.parent.do_request(self.parent.json_obj(method, opts))['result']
+                self.parent.log(logging.WARNING, 'Zabbix API not logged in (%s). Performing Zabbix API relogin', ex)
+                self.parent.relogin()  # Will raise exception in case of login error
+                return self.parent.do_request(self.parent.json_obj(method, opts))['result']
             else:
                 raise ex
         finally:
