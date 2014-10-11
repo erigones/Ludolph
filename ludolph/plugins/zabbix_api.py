@@ -60,7 +60,7 @@ RE_HIDE_AUTH = (
     (re.compile(r'("auth": )".*?"'), r'\1"***"'),
     (re.compile(r'("password": )".*?"'), r'\1"***"'),
 )
-RELOGIN_INTERVAL = 180  # seconds
+RELOGIN_INTERVAL = 60  # seconds
 
 
 def hide_auth(msg):
