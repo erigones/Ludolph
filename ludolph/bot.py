@@ -362,6 +362,9 @@ class LudolphBot(ClientXMPP):
                 logger.warning('Roster item: %s (%s) - removing!', i, roster[i]['subscription'])
                 self.send_presence(pto=i, ptype='unsubscribe')
                 self.del_roster_item(i)
+            elif roster[i]['subscription'] == 'to':
+                logger.info('Roster item: %s (%s) - sending presence subscription', i, roster[i]['subscription'])
+                self.send_presence_subscription(i)
             else:
                 logger.info('Roster item: %s (%s) - ok', i, roster[i]['subscription'])
 
