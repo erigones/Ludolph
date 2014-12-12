@@ -133,6 +133,7 @@ class Zabbix(LudolphPlugin):
             'monitored': True,
             'maintenance': False,
             'skipDependent': True,
+            'expandDescription': True,
             'filter': {'priority': None, 'value': 1},  # TRIGGER_VALUE_TRUE
             'selectHosts': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
             'selectLastEvent':  'extend',  # API_OUTPUT_EXTEND
