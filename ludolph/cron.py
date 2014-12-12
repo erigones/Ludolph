@@ -1,7 +1,7 @@
 """
 Ludolph: Monitoring Jabber Bot
 Original Library: Copyright (C) 2011 JS Lee (https://github.com/jsleetw/crontab.py)
-Ludolph Modification: Copyright (C) 2014 Erigones s. r. o.
+Ludolph Modification: Copyright (C) 2014 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
