@@ -137,7 +137,7 @@ class Zabbix(LudolphPlugin):
             'filter': {'priority': None, 'value': 1},  # TRIGGER_VALUE_TRUE
             'selectHosts': ['hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'],
             'selectLastEvent':  'extend',  # API_OUTPUT_EXTEND
-            'output': ['triggerid', 'value_flags', 'error', 'url', 'expression',
+            'output': ['triggerid', 'state', 'error', 'url', 'expression',
                        'description', 'priority', 'type', 'comments'],
             'sortfield': 'lastchange',
             'sortorder': 'DESC',  # ZBX_SORT_DOWN
@@ -180,7 +180,7 @@ class Zabbix(LudolphPlugin):
 
             # Trigger description
             desc = str(trigger['description'])
-            if trigger['error'] or int(trigger['value_flags']):
+            if trigger['error'] or int(trigger['state']):
                 desc += ' **??**'  # some kind of trigger error
 
             # Priority
