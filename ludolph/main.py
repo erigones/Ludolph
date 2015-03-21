@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2014 Erigones, s. r. o.
+Copyright (C) 2012-2015 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.

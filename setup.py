@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2012-2014 Erigones, s. r. o.
+# Copyright (C) 2012-2015 Erigones, s. r. o.
 # All Rights Reserved
 #
 # This software is licensed as described in the README.rst and LICENSE
