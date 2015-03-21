@@ -1,3 +1,6 @@
+# Ludolph 
+ldlph.py
+
 # Django stuff
 *.log
 *.pot
@@ -28,6 +31,10 @@ pip-log.txt
 # Eclipse
 .project
 .pydevproject
+
+# Environments
+envs
+envs3
 
 # OS files
 .DS_Store
