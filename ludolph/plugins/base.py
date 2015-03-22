@@ -7,6 +7,7 @@ See the file LICENSE for copying permission.
 """
 import time
 import logging
+import os
 
 # noinspection PyPep8Naming
 from ludolph.__init__ import __doc__ as ABOUT
@@ -105,6 +106,23 @@ class Base(LudolphPlugin):
         roster = self.xmpp.client_roster
 
         return '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
+
+    # noinspection PyUnusedLocal
+    @admin_required
+    @command
+    def avatar_list(self, msg):
+        """
+        List available avatars for Ludolph
+
+        Usage: avatar-list
+        """
+        avatar_dir = self.config.get('avatar_dir', None)
+        if not avatar_dir:
+            return 'ERROR: avatar_dir is not configured'
+
+        files = [f for f in os.listdir(avatar_dir) if os.path.isfile(os.path.join(avatar_dir, f))]
+
+        return 'List of available avatars: %s' % ', '.join(map(str, files))
 
     # noinspection PyUnusedLocal
     @admin_required

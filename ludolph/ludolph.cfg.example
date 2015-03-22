@@ -73,6 +73,8 @@ admins =
 # You can use @users, @admins or @room_users keywords here.
 #room_admins =
 
+# Path to directory with avatars
+#avatar_dir =
 
 ###############################################################################
 # Ludolph Plugins. You can enable plugins by uncommenting a configuration section.
