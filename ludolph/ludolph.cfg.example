@@ -24,7 +24,7 @@ enabled = False
 
 [xmpp]
 # Jabberbot nick name
-nickname = Ludolph
+nick = Ludolph
 
 # Username used for jabberbot to login (required)
 username = user@example.com
