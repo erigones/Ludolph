@@ -8,6 +8,8 @@ See the file LICENSE for copying permission.
 import time
 import logging
 import os
+import imghdr
+from sleekxmpp.exceptions import XMPPError
 
 # noinspection PyPep8Naming
 from ludolph.__init__ import __doc__ as ABOUT
@@ -16,6 +18,7 @@ from ludolph.__init__ import __version__ as VERSION
 from ludolph.command import command, parameter_required, admin_required
 from ludolph.web import webhook, request, abort
 from ludolph.plugins.plugin import LudolphPlugin
+from ludolph.utils import get_avatar_dir_list
 
 logger = logging.getLogger(__name__)
 
@@ -116,13 +119,91 @@ class Base(LudolphPlugin):
 
         Usage: avatar-list
         """
-        avatar_dir = self.config.get('avatar_dir', None)
-        if not avatar_dir:
-            return 'ERROR: avatar_dir is not configured'
+        files = []
+        for i in get_avatar_dir_list(self.config):
+            avatar_dir = os.path.join(*i)
 
-        files = [f for f in os.listdir(avatar_dir) if os.path.isfile(os.path.join(avatar_dir, f))]
+            try:
+                os.listdir(avatar_dir)
+            except OSError:
+                logger.warning('Avatars directory: %s does not exists.' % avatar_dir)
+                continue
+            else:
+                for f in os.listdir(avatar_dir):
+                    if os.path.isfile(os.path.join(avatar_dir, f)):
+                        files.append(f)
 
-        return 'List of available avatars: %s' % ', '.join(map(str, files))
+        if files:
+            return 'List of available avatars: %s' % ', '.join(map(str, files))
+        else:
+            return 'No avatars were found... :('
+
+    # noinspection PyUnusedLocal
+    @admin_required
+    @parameter_required(1)
+    @command
+    def avatar_set(self, msg, avatar_name):
+        """
+        Set avatar for Ludolph
+
+        Usage: avatar-set <avatar>
+        """
+        user = self.xmpp.get_jid(msg)
+        avatar_file = None
+
+        for i in get_avatar_dir_list(self.config):
+            avatar_dir = os.path.join(avatar_name, *i)
+
+            try:
+                avatar_file = open(os.path.join(avatar_dir, avatar_name))
+            except IOError:
+                continue
+            else:
+                break
+
+        if not avatar_file:
+            return 'ERROR: Avatar "%s" have not been found.\n' \
+                   'You can try list available avatars with command: **avatar-list**' % avatar_name
+        else:
+            self.xmpp.msg_send(user, 'I have found selected avatar, changing it might take few seconds...')
+
+        avatar = avatar_file.read()
+        avatar_type = 'image/%s' % imghdr.what('', avatar)
+        avatar_id = self.xmpp.plugin['xep_0084'].generate_id(avatar)
+        avatar_bytes = len(avatar)
+        avatar_file.close()
+
+        used_xep84 = False
+        try:
+            logger.debug('Publish XEP-0084 avatar data')
+            self.xmpp.plugin['xep_0084'].publish_avatar(avatar)
+            used_xep84 = True
+        except XMPPError as e:
+            logger.error('Could not publish XEP-0084 avatar: %s' % e.text)
+            return 'ERROR: Could not publish selected avatar'
+
+        try:
+            logger.debug('Publish XEP-0153 avatar vCard data')
+            self.xmpp.plugin['xep_0153'].set_avatar(avatar=avatar, mtype=avatar_type)
+        except XMPPError as e:
+            logger.error('Could not publish XEP-0153 vCard avatar: %s' % e.text)
+            return 'ERROR: Could not set vCard avatar'
+
+        self.xmpp.msg_send(user, 'Almost done, please be patient')
+
+        if used_xep84:
+            try:
+                logger.debug('Advertise XEP-0084 avatar metadata')
+                self.xmpp['xep_0084'].publish_avatar_metadata([
+                    {'id': avatar_id,
+                     'type': avatar_type,
+                     'bytes': avatar_bytes}
+                ])
+            except XMPPError as e:
+                logger.error('Could not publish XEP-0084 metadata: %s' % e.text)
+                return 'ERROR: Could not publish avatar metadata'
+
+        return 'Avatar has been changed :)'
 
     # noinspection PyUnusedLocal
     @admin_required

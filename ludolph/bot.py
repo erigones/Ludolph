@@ -64,6 +64,7 @@ class LudolphBot(ClientXMPP):
         self.register_plugin('xep_0045')  # Multi-User Chat
         self.register_plugin('xep_0199')  # XMPP Ping
         self.register_plugin('xep_0084')  # User Avatar
+        self.register_plugin('xep_0153')  # User Avatar vCard
 
         # Register event handlers
         self.add_event_handler('session_start', self.session_start, threaded=True)
