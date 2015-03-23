@@ -73,6 +73,7 @@ License
 
 For more information see the `LICENSE <https://github.com/erigones/Ludolph/blob/master/LICENSE>`_ file.
 
+Avatars have been designed by `Freepik.com <http://www.freepik.com>`_.
 
 ####
 
