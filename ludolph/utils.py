@@ -19,11 +19,3 @@ def parse_loglevel(name):
     return logging.INFO
 
 
-def get_avatar_dir_list(config):
-    """ Get list of directories where are avatars stored """
-    avatar_dir = config.get('avatar_dir', None)
-
-    if avatar_dir:
-        return ((avatar_dir,), (os.path.dirname(os.path.abspath(__file__)), 'avatars'))
-    else:
-        return ((os.path.dirname(os.path.abspath(__file__)), 'avatars'),)

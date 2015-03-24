@@ -10,6 +10,7 @@ import logging
 import os
 import imghdr
 from sleekxmpp.exceptions import XMPPError
+from glob import iglob
 
 # noinspection PyPep8Naming
 from ludolph.__init__ import __doc__ as ABOUT
@@ -18,7 +19,6 @@ from ludolph.__init__ import __version__ as VERSION
 from ludolph.command import command, parameter_required, admin_required
 from ludolph.web import webhook, request, abort
 from ludolph.plugins.plugin import LudolphPlugin
-from ludolph.utils import get_avatar_dir_list
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +110,21 @@ class Base(LudolphPlugin):
 
         return '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
 
+    def _get_avatar_dirs(self):
+        """ Get list of directories where are avatars stored """
+        avatar_dir = self.config.get('avatar_dir', None)
+        default_avatar_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'avatars')
+
+        if avatar_dir:
+            return (avatar_dir, default_avatar_dir)
+        else:
+            return (default_avatar_dir,)
+
+    @staticmethod
+    def _get_avatar_allowed_extensions():
+        """ Get list of extensions that are allowed for avatars """
+        return ('.png', '.jpg', '.jpeg', '.gif')
+
     # noinspection PyUnusedLocal
     @admin_required
     @command
@@ -120,21 +135,19 @@ class Base(LudolphPlugin):
         Usage: avatar-list
         """
         files = []
-        for i in get_avatar_dir_list(self.config):
-            avatar_dir = os.path.join(*i)
+        for avatar_dir in self._get_avatar_dirs():
 
-            try:
-                os.listdir(avatar_dir)
-            except OSError:
+            if os.path.isdir(avatar_dir):
+
+                for file_type in Base._get_avatar_allowed_extensions():
+                    for avatar in iglob(os.path.join(avatar_dir, '*' + file_type)):
+                        files.append(os.path.basename(avatar))
+            else:
                 logger.warning('Avatars directory: %s does not exists.' % avatar_dir)
                 continue
-            else:
-                for f in os.listdir(avatar_dir):
-                    if os.path.isfile(os.path.join(avatar_dir, f)):
-                        files.append(f)
 
         if files:
-            return 'List of available avatars: %s' % ', '.join(map(str, files))
+            return 'List of available avatars: %s' % ', '.join(files)
         else:
             return 'No avatars were found... :('
 
@@ -148,16 +161,26 @@ class Base(LudolphPlugin):
 
         Usage: avatar-set <avatar>
         """
+        if os.path.splitext(avatar_name)[1] not in Base._get_avatar_allowed_extensions():
+            return 'ERROR: You have requested file that is not supported.'
+
         user = self.xmpp.get_jid(msg)
         avatar_file = None
 
-        for i in get_avatar_dir_list(self.config):
-            avatar_dir = os.path.join(avatar_name, *i)
+        available_avatar_directories = self._get_avatar_dirs()
+        for avatar_dir in available_avatar_directories:
+            # Create full path to file requested by user
+            avatar_file = os.path.join(avatar_dir, avatar_name)
+            # Split absolute path for check if user is not trying to jump outside allowed dirs
+            path, name = os.path.split(os.path.abspath(avatar_file))
+
+            if path not in available_avatar_directories:
+                return 'ERROR: You are not allowed to set avatar outside defined directories.'
 
             try:
-                avatar_file = open(os.path.join(avatar_dir, avatar_name))
-            except IOError:
-                continue
+                avatar_file = open(avatar_file)
+            except (OSError, IOError):
+                avatar_file = None
             else:
                 break
 
