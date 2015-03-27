@@ -13,6 +13,7 @@ Features
 * Alerts from Zabbix
 * Multi-User Chat (XEP-0045)
 * Colorful messages (XEP-0071)
+* Use Avater (XEP-0084)
 * Roster management and ACL configuration
 * Plugins and commands::
 
@@ -27,6 +28,8 @@ Features
 
  * ludolph.plugins.base *
     * about - details about this project
+    * avatar-list - list available avatars for Ludolph (admin only)
+    * avatar-set - set avatar for Ludolph (admin only)
     * help - show this help
     * muc-invite - invite user to multi-user chat room (admin only)
     * roster-list - list of users on Ludolph's roster (admin only)
