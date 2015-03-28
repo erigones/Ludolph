@@ -30,6 +30,7 @@ Features
     * about - details about this project
     * avatar-list - list available avatars for Ludolph (admin only)
     * avatar-set - set avatar for Ludolph (admin only)
+    * broadcast - sent private message to every user in roster (admin only)
     * help - show this help
     * muc-invite - invite user to multi-user chat room (admin only)
     * roster-list - list of users on Ludolph's roster (admin only)

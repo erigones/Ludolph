@@ -245,6 +245,24 @@ class Base(LudolphPlugin):
         else:
             return 'User **' + user + '** cannot be removed from roster'
 
+    def _broadcast(self, message):
+        for jid in self.xmpp.client_roster:
+            self.xmpp.msg_send(jid, message)
+
+        return len(self.xmpp.client_roster)
+
+    # noinspection PyUnusedLocal
+    @admin_required
+    @parameter_required(1)
+    @command
+    def broadcast(self, msg, *args):
+        """
+        Send private message to every user in roster.
+
+        Usage: broadcast <message>
+        """
+        return 'Message broadcasted to %dx users.' % self._broadcast(' '.join(args))
+
     # noinspection PyUnusedLocal
     @command
     def uptime(self, msg):
@@ -294,7 +312,7 @@ class Base(LudolphPlugin):
         return 'pong'
 
     @webhook('/broadcast', methods=('POST',))
-    def broadcast(self):
+    def broadcast_msg(self):
         """
         Send private message to every user in roster.
         """
@@ -304,10 +322,7 @@ class Base(LudolphPlugin):
             logger.warning('Missing msg parameter in broadcast request')
             abort(400, 'Missing msg parameter')
 
-        for jid in self.xmpp.client_roster:
-            self.xmpp.msg_send(jid, msg)
-
-        return 'Message sent (%dx)' % len(self.xmpp.client_roster)
+        return 'Message sent (%dx)' % self._broadcast(msg)
 
     @webhook('/room', methods=('POST',))
     def roomtalk(self):
