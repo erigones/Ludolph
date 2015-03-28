@@ -35,6 +35,7 @@ Features
     * muc-invite - invite user to multi-user chat room (admin only)
     * roster-list - list of users on Ludolph's roster (admin only)
     * roster-remove - remove user from Ludolph's roster (admin only)
+    * shutdown - shutdown Ludolph bot
     * uptime - show Ludolph uptime
     * version - display Ludolph version
 

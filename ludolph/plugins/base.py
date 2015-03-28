@@ -11,6 +11,7 @@ import os
 import imghdr
 from sleekxmpp.exceptions import XMPPError
 from glob import iglob
+import signal
 
 # noinspection PyPep8Naming
 from ludolph.__init__ import __doc__ as ABOUT
@@ -278,6 +279,48 @@ class Base(LudolphPlugin):
         d, h = divmod(h, 24)
 
         return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
+
+    # noinspection PyUnusedLocal
+    @admin_required
+    @command
+    def shutdown(self, msg, announce=False, timeout=5):
+        """
+        Shutdown Ludolph bot.
+        announce: boolean - broadcast shutdown announcement
+        timeout: init - delayed shutdown in seconds
+
+        Usage: shutdown <announce> <timeout>
+        """
+        try:
+            timeout = int(timeout)
+        except ValueError:
+            return 'ERROR: timeout have to be numeric.'
+
+        user = self.xmpp.get_jid(msg)
+        warn_msg = 'Shutting down in %s seconds.'
+
+        if announce.lower() in ('yes', 'true', 't', 'y', '1', 'a', 'announce'):
+            announce = True
+            self._broadcast('User %s requested Ludolph shutdown.' % user)
+        else:
+            announce = False
+
+        while timeout > 0:
+
+            if timeout < 6 or timeout % 10 == 0:
+                if announce:
+                    self._broadcast(warn_msg % timeout)
+                else:
+                    self.xmpp.msg_send(user, warn_msg % timeout)
+
+            time.sleep(1)
+            timeout -= 1
+
+        if announce:
+            self._broadcast('Bye.')
+        else:
+            self.xmpp.msg_send(user, 'Bye.')
+        self.xmpp.shutdown(signal.SIGTERM, self)
 
     @admin_required
     @command
