@@ -120,7 +120,7 @@ def parameter_required(count):
     """
     def parameter_required_decorator(fun):
         def wrap(obj, msg, *args, **kwargs):
-            #Try to get command parameter
+            # Try to get command parameter
             params = msg['body'].strip().split()[1:]
 
             if len(params) < count:

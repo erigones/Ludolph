@@ -20,6 +20,7 @@ class LudolphBottle(Bottle):
     """
     Bottle web server - used for webhooks.
     """
+    # noinspection PyMethodMayBeStatic
     def default_error_handler(self, res):
         return 'ERROR %s: %s\n' % (res.status_code, res.body)
 

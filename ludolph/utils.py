@@ -6,7 +6,6 @@ This file is part of Ludolph.
 See the LICENSE file for copying permission.
 """
 import logging
-import os
 
 
 def parse_loglevel(name):

@@ -224,7 +224,7 @@ The example file is located in: %s\n\n""" % (
     signal.signal(signal.SIGINT, xmpp.shutdown)
     signal.signal(signal.SIGTERM, xmpp.shutdown)
     signal.signal(signal.SIGHUP, sighup)
-    #signal.siginterrupt(signal.SIGHUP, false)  # http://stackoverflow.com/a/4302037
+    # signal.siginterrupt(signal.SIGHUP, false)  # http://stackoverflow.com/a/4302037
 
     if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):
         xmpp.process(block=True)

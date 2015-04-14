@@ -188,7 +188,7 @@ class Zabbix(LudolphPlugin):
 
             # Last change and age
             dt = self.zapi.get_datetime(trigger['lastchange'])
-            #last = self.zapi.convert_datetime(dt)
+            # last = self.zapi.convert_datetime(dt)
             age = '^^%s^^' % self.zapi.get_age(dt)
 
             comments = ''
@@ -203,6 +203,7 @@ class Zabbix(LudolphPlugin):
                 for i, e in enumerate(events):
                     if e['eventid'] == event['eventid']:
                         for a in e['acknowledges']:
+                            # noinspection PyAugmentAssignment
                             acknowledges = '\n\t\t__%s: %s__' % (self.zapi.get_datetime(a['clock']),
                                                                  a['message']) + acknowledges
                         del events[i]
