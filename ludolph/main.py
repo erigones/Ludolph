@@ -23,6 +23,7 @@ else:
 
 from ludolph.utils import parse_loglevel
 from ludolph.bot import LudolphBot
+from ludolph.plugins.plugin import LudolphPlugin
 # noinspection PyPep8Naming
 from ludolph import __version__ as VERSION
 
@@ -178,7 +179,14 @@ The example file is located in: %s\n\n""" % (
             if plugin in config_base_sections:
                 continue
 
-            modname = 'ludolph.plugins.' + plugin
+            # Parse other possible imports
+            parsed_plugin = plugin.split('.')
+            if len(parsed_plugin) == 1:
+                modname = 'ludolph.plugins.' + plugin
+            else:
+                modname = plugin
+                plugin = parsed_plugin[-1]
+
             logger.info('Loading plugin: %s', modname)
 
             try:
@@ -187,7 +195,13 @@ The example file is located in: %s\n\n""" % (
                 if reinit and getattr(module, '_loaded_', False):
                     imp.reload(module)
                 module._loaded_ = True
-                plugins[modname] = (plugin, getattr(module, clsname))
+                imported_class = getattr(module, clsname)
+
+                if not issubclass(imported_class, LudolphPlugin):
+                    logger.error('Plugin: %s is not LudolphPlugin instance', modname)
+                    raise TypeError
+
+                plugins[modname] = (plugin, imported_class)
             except Exception as ex:
                 logger.critical('Could not load plugin: %s', modname)
                 logger.exception(ex)
