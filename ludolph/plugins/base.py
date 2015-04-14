@@ -131,7 +131,7 @@ class Base(LudolphPlugin):
     @command
     def avatar_list(self, msg):
         """
-        List available avatars for Ludolph
+        List available avatars for Ludolph.
 
         Usage: avatar-list
         """
@@ -159,7 +159,7 @@ class Base(LudolphPlugin):
     @command
     def avatar_set(self, msg, avatar_name):
         """
-        Set avatar for Ludolph
+        Set avatar for Ludolph.
 
         Usage: avatar-set <avatar>
         """
