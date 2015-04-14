@@ -1,44 +1,76 @@
-# Ludolph 
-ldlph.py
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
 
-# Django stuff
-*.log
-*.pot
-*.pyc
-local_settings.py
-config.cfg
+# C extensions
+*.so
 
-# Packages
-*.egg
-*.egg-info
-dist
-build
-eggs
-parts
-var
-sdist
-develop-eggs
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
 .installed.cfg
+*.egg
 MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
 
 # Installer logs
 pip-log.txt
+pip-delete-this-directory.txt
 
 # Unit test / coverage reports
+htmlcov/
+.tox/
 .coverage
-.tox
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
 
-# Eclipse
-.project
-.pydevproject
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Ludolph Testing
+ldlph.py
 
 # Environments
 envs
 envs3
 
-# OS files
-.DS_Store
-*.swp
+# Eclipse
+.project
+.pydevproject
 
 # PyCharm
 .idea
+
+# OS files
+.DS_Store
+*.swp
