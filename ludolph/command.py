@@ -6,6 +6,7 @@ This file is part of Ludolph.
 See the LICENSE file for copying permission.
 """
 from logging import getLogger
+import shlex
 
 __all__ = ('command', 'parameter_required', 'admin_required')
 
@@ -74,7 +75,7 @@ def command(fun):
             if fun.__defaults__:
                 required_pos = len(args) + 1
                 optional_end = required_pos + len(fun.__defaults__)
-                optional_args = msg['body'].strip().split()[required_pos:optional_end]
+                optional_args = shlex.split(msg['body'].strip())[required_pos:optional_end]
                 args += tuple(optional_args)
 
             # Reply with function output
@@ -120,8 +121,8 @@ def parameter_required(count):
     """
     def parameter_required_decorator(fun):
         def wrap(obj, msg, *args, **kwargs):
-            #Try to get command parameter
-            params = msg['body'].strip().split()[1:]
+            # Try to get command parameter
+            params = shlex.split(msg['body'].strip())[1:]
 
             if len(params) < count:
                 user = obj.xmpp.get_jid(msg)

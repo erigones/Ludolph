@@ -51,7 +51,7 @@ class Base(LudolphPlugin):
             cmd = self.xmpp.commands[cmd_name]
             mod_name = cmd[1]
 
-            if not mod_name in cmd_map:
+            if mod_name not in cmd_map:
                 cmd_map[mod_name] = []
 
             cmd_map[mod_name].append(cmd_name)
@@ -103,7 +103,7 @@ class Base(LudolphPlugin):
     @command
     def roster_list(self, msg):
         """
-        List of users on Ludolph's roster (admin only).
+        List of users on Ludolphs roster (admin only).
 
         Usage: roster-list
         """
@@ -117,25 +117,26 @@ class Base(LudolphPlugin):
         default_avatar_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'avatars')
 
         if avatar_dir:
-            return (avatar_dir, default_avatar_dir)
+            return avatar_dir, default_avatar_dir
         else:
-            return (default_avatar_dir,)
+            return default_avatar_dir,
 
     @staticmethod
     def _get_avatar_allowed_extensions():
         """ Get list of extensions that are allowed for avatars """
-        return ('.png', '.jpg', '.jpeg', '.gif')
+        return '.png', '.jpg', '.jpeg', '.gif'
 
     # noinspection PyUnusedLocal
     @admin_required
     @command
     def avatar_list(self, msg):
         """
-        List available avatars for Ludolph
+        List available avatars for Ludolph.
 
         Usage: avatar-list
         """
         files = []
+
         for avatar_dir in self._get_avatar_dirs():
 
             if os.path.isdir(avatar_dir):
@@ -158,7 +159,7 @@ class Base(LudolphPlugin):
     @command
     def avatar_set(self, msg, avatar_name):
         """
-        Set avatar for Ludolph
+        Set avatar for Ludolph.
 
         Usage: avatar-set <avatar>
         """
@@ -235,7 +236,7 @@ class Base(LudolphPlugin):
     @command
     def roster_remove(self, msg, user):
         """
-        Remove user from Ludolph's roster (admin only).
+        Remove user from Ludolphs roster (admin only).
 
         Usage: roster-remove <JID>
         """
@@ -299,7 +300,7 @@ class Base(LudolphPlugin):
         user = self.xmpp.get_jid(msg)
         warn_msg = 'Shutting down in %s seconds.'
 
-        if announce.lower() in ('yes', 'true', 't', 'y', '1', 'a', 'announce'):
+        if str(announce).lower() in ('yes', 'true', 't', 'y', '1', 'a', 'announce'):
             announce = True
             self._broadcast('User %s requested Ludolph shutdown.' % user)
         else:

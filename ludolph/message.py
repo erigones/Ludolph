@@ -45,7 +45,7 @@ TEXT2HTML = (
     (r(r'([Hh]igh)'), r'<span style="color:#FF6600;"><strong>\1</strong></span>'),
     (r(r'([Aa]verage)'), r'<span style="color:#FF9900;"><strong>\1</strong></span>'),
     (r(r'([Ww]arning)'), r'<span style="color:#FFCC00;"><strong>\1</strong></span>'),
-    #(r(r'([Ii]nformation)'), r'<span style="color:#FFFF00;"><strong>\1</strong></span>'),
+    # (r(r'([Ii]nformation)'), r'<span style="color:#FFFF00;"><strong>\1</strong></span>'),
     (r(r'(Monitored)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
     (r(r'(Not\ monitored)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
     ('\n', '<br/>\n'),
@@ -66,7 +66,7 @@ def blue(s):
 
 class LudolphMessage(object):
     """
-    Creating and sending bot's messages (replies).
+    Creating and sending bots messages (replies).
     """
     mbody = None
     mhtml = None
