@@ -8,18 +8,23 @@ See the LICENSE file for copying permission.
 
 import os
 import sys
-import imp
 import signal
 import logging
 
 PY3 = sys.version_info[0] > 2
-# In order to make sure that Unicode is handled properly
-# in Python 2.x, reset the default encoding.
+
 if PY3:
     # noinspection PyUnresolvedReferences
     from configparser import RawConfigParser
 else:
+    # noinspection PyUnresolvedReferences
     from ConfigParser import RawConfigParser
+
+try:
+    # noinspection PyCompatibility
+    from importlib import reload
+except ImportError:
+    from imp import reload
 
 from ludolph.utils import parse_loglevel
 from ludolph.bot import LudolphBot
@@ -121,7 +126,7 @@ The example file is located in: %s\n\n""" % (
         config = RawConfigParser()
         if reopen:
             fp = open(fp.name)
-        config.readfp(fp)
+        config.readfp(fp)  # TODO: Deprecated since python 3.2
         fp.close()
         return config
     config = load_config(cfg_fp)
@@ -174,13 +179,14 @@ The example file is located in: %s\n\n""" % (
         plugins = {}
 
         for plugin in config.sections():
-            plugin = plugin.lower().strip()
+            plugin = plugin.strip()
 
             if plugin in config_base_sections:
                 continue
 
             # Parse other possible imports
             parsed_plugin = plugin.split('.')
+
             if len(parsed_plugin) == 1:
                 modname = 'ludolph.plugins.' + plugin
             else:
@@ -193,13 +199,12 @@ The example file is located in: %s\n\n""" % (
                 clsname = plugin[0].upper() + plugin[1:]
                 module = __import__(modname, fromlist=[clsname])
                 if reinit and getattr(module, '_loaded_', False):
-                    imp.reload(module)
+                    reload(module)
                 module._loaded_ = True
                 imported_class = getattr(module, clsname)
 
                 if not issubclass(imported_class, LudolphPlugin):
-                    logger.error('Plugin: %s is not LudolphPlugin instance', modname)
-                    raise TypeError
+                    raise TypeError('Plugin: %s is not LudolphPlugin instance' % modname)
 
                 plugins[modname] = (plugin, imported_class)
             except Exception as ex:

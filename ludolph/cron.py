@@ -68,7 +68,7 @@ class CronJob(object):
         if value is None or value == '*':
             return star
 
-        if isinstance(value, (int, long)):
+        if isinstance(value, int):
             value = (value,)
         elif not (value and getattr(value, '__iter__', False)):
             raise ValueError('Invalid date/time field')

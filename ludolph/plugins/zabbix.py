@@ -19,7 +19,6 @@ from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 10
-DUTY_GROUP = 'On-Call Duty'
 
 
 def zabbix_command(fun):
@@ -277,8 +276,8 @@ class Zabbix(LudolphPlugin):
 
         return 'Event ID(s) **%s** acknowledged' % ','.join(map(str, res.get('eventids', ())))
 
-    def _search_hosts(self, *hoststrs):
-        """Search zabbix hosts by multiple host search strings. Return dict mapping host IDs to host names"""
+    def _search_hosts(self, *host_strings):
+        """Search zabbix hosts by multiple host search strings. Return dict mapping of host IDs to host names"""
         res = {}
         params = {
             'output': ['hostid', 'name'],
@@ -286,15 +285,15 @@ class Zabbix(LudolphPlugin):
             'searchByAny': True,
         }
 
-        for hoststr in hoststrs:
-            params['search'] = {'name': hoststr}
+        for host_str in host_strings:
+            params['search'] = {'name': host_str}
 
             for host in self.zapi.host.get(params):
                 res[host['hostid']] = host['name']
 
         return res
 
-    def _search_groups(self, *groupstrs):
+    def _search_groups(self, *group_strings):
         """Search zabbix host groups by multiple group search strings. Return dict mapping group IDs to group names"""
         res = {}
         params = {
@@ -303,8 +302,8 @@ class Zabbix(LudolphPlugin):
             'searchByAny': True,
         }
 
-        for groupstr in groupstrs:
-            params['search'] = {'name': groupstr}
+        for group_str in group_strings:
+            params['search'] = {'name': group_str}
 
             for host in self.zapi.hostgroup.get(params):
                 res[host['groupid']] = host['name']
@@ -380,6 +379,36 @@ class Zabbix(LudolphPlugin):
 
         return 'Added maintenance ID **%s** for %s' % (res['maintenanceids'][0], desc)
 
+    # noinspection PyUnusedLocal
+    def _outage_list(self, msg):
+        """
+        Show current maintenance periods.
+
+        Usage: outage
+        """
+        out = []
+        # Display list of maintenances
+        maintenances = self.zapi.maintenance.get({
+            'output': 'extend',
+            'sortfield': ['maintenanceid', 'name'],
+            'sortorder': 'ASC',
+        })
+
+        for i in maintenances:
+            if i['description']:
+                desc = '\n\t^^%s^^' % i['description']
+            else:
+                desc = ''
+
+            since = self.zapi.timestamp_to_datetime(i['active_since'])
+            until = self.zapi.timestamp_to_datetime(i['active_till'])
+            out.append('**%s**\t%s - %s\t__%s__%s\n' % (i['maintenanceid'], since, until, i['name'], desc))
+
+        out.append('\n**%d** maintenances are shown.\n%s' % (len(maintenances),
+                                                             self.zapi.server + '/maintenance.php?groupid=0'))
+
+        return '\n'.join(out)
+
     @zabbix_command
     @parameter_required(0)
     @command
@@ -404,28 +433,7 @@ class Zabbix(LudolphPlugin):
             elif action == 'del':
                 return self._outage_del(msg, *args[1:])
 
-        out = []
-        # Display list of maintenances
-        maintenances = self.zapi.maintenance.get({
-            'output': 'extend',
-            'sortfield': ['maintenanceid', 'name'],
-            'sortorder': 'ASC',
-        })
-
-        for i in maintenances:
-            if i['description']:
-                desc = '\n\t^^%s^^' % i['description']
-            else:
-                desc = ''
-
-            since = self.zapi.timestamp_to_datetime(i['active_since'])
-            until = self.zapi.timestamp_to_datetime(i['active_till'])
-            out.append('**%s**\t%s - %s\t__%s__%s\n' % (i['maintenanceid'], since, until, i['name'], desc))
-
-        out.append('\n**%d** maintenances are shown.\n%s' % (len(maintenances),
-                                                             self.zapi.server + '/maintenance.php?groupid=0'))
-
-        return '\n'.join(out)
+        return self._outage_list(msg)
 
     @cronjob(minute=range(0, 60, 5))
     def maintenance(self):
