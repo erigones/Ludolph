@@ -122,7 +122,7 @@ def webhook(path, methods=('GET',)):
                             fun.__name__, fun.__module__, WEBHOOKS[fun.__name__][0])
             return None
 
-        logging.debug('Registering web hook "%s" from plugin "%s" to URL "%"', fun.__name__, fun.__module__, path)
+        logging.debug('Registering web hook "%s" from plugin "%s" to URL "%s"', fun.__name__, fun.__module__, path)
         WEBAPP.route(path, methods, _webview(fun))
         WEBHOOKS[fun.__name__] = (fun.__module__, path)
 
