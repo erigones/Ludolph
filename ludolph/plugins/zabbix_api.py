@@ -8,6 +8,7 @@ Zabbix API Python Library.
 Original Ruby Library is Copyright (C) 2009 Andrew Nelson nelsonab(at)red-tux(dot)net
 Python Library is Copyright (C) 2009 Brett Lentz brett.lentz(at)gmail(dot)com
                   Copyright (C) 2013-2015 Erigones, s. r. o. erigones(at)erigones(dot)com
+                  Copyright (C) 2014-2015 https://github.com/gescheit/scripts
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
@@ -28,10 +29,10 @@ NOTES:
 The API requires zabbix 1.8 or later.
 Currently, not all of the API is implemented, and some functionality is broken. This is a work in progress.
 """
-
+from logging import getLogger, DEBUG, INFO, WARNING, ERROR
+from collections import deque
 import base64
 import hashlib
-import logging
 import re
 import datetime
 import json
@@ -42,9 +43,6 @@ try:
 except ImportError:
     # noinspection PyUnresolvedReferences,PyPep8Naming
     import urllib.request as urllib2  # python3
-
-from collections import deque
-
 
 PARENT_LOGGER = __name__
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -73,21 +71,25 @@ def hide_auth(msg):
 
 class ZabbixAPIException(Exception):
     """
-    Generic zabbix api exception.
-    code list:
+    Generic zabbix API exception.
+    """
+    def __init__(self, msg):
+        super(ZabbixAPIException, self).__init__(hide_auth(msg))  # Remove sensitive information
+
+
+class ZabbixAPIError(ZabbixAPIException):
+    """
+    Structured zabbix API error.
+
+    Code list:
          -32602 - Invalid params (eg already exists)
          -32500 - no permissions
     """
-    def __init__(self, message, *args, **kwargs):
-        message = hide_auth(message)  # Remove sensitive information
-        super(ZabbixAPIException, self).__init__(message, *args, **kwargs)
+    _error_template = {'code': -1, 'message': None, 'data': None}
 
-
-class AlreadyExists(ZabbixAPIException):
-    """
-    Zabbix object already exists.
-    """
-    pass
+    def __init__(self, msg, **kwargs):
+        self.error = dict(self._error_template, **kwargs)
+        super(ZabbixAPIError, self).__init__(msg)
 
 
 class ZabbixAPI(object):
@@ -100,7 +102,7 @@ class ZabbixAPI(object):
     last_login = None
 
     def __init__(self, server='http://localhost/zabbix', user=None, passwd=None,
-                 log_level=logging.WARNING, timeout=10, r_query_len=10, **kwargs):
+                 log_level=WARNING, timeout=10, r_query_len=10, **kwargs):
         """
         Create an API object.
         We're going to use proto://server/path to find the JSON-RPC api.
@@ -113,7 +115,7 @@ class ZabbixAPI(object):
         :param int r_query_len: Max length of query history
         :param **kwargs: Data to pass to each api module
         """
-        self.logger = logging.getLogger(PARENT_LOGGER)
+        self.logger = getLogger(PARENT_LOGGER)
         self.set_log_level(log_level)
         self.server = server
         self.url = server + '/api_jsonrpc.php'
@@ -122,51 +124,14 @@ class ZabbixAPI(object):
         self.httppasswd = passwd
         self.timeout = timeout
         self.r_query = deque([], maxlen=r_query_len)
-
-        # sub-class instances
-        self.usergroup = ZabbixAPISubClass(self, dict({'prefix': 'usergroup'}, **kwargs))
-        self.user = ZabbixAPISubClass(self, dict({'prefix': 'user'}, **kwargs))
-        self.host = ZabbixAPISubClass(self, dict({'prefix': 'host'}, **kwargs))
-        self.item = ZabbixAPISubClass(self, dict({'prefix': 'item'}, **kwargs))
-        self.hostgroup = ZabbixAPISubClass(self, dict({'prefix': 'hostgroup'}, **kwargs))
-        self.hostinterface = ZabbixAPISubClass(self, dict({'prefix': 'hostinterface'}, **kwargs))
-        self.application = ZabbixAPISubClass(self, dict({'prefix': 'application'}, **kwargs))
-        self.trigger = ZabbixAPISubClass(self, dict({'prefix': 'trigger'}, **kwargs))
-        self.template = ZabbixAPISubClass(self, dict({'prefix': 'template'}, **kwargs))
-        self.action = ZabbixAPISubClass(self, dict({'prefix': 'action'}, **kwargs))
-        self.alert = ZabbixAPISubClass(self, dict({'prefix': 'alert'}, **kwargs))
-        self.info = ZabbixAPISubClass(self, dict({'prefix': 'info'}, **kwargs))
-        self.event = ZabbixAPISubClass(self, dict({'prefix': 'event'}, **kwargs))
-        self.graph = ZabbixAPISubClass(self, dict({'prefix': 'graph'}, **kwargs))
-        self.graphitem = ZabbixAPISubClass(self, dict({'prefix': 'graphitem'}, **kwargs))
-        self.map = ZabbixAPISubClass(self, dict({'prefix': 'map'}, **kwargs))
-        self.screen = ZabbixAPISubClass(self, dict({'prefix': 'screen'}, **kwargs))
-        self.script = ZabbixAPISubClass(self, dict({'prefix': 'script'}, **kwargs))
-        self.usermacro = ZabbixAPISubClass(self, dict({'prefix': 'usermacro'}, **kwargs))
-        self.drule = ZabbixAPISubClass(self, dict({'prefix': 'drule'}, **kwargs))
-        self.history = ZabbixAPISubClass(self, dict({'prefix': 'history'}, **kwargs))
-        self.maintenance = ZabbixAPISubClass(self, dict({'prefix': 'maintenance'}, **kwargs))
-        self.proxy = ZabbixAPISubClass(self, dict({'prefix': 'proxy'}, **kwargs))
-        self.apiinfo = ZabbixAPISubClass(self, dict({'prefix': 'apiinfo'}, **kwargs))
-        self.configuration = ZabbixAPISubClass(self, dict({'prefix': 'configuration'}, **kwargs))
-        self.dcheck = ZabbixAPISubClass(self, dict({'prefix': 'dcheck'}, **kwargs))
-        self.dhost = ZabbixAPISubClass(self, dict({'prefix': 'dhost'}, **kwargs))
-        self.discoveryrule = ZabbixAPISubClass(self, dict({'prefix': 'discoveryrule'}, **kwargs))
-        self.dservice = ZabbixAPISubClass(self, dict({'prefix': 'dservice'}, **kwargs))
-        self.iconmap = ZabbixAPISubClass(self, dict({'prefix': 'iconmap'}, **kwargs))
-        self.image = ZabbixAPISubClass(self, dict({'prefix': 'image'}, **kwargs))
-        self.mediatype = ZabbixAPISubClass(self, dict({'prefix': 'mediatype'}, **kwargs))
-        self.service = ZabbixAPISubClass(self, dict({'prefix': 'service'}, **kwargs))
-        self.templatescreen = ZabbixAPISubClass(self, dict({'prefix': 'templatescreen'}, **kwargs))
-        self.usermedia = ZabbixAPISubClass(self, dict({'prefix': 'usermedia'}, **kwargs))
-        self.hostinterface = ZabbixAPISubClass(self, dict({'prefix': 'hostinterface'}, **kwargs))
-        self.triggerprototype = ZabbixAPISubClass(self, dict({'prefix': 'triggerprototype'}, **kwargs))
-        self.graphprototype = ZabbixAPISubClass(self, dict({'prefix': 'graphprototype'}, **kwargs))
-        self.itemprototype = ZabbixAPISubClass(self, dict({'prefix': 'itemprototype'}, **kwargs))
-        self.webcheck = ZabbixAPISubClass(self, dict({'prefix': 'webcheck'}, **kwargs))
-        self.trends = ZabbixAPISubClass(self, dict({'prefix': 'trends'}, **kwargs))
-
+        self.kwargs = kwargs
         self.debug('url: %s', self.url)
+
+    def __getattr__(self, name):
+        api_method = ZabbixAPISubClass(self, name)
+        setattr(self, name, api_method)
+
+        return api_method
 
     def set_log_level(self, level):
         self.debug('Set logging level to %d', level)
@@ -228,9 +193,9 @@ class ZabbixAPI(object):
         return self.logger.log(level, msg, *args)
 
     def debug(self, msg, *args):
-        return self.log(logging.DEBUG, msg, *args)
+        return self.log(DEBUG, msg, *args)
 
-    def json_obj(self, method, params=None):
+    def json_obj(self, method, params=None, auth=True):
         if params is None:
             params = {}
 
@@ -238,9 +203,10 @@ class ZabbixAPI(object):
             'jsonrpc': '2.0',
             'method': method,
             'params': params,
-            'auth': self.auth,
-            'id': self.id
+            'auth': self.auth if auth else None,
+            'id': self.id,
         }
+
         self.debug('json_obj: %s', obj)
 
         return json.dumps(obj)
@@ -265,7 +231,7 @@ class ZabbixAPI(object):
         # Don't print the raw password.
         hashed_pw_string = 'md5(' + hashlib.md5(l_password.encode('utf-8')).hexdigest() + ')'
         self.debug('Trying to login with %s:%s', repr(l_user), repr(hashed_pw_string))
-        obj = self.json_obj('user.authenticate', {'user': l_user, 'password': l_password})
+        obj = self.json_obj('user.login', {'user': l_user, 'password': l_password}, auth=False)
         result = self.do_request(obj)
         self.auth = result['result']
 
@@ -274,9 +240,9 @@ class ZabbixAPI(object):
             self.auth = ''  # reset auth before relogin
             self.login()
         except ZabbixAPIException as e:
-            self.log(logging.ERROR, 'Zabbix API relogin error (%s)', e)
+            self.log(ERROR, 'Zabbix API relogin error (%s)', e)
             self.auth = ''  # logged_in() will always return False
-            raise e
+            raise
 
     def logged_in(self):
         return bool(self.auth)
@@ -340,33 +306,36 @@ class ZabbixAPI(object):
         try:
             jobj = json.loads(reads.decode('utf-8'))
         except ValueError as e:
-            self.log(logging.ERROR, 'Unable to decode. returned string: %s', reads)
+            self.log(ERROR, 'Unable to decode. returned string: %s', reads)
             raise ZabbixAPIException('Unable to decode response: ' + str(e))
 
         self.debug('Response Body: %s', jobj)
         self.id += 1
 
-        if 'error' in jobj:  # some exception
-            msg = 'Error %s: %s, %s while sending %s' % (jobj['error']['code'], jobj['error']['message'],
-                                                         jobj['error']['data'], str(json_obj))
+        if 'error' in jobj:  # zabbix API error
+            error = jobj['error']
 
-            if re.search('.*already\sexists.*', jobj['error']['data'], re.I):  # already exists
-                raise AlreadyExists(msg, jobj['error']['code'])
-            else:
-                raise ZabbixAPIException(msg, jobj['error']['code'])
+            if isinstance(error, dict):
+                try:
+                    msg = 'Error %s: %s, %s while sending %s' % (error['code'], error['message'], error['data'],
+                                                                 str(json_obj))
+                except KeyError:
+                    msg = '%s' % error
+
+                raise ZabbixAPIError(msg, **error)
 
         return jobj
 
     def api_version(self, **options):
         self.check_auth()
-        obj = self.do_request(self.json_obj('APIInfo.version', options))
+        obj = self.do_request(self.json_obj('apiinfo.version', options, auth=False))
 
         return obj['result']
 
     def check_auth(self):
         if not self.logged_in():
             if self.last_login and (time.time() - self.last_login) > RELOGIN_INTERVAL:
-                self.log(logging.WARNING, 'Zabbix API not logged in. Performing Zabbix API relogin after %d seconds',
+                self.log(WARNING, 'Zabbix API not logged in. Performing Zabbix API relogin after %d seconds',
                          RELOGIN_INTERVAL)
                 self.relogin()  # Will raise exception in case of login error
             else:
@@ -377,21 +346,18 @@ class ZabbixAPISubClass(object):
     """
     Wrapper class to ensure all calls go through the parent object.
     """
-    def __init__(self, parent, data, **kwargs):
-        self.data = data
+    def __init__(self, parent, prefix):
+        self.prefix = prefix
         self.parent = parent
-        self.parent.debug('Creating %s', self.__class__.__name__)
-
-        # Save any extra info passed in
-        for key, val in kwargs.items():
-            setattr(self, key, val)
+        self.log = self.parent.log
+        self.log(DEBUG, 'Creating %s', self.__class__.__name__)
 
     def __getattr__(self, name):
-        if self.data['prefix'] == 'configuration' and name == 'import_':  # workaround for "import" method
+        if self.prefix == 'configuration' and name == 'import_':  # workaround for "import" method
             name = 'import'
 
         def method(*opts):
-            return self.universal('%s.%s' % (self.data['prefix'], name), opts[0])
+            return self.universal('%s.%s' % (self.prefix, name), opts[0])
         return method
 
     def universal(self, method, opts):
@@ -400,18 +366,18 @@ class ZabbixAPISubClass(object):
         """
         start_time = time.time()
         self.parent.check_auth()
-        self.parent.log(logging.INFO, '[%s-%05d] Calling Zabbix API method "%s"', start_time, self.parent.id, method)
-        self.parent.log(logging.DEBUG, '\twith options: %s', opts)
+        self.log(INFO, '[%s-%05d] Calling Zabbix API method "%s"', start_time, self.parent.id, method)
+        self.log(DEBUG, '\twith options: %s', opts)
 
         try:
             return self.parent.do_request(self.parent.json_obj(method, opts))['result']
         except ZabbixAPIException as ex:
             if str(ex).find('Not authorized while sending') >= 0:
-                self.parent.log(logging.WARNING, 'Zabbix API not logged in (%s). Performing Zabbix API relogin', ex)
+                self.log(WARNING, 'Zabbix API not logged in (%s). Performing Zabbix API relogin', ex)
                 self.parent.relogin()  # Will raise exception in case of login error
                 return self.parent.do_request(self.parent.json_obj(method, opts))['result']
             else:
                 raise ex
         finally:
-            self.parent.log(logging.INFO, '[%s-%05d] Zabbix API method "%s" finished in %g seconds',
-                            start_time, self.parent.id, method, (time.time() - start_time))
+            self.log(INFO, '[%s-%05d] Zabbix API method "%s" finished in %g seconds',
+                     start_time, self.parent.id, method, (time.time() - start_time))
