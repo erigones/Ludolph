@@ -14,7 +14,7 @@ from ludolph.cron import cronjob
 from ludolph.command import command, parameter_required
 from ludolph.message import red, green
 from ludolph.plugins.plugin import LudolphPlugin
-from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException
+from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException, ZabbixAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,10 @@ def zabbix_command(fun):
 
         try:
             return fun(obj, msg, *args, **kwargs)
+        except ZabbixAPIError as ex:  # API command/application problem
+            return api_error('%(message)s %(code)s: %(data)s' % ex.error)
         except ZabbixAPIException as ex:
-            # API command problem
-            return api_error('Zabbix API error (%s)' % ex)
+            return api_error('Zabbix API error (%s)' % ex)  # API connection/transport problem problem
 
     return wrap
 
