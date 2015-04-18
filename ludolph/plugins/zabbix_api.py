@@ -102,18 +102,16 @@ class ZabbixAPI(object):
     last_login = None
 
     def __init__(self, server='http://localhost/zabbix', user=None, passwd=None,
-                 log_level=WARNING, timeout=10, r_query_len=10, **kwargs):
+                 log_level=WARNING, timeout=10, r_query_len=10):
         """
         Create an API object.
         We're going to use proto://server/path to find the JSON-RPC api.
-        :param str server: Server to connect to
-        :param str path: Path leading to the zabbix install
+        :param str server: Server URL to connect to
         :param str user: Optional HTTP auth username
         :param str passwd: Optional HTTP auth password
         :param int log_level: Logging level
         :param int timeout: Timeout for HTTP requests to api
         :param int r_query_len: Max length of query history
-        :param **kwargs: Data to pass to each api module
         """
         self.logger = getLogger(PARENT_LOGGER)
         self.set_log_level(log_level)
@@ -124,7 +122,6 @@ class ZabbixAPI(object):
         self.httppasswd = passwd
         self.timeout = timeout
         self.r_query = deque([], maxlen=r_query_len)
-        self.kwargs = kwargs
         self.debug('url: %s', self.url)
 
     def __getattr__(self, name):
