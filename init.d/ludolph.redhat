@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # chkconfig:   345 99 1
 #
@@ -12,20 +12,28 @@
 # Description:       Monitoring Jabber Bot
 ### END INIT INFO
  
-NAME=ludolph
-USER=zabbixsrv
-PIDFILE=/var/run/zabbix/${NAME}.pid
+NAME="ludolph"
+USER="daemon"
+PIDDIR="/var/run/${NAME}"
+PIDFILE="${PIDDIR}/${NAME}.pid"
 DAEMON="/usr/bin/${NAME}"
 DESC="Ludolph - Monitoring Jabber Bot"
-
-test -x ${DAEMON} || exit 0
 
 # Source function library.
 . /etc/rc.d/init.d/functions
 
+test -x ${DAEMON} || exit 4
+
+check_pid_dir() {
+    if [ ! -d "${PIDDIR}" ]; then
+        mkdir "${PIDDIR}" && chown ${USER} "${PIDDIR}" || return 5
+    fi
+    return 0
+}
+
 rh_start() {
     echo -n "Starting ${DESC}: "
-    daemon --pidfile=${PIDFILE} --user=${USER} ${DAEMON}
+    check_pid_dir && daemon --pidfile=${PIDFILE} --user=${USER} ${DAEMON}
     RETVAL=$?
     echo
     return $RETVAL

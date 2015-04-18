@@ -9,68 +9,116 @@
 # Description:       Monitoring Jabber Bot
 ### END INIT INFO
  
-. /lib/lsb/init-functions
-
-NAME=ludolph
-USER=zabbix
-PIDFILE=/var/run/zabbix/$NAME.pid
+NAME="ludolph"
+USER="daemon"
+PIDDIR="/var/run/${NAME}"
+PIDFILE="${PIDDIR}/${NAME}.pid"
 DAEMON="/usr/bin/$NAME"
 DESC="Ludolph - Monitoring Jabber Bot"
 
+. /lib/lsb/init-functions
+
+test -x ${DAEMON} || exit 4
+
+check_pid_dir() {
+    if [ ! -d "${PIDDIR}" ]; then
+        mkdir "${PIDDIR}" && chown ${USER} "${PIDDIR}" || return 5
+    fi
+    return 0
+}
+
+do_start() {
+    if [ -e "${PIDFILE}" ]; then
+        if pidofproc -p "${PIDFILE}" "${DAEMON}" > /dev/null; then
+            log_warning_msg "${DESC} ${NAME} is already running"
+            RETVAL=0
+            return ${RETVAL}
+        else
+            log_success_msg "Removing stale PID file ${PIDFILE}"
+            rm -f "${PIDFILE}"
+        fi
+    else
+        if ! check_pid_dir; then
+            log_failure_msg "Cannot create PID directory"
+            RETVAL=1
+            return ${RETVAL}
+        fi
+    fi
+
+    log_daemon_msg "Starting ${DESC}" "${NAME}"
+    # Use --background --make-pidfile when daemon = false
+    start-stop-daemon --start --quiet --oknodo --chuid ${USER} --pidfile "${PIDFILE}" --exec "${DAEMON}"
+    RETVAL=$?
+
+    if [ ${RETVAL} -eq 0 ]; then
+        sleep 1
+        pidofproc -p "${PIDFILE}" "${DAEMON}" > /dev/null 2>&1
+        RETVAL=$?
+    fi
+
+    log_end_msg ${RETVAL}
+
+    return ${RETVAL}
+}
+
+do_stop() {
+    if pidofproc -p "${PIDFILE}" "${DAEMON}" > /dev/null; then
+        log_daemon_msg "Stopping ${DESC}" "${NAME}"
+        start-stop-daemon --stop --quiet --oknodo --retry=TERM/5/KILL/5 --pidfile "${PIDFILE}"
+        RETVAL=$?
+        log_end_msg ${RETVAL}
+        rm -f "${PIDFILE}"
+    else
+        log_warning_msg "${DESC} ${NAME} is not running"
+        RETVAL=0
+    fi
+
+    return ${RETVAL}
+}
+
+do_reload() {
+    if pidofproc -p "${PIDFILE}" "${DAEMON}" > /dev/null; then
+        log_daemon_msg "Reloading ${DESC}" "${NAME}"
+        start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile "${PIDFILE}"
+        RETVAL=$?
+        log_end_msg ${RETVAL}
+    else
+        log_failure_msg "${DESC} ${NAME} is not running"
+        RETVAL=1
+    fi
+
+    return ${RETVAL}
+}
+
+do_status() {
+    status_of_proc -p "${PIDFILE}" "${DAEMON}" "${NAME}"
+    RETVAL=$?
+
+    return ${RETVAL}
+}
+
 case "$1" in
     start)
-        if [ -e $PIDFILE ]; then
-            if kill -0 $(cat $PIDFILE) >/dev/null 2>&1; then
-                log_success_msg "$DESC $NAME already running"
-                return
-            else
-                log_success_msg "Removing stale PID file $PIDFILE."
-                rm -f $PIDFILE
-            fi
-        fi
-        log_daemon_msg "Starting $DESC" "$NAME"
-        # Use --background --make-pidfile when daemon = false
-        start-stop-daemon --start --quiet --oknodo --chuid $USER --pidfile $PIDFILE --exec $DAEMON
-        sleep 1
-        kill -0 $(cat $PIDFILE) >/dev/null 2>&1
-        log_end_msg $?
+        do_start
         ;;
     stop)
-        if [ -e $PIDFILE ]; then
-            if kill -0 $(cat $PIDFILE) >/dev/null 2>&1; then
-                log_daemon_msg "Stopping $DESC" "$NAME"
-                start-stop-daemon --stop --quiet --oknodo --retry=TERM/5/KILL/5 --pidfile $PIDFILE
-                log_end_msg $?
-                rm -f $PIDFILE
-            else
-                log_failure_msg "I can't stop $DESC $NAME" "Maybe it's NOT running?"
-            fi
-        else
-            log_failure_msg "I can't stop $DESC $NAME" "Maybe it's NOT running?"
-        fi
+        do_stop
         ;;
     reload)
-        if [ -e $PIDFILE ]; then
-            if kill -0 $(cat $PIDFILE) >/dev/null 2>&1; then
-                log_daemon_msg "Reloading $DESC" "$NAME"
-                start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile $PIDFILE
-                log_end_msg $?
-            else
-                log_failure_msg "I can't reload $DESC $NAME" "Maybe it's NOT running?"
-            fi
-        else
-            log_failure_msg "I can't reload $DESC $NAME" "Maybe it's NOT running?"
-        fi
+        do_reload
         ;;
     restart|force-reload)
-        $0 stop
+        do_stop
         sleep 1
-        $0 start
+        do_start
+        ;;
+    status)
+        do_status
         ;;
     *)
-        echo "Usage: $0 {start|stop|restart|reload|force-reload}" >&2
-        exit 1
+        echo "Usage: $0 {start|stop|restart|reload|force-reload|status}" >&2
+        RETVAL=64
         ;;
 esac
 
-exit 0
+exit ${RETVAL}
