@@ -116,8 +116,8 @@ class Zabbix(LudolphPlugin):
         return 'Zabbix API version: ' + self.zapi.api_version()
 
     def _get_alerts(self, groupids=None, hostids=None, monitored=True, maintenance=False, skip_dependent=True,
-                    expand_description=False, output=('triggerid', 'state', 'error', 'description', 'priority'),
-                    select_hosts=('hostid',), **kwargs):
+                    expand_description=False, select_hosts=('hostid',),
+                    output=('triggerid', 'state', 'error', 'description', 'priority', 'lastchange'), **kwargs):
         """Return iterator of current zabbix triggers"""
         params = {
             'groupids': groupids,
@@ -152,7 +152,8 @@ class Zabbix(LudolphPlugin):
         notes = True
         out = []
         # Get triggers
-        t_output = ('triggerid', 'state', 'error', 'url', 'expression', 'description', 'priority', 'type', 'comments')
+        t_output = ('triggerid', 'state', 'error', 'url', 'expression', 'description', 'priority', 'type', 'comments',
+                    'lastchange')
         t_hosts = ('hostid', 'name', 'maintenance_status', 'maintenance_type',  'maintenanceid')
         triggers = list(self._get_alerts(expand_description=True, output=t_output, select_hosts=t_hosts))
 
