@@ -9,9 +9,9 @@ import time
 import logging
 import os
 import imghdr
+import signal
 from sleekxmpp.exceptions import XMPPError
 from glob import iglob
-import signal
 
 # noinspection PyPep8Naming
 from ludolph.__init__ import __doc__ as ABOUT
@@ -28,6 +28,8 @@ class Base(LudolphPlugin):
     """
     Ludolph jabber bot base commands.
     """
+    _avatar_allowed_extensions = ('.png', '.jpg', '.jpeg', '.gif')
+
     # noinspection PyUnusedLocal
     @command
     def help(self, msg, cmdstr=None):
@@ -112,7 +114,7 @@ class Base(LudolphPlugin):
         return '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
 
     def _get_avatar_dirs(self):
-        """ Get list of directories where are avatars stored """
+        """Get list of directories where avatars are stored."""
         avatar_dir = self.config.get('avatar_dir', None)
         default_avatar_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'avatars')
 
@@ -120,11 +122,6 @@ class Base(LudolphPlugin):
             return avatar_dir, default_avatar_dir
         else:
             return default_avatar_dir,
-
-    @staticmethod
-    def _get_avatar_allowed_extensions():
-        """ Get list of extensions that are allowed for avatars """
-        return '.png', '.jpg', '.jpeg', '.gif'
 
     # noinspection PyUnusedLocal
     @admin_required
@@ -138,10 +135,8 @@ class Base(LudolphPlugin):
         files = []
 
         for avatar_dir in self._get_avatar_dirs():
-
             if os.path.isdir(avatar_dir):
-
-                for file_type in Base._get_avatar_allowed_extensions():
+                for file_type in self._avatar_allowed_extensions:
                     for avatar in iglob(os.path.join(avatar_dir, '*' + file_type)):
                         files.append(os.path.basename(avatar))
             else:
@@ -163,13 +158,13 @@ class Base(LudolphPlugin):
 
         Usage: avatar-set <avatar>
         """
-        if os.path.splitext(avatar_name)[1] not in Base._get_avatar_allowed_extensions():
-            return 'ERROR: You have requested file that is not supported.'
+        if os.path.splitext(avatar_name)[-1] not in self._avatar_allowed_extensions:
+            return 'ERROR: You have requested file that is not supported'
 
         user = self.xmpp.get_jid(msg)
-        avatar_file = None
-
+        avatar = None
         available_avatar_directories = self._get_avatar_dirs()
+
         for avatar_dir in available_avatar_directories:
             # Create full path to file requested by user
             avatar_file = os.path.join(avatar_dir, avatar_name)
@@ -177,30 +172,29 @@ class Base(LudolphPlugin):
             path, name = os.path.split(os.path.abspath(avatar_file))
 
             if path not in available_avatar_directories:
-                return 'ERROR: You are not allowed to set avatar outside defined directories.'
+                return 'ERROR: You are not allowed to set avatar outside defined directories'
 
             try:
-                avatar_file = open(avatar_file)
+                with open(avatar_file) as f:
+                    avatar = f.read()
             except (OSError, IOError):
-                avatar_file = None
+                avatar = None
             else:
                 break
 
-        if not avatar_file:
-            return 'ERROR: Avatar "%s" have not been found.\n' \
-                   'You can try list available avatars with command: **avatar-list**' % avatar_name
+        if not avatar:
+            return 'ERROR: Avatar "%s" has not been found.\n' \
+                   'You can list available avatars with the command: **avatar-list**' % avatar_name
         else:
             self.xmpp.msg_send(user, 'I have found selected avatar, changing it might take few seconds...')
 
-        avatar = avatar_file.read()
         avatar_type = 'image/%s' % imghdr.what('', avatar)
         avatar_id = self.xmpp.plugin['xep_0084'].generate_id(avatar)
         avatar_bytes = len(avatar)
-        avatar_file.close()
-
         used_xep84 = False
+
         try:
-            logger.debug('Publish XEP-0084 avatar data')
+            logger.debug('Publishing XEP-0084 avatar data')
             self.xmpp.plugin['xep_0084'].publish_avatar(avatar)
             used_xep84 = True
         except XMPPError as e:
@@ -208,7 +202,7 @@ class Base(LudolphPlugin):
             return 'ERROR: Could not publish selected avatar'
 
         try:
-            logger.debug('Publish XEP-0153 avatar vCard data')
+            logger.debug('Publishing XEP-0153 avatar vCard data')
             self.xmpp.plugin['xep_0153'].set_avatar(avatar=avatar, mtype=avatar_type)
         except XMPPError as e:
             logger.error('Could not publish XEP-0153 vCard avatar: %s' % e.text)
@@ -219,11 +213,11 @@ class Base(LudolphPlugin):
         if used_xep84:
             try:
                 logger.debug('Advertise XEP-0084 avatar metadata')
-                self.xmpp['xep_0084'].publish_avatar_metadata([
-                    {'id': avatar_id,
-                     'type': avatar_type,
-                     'bytes': avatar_bytes}
-                ])
+                self.xmpp['xep_0084'].publish_avatar_metadata([{
+                    'id': avatar_id,
+                    'type': avatar_type,
+                    'bytes': avatar_bytes
+                }])
             except XMPPError as e:
                 logger.error('Could not publish XEP-0084 metadata: %s' % e.text)
                 return 'ERROR: Could not publish avatar metadata'
@@ -281,24 +275,24 @@ class Base(LudolphPlugin):
 
         return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
 
-    # noinspection PyUnusedLocal
     @admin_required
     @command
     def shutdown(self, msg, announce=False, timeout=5):
         """
         Shutdown Ludolph bot.
-        announce: boolean - broadcast shutdown announcement
-        timeout: init - delayed shutdown in seconds
 
-        Usage: shutdown <announce> <timeout>
+        Usage: shutdown [announce] [timeout]
+
+        announce: boolean - broadcast shutdown announcement (default: false)
+        timeout: integer - delay shutdown in seconds (default: 5)
         """
         try:
             timeout = int(timeout)
         except ValueError:
-            return 'ERROR: timeout have to be numeric.'
+            return 'ERROR: Integer required'
 
         user = self.xmpp.get_jid(msg)
-        warn_msg = 'Shutting down in %s seconds.'
+        warn_msg = 'Shutting down in %s seconds...'
 
         if str(announce).lower() in ('yes', 'true', 't', 'y', '1', 'a', 'announce'):
             announce = True
@@ -307,7 +301,6 @@ class Base(LudolphPlugin):
             announce = False
 
         while timeout > 0:
-
             if timeout < 6 or timeout % 10 == 0:
                 if announce:
                     self._broadcast(warn_msg % timeout)
@@ -321,6 +314,7 @@ class Base(LudolphPlugin):
             self._broadcast('Bye.')
         else:
             self.xmpp.msg_send(user, 'Bye.')
+
         self.xmpp.shutdown(signal.SIGTERM, self)
 
     @admin_required
