@@ -7,8 +7,8 @@
 # This software is licensed as described in the README.rst and LICENSE
 # files, which you should have received as part of this distribution.
 
+import os
 import sys
-import codecs
 try:
     from setuptools import setup
 except ImportError:
@@ -17,25 +17,26 @@ except ImportError:
 # noinspection PyPep8Naming
 from ludolph.__init__ import __version__ as VERSION
 
-DESCRIPTION = 'Monitoring Jabber Bot'
+read = lambda fname: open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-with codecs.open('README.rst', 'r', encoding='UTF-8') as readme:
-    LONG_DESCRIPTION = ''.join(readme)
+DEPS = ['zabbix-api-erigones', 'sleekxmpp>=1.1.11', 'bottle']
 
 if sys.version_info[0] < 3:
-    DEPS = ['sleekxmpp>=1.1.11', 'bottle', 'dnspython']
+    DEPS.append('dnspython')
 else:
-    DEPS = ['sleekxmpp>=1.1.11', 'bottle', 'dnspython3']
+    DEPS.append('dnspython3')
 
 CLASSIFIERS = [
     'Environment :: Console',
     'Intended Audience :: System Administrators',
+    'Intended Audience :: Developers',
     'Operating System :: Unix',
     'Operating System :: POSIX :: Linux',
-    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+    'License :: OSI Approved :: BSD License',
     'Programming Language :: Python',
     'Programming Language :: Python :: 2',
     'Programming Language :: Python :: 3',
+    'Development Status :: 5 - Production/Stable',
     'Topic :: Communications :: Chat',
     'Topic :: Utilities'
 ]
@@ -47,12 +48,12 @@ packages = [
 setup(
     name='ludolph',
     version=VERSION,
-    description=DESCRIPTION,
-    long_description=LONG_DESCRIPTION,
+    description='Monitoring Jabber Bot',
+    long_description=read('README.rst'),
     author='Erigones',
     author_email='erigones [at] erigones.com',
     url='https://github.com/erigones/Ludolph/',
-    license='GPLv3',
+    license='BSD',
     packages=packages,
     scripts=['bin/ludolph'],
     install_requires=DEPS,

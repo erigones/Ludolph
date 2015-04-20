@@ -14,7 +14,7 @@ from ludolph.cron import cronjob
 from ludolph.command import command, parameter_required
 from ludolph.message import red, green
 from ludolph.plugins.plugin import LudolphPlugin
-from ludolph.plugins.zabbix_api import ZabbixAPI, ZabbixAPIException, ZabbixAPIError
+from zabbix_api import ZabbixAPI, ZabbixAPIException, ZabbixAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def zabbix_command(fun):
             return None
 
         # Was never logged in. Repair authentication and restart Ludolph.
-        if not obj.zapi.logged_in():
+        if not obj.zapi.logged_in:
             return api_error()
 
         try:

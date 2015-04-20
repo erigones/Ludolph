@@ -13,7 +13,7 @@ Features
 * Alerts from Zabbix
 * Multi-User Chat (XEP-0045)
 * Colorful messages (XEP-0071)
-* Use Avater (XEP-0084)
+* Avatars (XEP-0084)
 * Roster management and ACL configuration
 * Plugins and commands::
 
@@ -60,6 +60,7 @@ Installation
 
 **Dependencies:**
 
+- `zabbix-api-erigones <https://github.com/erigones/zabbix-api/>`_ (1.0+)
 - `dnspython <http://www.dnspython.org/>`_ (1.10.0+) (or dnspython3 when using Python 3)
 - `sleekxmpp <http://sleekxmpp.com/>`_ (1.1.11+)
 - `bottle <http://bottlepy.org/>`_ (0.12.7+)
