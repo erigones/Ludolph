@@ -15,7 +15,7 @@ except ImportError:
     from distutils.core import setup
 
 # noinspection PyPep8Naming
-from ludolph.__init__ import __version__ as VERSION
+from ludolph import __version__ as VERSION
 
 read = lambda fname: open(os.path.join(os.path.dirname(__file__), fname)).read()
 

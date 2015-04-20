@@ -14,9 +14,9 @@ from sleekxmpp.exceptions import XMPPError
 from glob import iglob
 
 # noinspection PyPep8Naming
-from ludolph.__init__ import __doc__ as ABOUT
+from ludolph import __doc__ as ABOUT
 # noinspection PyPep8Naming
-from ludolph.__init__ import __version__ as VERSION
+from ludolph import __version__ as VERSION
 from ludolph.command import command, parameter_required, admin_required
 from ludolph.web import webhook, request, abort
 from ludolph.plugins.plugin import LudolphPlugin
