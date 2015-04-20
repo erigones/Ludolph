@@ -17,27 +17,27 @@ Features
 * Roster management and ACL configuration
 * Plugins and commands::
 
- * ludolph.plugins.zabbix *
-    * ack - acknowledge event with optional note
-    * alerts - show a list of current zabbix alerts
-    * duty - show a list of users in duty user group
-    * groups - show a list of host groups
-    * hosts - show a list of hosts
-    * outage - show, create or delete maintenance periods
-    * zabbix-version - show version of Zabbix API
+    * ludolph.plugins.zabbix *
+        * ack - acknowledge event with optional note
+        * alerts - show a list of current zabbix alerts
+        * duty - show a list of users in duty user group
+        * groups - show a list of host groups
+        * hosts - show a list of hosts
+        * outage - show, create or delete maintenance periods
+        * zabbix-version - show version of Zabbix API
 
- * ludolph.plugins.base *
-    * about - details about this project
-    * avatar-list - list available avatars for Ludolph (admin only)
-    * avatar-set - set avatar for Ludolph (admin only)
-    * broadcast - sent private message to every user in roster (admin only)
-    * help - show this help
-    * muc-invite - invite user to multi-user chat room (admin only)
-    * roster-list - list of users on Ludolph's roster (admin only)
-    * roster-remove - remove user from Ludolph's roster (admin only)
-    * shutdown - shutdown Ludolph bot
-    * uptime - show Ludolph uptime
-    * version - display Ludolph version
+    * ludolph.plugins.base *
+        * about - details about this project
+        * avatar-list - list available avatars for Ludolph (admin only)
+        * avatar-set - set avatar for Ludolph (admin only)
+        * broadcast - sent private message to every user in roster (admin only)
+        * help - show this help
+        * muc-invite - invite user to multi-user chat room (admin only)
+        * roster-list - list of users on Ludolphs roster (admin only)
+        * roster-remove - remove user from Ludolphs roster (admin only)
+        * shutdown - shutdown Ludolph bot
+        * uptime - show Ludolph uptime
+        * version - display Ludolph version
 
 
 Installation
