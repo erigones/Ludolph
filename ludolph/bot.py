@@ -53,7 +53,7 @@ class LudolphBot(ClientXMPP):
         self._load_plugins(config, plugins, init=True)
 
         # Initialize the SleekXMPP client
-        ClientXMPP.__init__(self, config.get('xmpp', 'username'), config.get('xmpp', 'password'))
+        super(LudolphBot, self).__init__(config.get('xmpp', 'username'), config.get('xmpp', 'password'))
 
         # Auto-authorize is enabled by default. User subscriptions are
         # controlled by self._handle_new_subscription
