@@ -79,7 +79,13 @@ def command(fun):
                 args += tuple(optional_args)
 
             # Reply with function output
-            out = fun(obj, msg, *args, **kwargs)
+            try:
+                out = fun(obj, msg, *args, **kwargs)
+            except Exception as e:
+                logger.exception(e)
+                obj.xmpp.msg_reply(msg, 'ERROR: Command failed due to internal programming error: %s' % e)
+                return False
+
             logger.debug('Command output: "%s"', out)
             obj.xmpp.msg_reply(msg, out)
             return True
