@@ -121,22 +121,28 @@ def command(fun):
     return wrap
 
 
-def parameter_required(count):
+def parameter_required(count, internal=False):
     """
-    Decorator for required command parameters.
+    Decorator for checking required command parameters.
     """
     def parameter_required_decorator(fun):
         def wrap(obj, msg, *args, **kwargs):
-            # Try to get command parameter
-            params = shlex.split(msg['body'].strip())[1:]
+            if internal:
+                # Command parameters are args
+                params = args
+            else:
+                # Try to get command parameters
+                params = shlex.split(msg['body'].strip())[1:]
 
-            if len(params) < count:
+            # Check if required parameters are set and not empty
+            if len(params) < count or (count and not all(params[:count])):
                 user = obj.xmpp.get_jid(msg)
                 logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], user)
                 obj.xmpp.msg_reply(msg, 'ERROR: Missing parameter')
                 return None
             else:
-                params.extend(args)
+                if not internal:
+                    params.extend(args)
                 return fun(obj, msg, *params, **kwargs)
 
         return wrap

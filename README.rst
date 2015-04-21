@@ -15,6 +15,7 @@ Features
 * Colorful messages (XEP-0071)
 * Avatars (XEP-0084)
 * Roster management and ACL configuration
+* Webhooks and cron jobs
 * Plugins and commands::
 
     * ludolph.plugins.zabbix *
@@ -28,13 +29,11 @@ Features
 
     * ludolph.plugins.base *
         * about - details about this project
-        * avatar-list - list available avatars for Ludolph (admin only)
-        * avatar-set - set avatar for Ludolph (admin only)
+        * avatar - list available avatars or set an avatar for Ludolph (admin only)
         * broadcast - sent private message to every user in roster (admin only)
         * help - show this help
         * muc-invite - invite user to multi-user chat room (admin only)
-        * roster-list - list of users on Ludolphs roster (admin only)
-        * roster-remove - remove user from Ludolphs roster (admin only)
+        * roster - list and manage users on Ludolph's roster (admin only)
         * shutdown - shutdown Ludolph bot
         * uptime - show Ludolph uptime
         * version - display Ludolph version

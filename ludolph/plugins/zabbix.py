@@ -334,6 +334,9 @@ class Zabbix(LudolphPlugin):
 
         Usage: outage add <host1/group1 name> [host2/group2 name] [host3/group3 name] ... <duration in minutes>
         """
+        if not (hosts_or_groups and duration):
+            return 'ERROR: Parameter required'
+
         # Get start and end time
         try:
             duration = int(duration)

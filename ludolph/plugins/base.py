@@ -88,7 +88,7 @@ class Base(LudolphPlugin):
 
         Usage: version
         """
-        return 'Version: ' + VERSION
+        return 'Version: %s' % VERSION
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
@@ -100,18 +100,40 @@ class Base(LudolphPlugin):
         """
         return ABOUT.strip()
 
-    # noinspection PyUnusedLocal
-    @admin_required
-    @command
-    def roster_list(self, msg):
-        """
-        List of users on Ludolphs roster (admin only).
-
-        Usage: roster-list
-        """
+    def _roster_list(self):
+        """List users on Ludolph's roster (admin only)"""
         roster = self.xmpp.client_roster
 
         return '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
+
+    # noinspection PyUnusedLocal
+    @parameter_required(1, internal=True)
+    def _roster_remove(self, msg, user):
+        """Remove user from Ludolph's roster (admin only)"""
+        if user and user in self.xmpp.client_roster:
+            self.xmpp.send_presence(pto=user, ptype='unsubscribe')
+            self.xmpp.del_roster_item(user)
+
+            return 'User **%s** removed from roster' % user
+        else:
+            return 'User **%s** cannot be removed from roster' % user
+
+    @admin_required
+    @command
+    def roster(self, msg, action=None, user=None):
+        """
+        List and manage users on Ludolph's roster (admin only).
+
+        List users on Ludolph's roster.
+        Usage: roster
+
+        Remove user from Ludolph's roster
+        Usage: roster del <JID>
+        """
+        if action == 'del':
+            return self._roster_remove(msg, user)
+
+        return self._roster_list()
 
     def _get_avatar_dirs(self):
         """Get list of directories where avatars are stored."""
@@ -123,15 +145,8 @@ class Base(LudolphPlugin):
         else:
             return default_avatar_dir,
 
-    # noinspection PyUnusedLocal
-    @admin_required
-    @command
-    def avatar_list(self, msg):
-        """
-        List available avatars for Ludolph.
-
-        Usage: avatar-list
-        """
+    def _avatar_list(self):
+        """List available avatars for Ludolph (admin only)"""
         files = []
 
         for avatar_dir in self._get_avatar_dirs():
@@ -148,16 +163,9 @@ class Base(LudolphPlugin):
         else:
             return 'No avatars were found... :('
 
-    # noinspection PyUnusedLocal
-    @admin_required
-    @parameter_required(1)
-    @command
-    def avatar_set(self, msg, avatar_name):
-        """
-        Set avatar for Ludolph.
-
-        Usage: avatar-set <avatar>
-        """
+    @parameter_required(1, internal=True)
+    def _avatar_set(self, msg, avatar_name):
+        """Set avatar for Ludolph (admin only)"""
         if os.path.splitext(avatar_name)[-1] not in self._avatar_allowed_extensions:
             return 'ERROR: You have requested file that is not supported'
 
@@ -175,7 +183,7 @@ class Base(LudolphPlugin):
                 return 'ERROR: You are not allowed to set avatar outside defined directories'
 
             try:
-                with open(avatar_file) as f:
+                with open(avatar_file, 'rb') as f:
                     avatar = f.read()
             except (OSError, IOError):
                 avatar = None
@@ -191,12 +199,10 @@ class Base(LudolphPlugin):
         avatar_type = 'image/%s' % imghdr.what('', avatar)
         avatar_id = self.xmpp.plugin['xep_0084'].generate_id(avatar)
         avatar_bytes = len(avatar)
-        used_xep84 = False
 
         try:
             logger.debug('Publishing XEP-0084 avatar data')
             self.xmpp.plugin['xep_0084'].publish_avatar(avatar)
-            used_xep84 = True
         except XMPPError as e:
             logger.error('Could not publish XEP-0084 avatar: %s' % e.text)
             return 'ERROR: Could not publish selected avatar'
@@ -210,36 +216,35 @@ class Base(LudolphPlugin):
 
         self.xmpp.msg_send(user, 'Almost done, please be patient')
 
-        if used_xep84:
-            try:
-                logger.debug('Advertise XEP-0084 avatar metadata')
-                self.xmpp['xep_0084'].publish_avatar_metadata([{
-                    'id': avatar_id,
-                    'type': avatar_type,
-                    'bytes': avatar_bytes
-                }])
-            except XMPPError as e:
-                logger.error('Could not publish XEP-0084 metadata: %s' % e.text)
-                return 'ERROR: Could not publish avatar metadata'
+        try:
+            logger.debug('Advertise XEP-0084 avatar metadata')
+            self.xmpp['xep_0084'].publish_avatar_metadata([{
+                'id': avatar_id,
+                'type': avatar_type,
+                'bytes': avatar_bytes
+            }])
+        except XMPPError as e:
+            logger.error('Could not publish XEP-0084 metadata: %s' % e.text)
+            return 'ERROR: Could not publish avatar metadata'
 
         return 'Avatar has been changed :)'
 
-    # noinspection PyUnusedLocal
     @admin_required
-    @parameter_required(1)
     @command
-    def roster_remove(self, msg, user):
+    def avatar(self, msg, action=None, avatar_name=None):
         """
-        Remove user from Ludolphs roster (admin only).
+        List available avatars or set an avatar for Ludolph (admin only).
 
-        Usage: roster-remove <JID>
+        List available avatars for Ludolph.
+        Usage: avatar
+
+        Set avatar for Ludolph.
+        Usage: avatar set <avatar>
         """
-        if user in self.xmpp.client_roster:
-            self.xmpp.send_presence(pto=user, ptype='unsubscribe')
-            self.xmpp.del_roster_item(user)
-            return 'User **' + user + '** removed from roster'
-        else:
-            return 'User **' + user + '** cannot be removed from roster'
+        if action == 'set':
+            return self._avatar_set(msg, avatar_name)
+
+        return self._avatar_list()
 
     # noinspection PyUnusedLocal
     @admin_required
