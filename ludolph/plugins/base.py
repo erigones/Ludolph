@@ -241,12 +241,6 @@ class Base(LudolphPlugin):
         else:
             return 'User **' + user + '** cannot be removed from roster'
 
-    def _broadcast(self, message):
-        for jid in self.xmpp.client_roster:
-            self.xmpp.msg_send(jid, message)
-
-        return len(self.xmpp.client_roster)
-
     # noinspection PyUnusedLocal
     @admin_required
     @parameter_required(1)
@@ -257,7 +251,7 @@ class Base(LudolphPlugin):
 
         Usage: broadcast <message>
         """
-        return 'Message broadcasted to %dx users.' % self._broadcast(' '.join(args))
+        return 'Message broadcasted to %dx users.' % self.xmpp.msg_broadcast(' '.join(args))
 
     # noinspection PyUnusedLocal
     @command
@@ -291,31 +285,32 @@ class Base(LudolphPlugin):
         except ValueError:
             return 'ERROR: Integer required'
 
-        user = self.xmpp.get_jid(msg)
+        bot = self.xmpp
+        user = bot.get_jid(msg)
         warn_msg = 'Shutting down in %s seconds...'
 
         if str(announce).lower() in ('yes', 'true', 't', 'y', '1', 'a', 'announce'):
             announce = True
-            self._broadcast('User %s requested Ludolph shutdown.' % user)
+            bot.msg_broadcast('User %s requested Ludolph shutdown.' % user)
         else:
             announce = False
 
         while timeout > 0:
             if timeout < 6 or timeout % 10 == 0:
                 if announce:
-                    self._broadcast(warn_msg % timeout)
+                    bot.msg_broadcast(warn_msg % timeout)
                 else:
-                    self.xmpp.msg_send(user, warn_msg % timeout)
+                    bot.msg_send(user, warn_msg % timeout)
 
             time.sleep(1)
             timeout -= 1
 
         if announce:
-            self._broadcast('Bye.')
+            bot.msg_broadcast('Bye.')
         else:
-            self.xmpp.msg_send(user, 'Bye.')
+            bot.msg_send(user, 'Bye.')
 
-        self.xmpp.shutdown(signal.SIGTERM, self)
+        bot.shutdown(signal.SIGTERM, self)
 
     @admin_required
     @command
@@ -360,7 +355,7 @@ class Base(LudolphPlugin):
             logger.warning('Missing msg parameter in broadcast request')
             abort(400, 'Missing msg parameter')
 
-        return 'Message sent (%dx)' % self._broadcast(msg)
+        return 'Message sent (%dx)' % self.xmpp.msg_broadcast(msg)
 
     @webhook('/room', methods=('POST',))
     def roomtalk(self):
