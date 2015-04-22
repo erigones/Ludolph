@@ -498,11 +498,13 @@ class LudolphBot(ClientXMPP):
 
         return LudolphMessage.create(mbody, **kwargs).reply(msg)
 
-    def msg_broadcast(self, message):
+    def msg_broadcast(self, mbody, **kwargs):
         """
         Send message to all users in roster.
         """
+        msg = LudolphMessage.create(mbody, **kwargs)
+
         for jid in self.client_roster:
-            self.msg_send(jid, message)
+            msg.send(self, jid)
 
         return len(self.client_roster)
