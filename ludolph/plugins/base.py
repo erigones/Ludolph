@@ -17,7 +17,7 @@ from glob import iglob
 from ludolph import __doc__ as ABOUT
 # noinspection PyPep8Naming
 from ludolph import __version__ as VERSION
-from ludolph.command import command, parameter_required, admin_required
+from ludolph.command import CommandError, command, parameter_required, admin_required
 from ludolph.web import webhook, request, abort
 from ludolph.plugins.plugin import LudolphPlugin
 
@@ -167,7 +167,7 @@ class Base(LudolphPlugin):
     def _avatar_set(self, msg, avatar_name):
         """Set avatar for Ludolph (admin only)"""
         if os.path.splitext(avatar_name)[-1] not in self._avatar_allowed_extensions:
-            return 'ERROR: You have requested file that is not supported'
+            raise CommandError('You have requested a file that is not supported')
 
         user = self.xmpp.get_jid(msg)
         avatar = None
@@ -180,7 +180,7 @@ class Base(LudolphPlugin):
             path, name = os.path.split(os.path.abspath(avatar_file))
 
             if path not in available_avatar_directories:
-                return 'ERROR: You are not allowed to set avatar outside defined directories'
+                raise CommandError('You are not allowed to set avatar outside defined directories')
 
             try:
                 with open(avatar_file, 'rb') as f:
@@ -191,8 +191,8 @@ class Base(LudolphPlugin):
                 break
 
         if not avatar:
-            return 'ERROR: Avatar "%s" has not been found.\n' \
-                   'You can list available avatars with the command: **avatar-list**' % avatar_name
+            raise CommandError('Avatar "%s" has not been found.\n'
+                               'You can list available avatars with the command: **avatar-list**' % avatar_name)
         else:
             self.xmpp.msg_send(user, 'I have found selected avatar, changing it might take few seconds...')
 
@@ -205,14 +205,14 @@ class Base(LudolphPlugin):
             self.xmpp.plugin['xep_0084'].publish_avatar(avatar)
         except XMPPError as e:
             logger.error('Could not publish XEP-0084 avatar: %s' % e.text)
-            return 'ERROR: Could not publish selected avatar'
+            raise CommandError('Could not publish selected avatar')
 
         try:
             logger.debug('Publishing XEP-0153 avatar vCard data')
             self.xmpp.plugin['xep_0153'].set_avatar(avatar=avatar, mtype=avatar_type)
         except XMPPError as e:
             logger.error('Could not publish XEP-0153 vCard avatar: %s' % e.text)
-            return 'ERROR: Could not set vCard avatar'
+            raise CommandError('Could not set vCard avatar')
 
         self.xmpp.msg_send(user, 'Almost done, please be patient')
 
@@ -225,7 +225,7 @@ class Base(LudolphPlugin):
             }])
         except XMPPError as e:
             logger.error('Could not publish XEP-0084 metadata: %s' % e.text)
-            return 'ERROR: Could not publish avatar metadata'
+            raise CommandError('Could not publish avatar metadata')
 
         return 'Avatar has been changed :)'
 
@@ -288,7 +288,7 @@ class Base(LudolphPlugin):
         try:
             timeout = int(timeout)
         except ValueError:
-            return 'ERROR: Integer required'
+            raise CommandError('Integer required')
 
         bot = self.xmpp
         user = bot.get_jid(msg)
@@ -326,7 +326,7 @@ class Base(LudolphPlugin):
         Usage: muc-invite [JID]
         """
         if not self.xmpp.room:
-            return 'ERROR: MUC room disabled'
+            raise CommandError('MUC room disabled')
 
         if not user:
             user = self.xmpp.get_jid(msg)

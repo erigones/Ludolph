@@ -13,6 +13,10 @@ __all__ = ('command', 'parameter_required', 'admin_required')
 logger = getLogger(__name__)
 
 
+class CommandError(Exception):
+    pass
+
+
 class Commands(dict):
     """
     Command names to (name, module, doc) mapping.
@@ -81,6 +85,8 @@ def command(fun):
             # Reply with function output
             try:
                 out = fun(obj, msg, *args, **kwargs)
+            except CommandError as e:
+                out = 'ERROR: %s' % e
             except Exception as e:
                 logger.exception(e)
                 obj.xmpp.msg_reply(msg, 'ERROR: Command failed due to internal programming error: %s' % e)

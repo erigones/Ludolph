@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from ludolph.utils import parse_loglevel
 from ludolph.web import webhook, request, abort
 from ludolph.cron import cronjob
-from ludolph.command import command, parameter_required
+from ludolph.command import CommandError, command, parameter_required
 from ludolph.message import red, green
 from ludolph.plugins.plugin import LudolphPlugin
 from zabbix_api import ZabbixAPI, ZabbixAPIException, ZabbixAPIError
@@ -250,7 +250,7 @@ class Zabbix(LudolphPlugin):
             eventids = [t['lastEvent']['eventid'] for t in self._get_alerts(withLastEventUnacknowledged=True)]
 
             if not eventids:
-                return 'ERROR: No unacknowledged events found'
+                raise CommandError('No unacknowledged events found')
 
             if eventids_or_note:
                 note = ' '.join(eventids_or_note)
@@ -258,7 +258,7 @@ class Zabbix(LudolphPlugin):
             try:
                 eventids = [int(eventid)]
             except ValueError:
-                return 'ERROR: Integer required'
+                raise CommandError('Integer required')
 
             for i, arg in enumerate(eventids_or_note):
                 try:
@@ -322,40 +322,25 @@ class Zabbix(LudolphPlugin):
         try:
             mids = [int(i) for i in mids]
         except ValueError:
-            return 'ERROR: Integer required'
+            raise CommandError('Integer required')
 
         self.zapi.maintenance.delete(mids)
 
         return 'Maintenance ID(s) **%s** deleted' % ','.join(map(str, mids))
 
-    def _outage_add(self, msg, duration, *hosts_or_groups):
-        """
-        Set maintenance period for specified host and time.
+    def _maintenance_add(self, jid, since, till, *hosts_or_groups):
+        """Create maintenance period in zabbix"""
+        period = till - since
+        since = since.strftime('%s')
+        till = till.strftime('%s')
 
-        Usage: outage add <host1/group1 name> [host2/group2 name] [host3/group3 name] ... <duration in minutes>
-        """
-        if not (hosts_or_groups and duration):
-            return 'ERROR: Parameter required'
-
-        # Get start and end time
-        try:
-            duration = int(duration)
-        except ValueError:
-            return 'ERROR: Integer required'
-
-        period = timedelta(minutes=duration)
-        _now = datetime.now()
-        _end = _now + period
-        now = _now.strftime('%s')
-        end = _end.strftime('%s')
-        jid = self.xmpp.get_jid(msg)
         options = {
-            'active_since': now,
-            'active_till': end,
+            'active_since': since,
+            'active_till': till,
             'maintenance_type': 0,  # with data collection
             'timeperiods': [{
                 'timeperiod_type': 0,  # one time only
-                'start_date': now,
+                'start_date': since,
                 'period': period.seconds,
             }],
         }
@@ -374,15 +359,43 @@ class Zabbix(LudolphPlugin):
                 options['groupids'] = groups.keys()
                 desc = 'groups: ' + ', '.join(groups.values())
             else:
-                return "ERROR: Host/Group not found"
+                raise CommandError('Host/Group not found')
 
-        options['name'] = ('Maintenance %s by %s' % (now, jid))[:128]
+        options['name'] = ('Maintenance %s by %s' % (since, jid))[:128]
         options['description'] = desc
 
         # Create maintenance period
         res = self.zapi.maintenance.create(options)
 
         return 'Added maintenance ID **%s** for %s' % (res['maintenanceids'][0], desc)
+
+    def _outage_add(self, msg, start, end_or_duration, *hosts_or_groups):
+        """
+        Set maintenance period for specified host and time.
+        """
+        def parse_datetime(x, name):
+            try:
+                return datetime.strptime(str(x), '%Y-%m-%d-%H-%M')
+            except ValueError:
+                raise CommandError('Invalid %s date-time (required format: YYYY-mm-dd-HH-MM)' % name)
+
+        print('%r %r %r' % (start, end_or_duration, hosts_or_groups))
+        if not (start and end_or_duration and hosts_or_groups):
+            raise CommandError('Parameter required')
+
+        if start == 'now':
+            dt_start = datetime.now()
+        else:
+            dt_start = parse_datetime(start, 'start')
+
+        try:
+            duration = int(end_or_duration)
+        except ValueError:
+            dt_end = parse_datetime(end_or_duration, 'duration or end')
+        else:
+            dt_end = dt_start + timedelta(minutes=duration)
+
+        return self._maintenance_add(self.xmpp.get_jid(msg), dt_start, dt_end, *hosts_or_groups)
 
     # noinspection PyUnusedLocal
     def _outage_list(self, msg):
@@ -425,7 +438,11 @@ class Zabbix(LudolphPlugin):
         Usage: outage
 
         Set maintenance period for specified host and time.
-        Usage: outage add <host1/group1 name> [host2/group2 name] [host3/group3 name] ... <duration in minutes>
+        Usage: outage add <host1/group1 name> [host2/group2 name] ... +<duration in minutes>
+        Usage: outage add <host1/group1 name> [host2/group2 name] ... now <duration in minutes>
+        Usage: outage add <host1/group1 name> [host2/group2 name] ... <start date time Y-m-d-H-M> <duration in minutes>
+        Usage: outage add <host1/group1 name> [host2/group2 name] ... <start date time Y-m-d-H-M> \
+<end date time Y-m-d-H-M>
 
         Delete maintenance period specified by maintenance ID.
         Usage: outage del <maintenance ID>
@@ -434,7 +451,18 @@ class Zabbix(LudolphPlugin):
             action = args[0]
 
             if action == 'add':
-                return self._outage_add(msg, args[-1], *args[1:-1])
+                last_param = str(args[-1])
+
+                if last_param.startswith('+'):
+                    start_date = 'now'
+                    end_date = last_param[1:]
+                    hosts_or_groups = args[1:-1]
+                else:
+                    start_date = args[-2]
+                    end_date = last_param
+                    hosts_or_groups = args[1:-2]
+
+                return self._outage_add(msg, start_date, end_date, *hosts_or_groups)
             elif action == 'del':
                 return self._outage_del(msg, *args[1:])
 
