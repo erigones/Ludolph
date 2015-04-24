@@ -48,6 +48,10 @@ class LudolphBot(ClientXMPP):
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
+        self.room_users = set()
+        self.room_admins = set()
+        self.muc_invited_users = set()
+
         self._load_config(config, init=True)
         logger.info('Initializing *%s* jabber bot', self.nick)
         self._load_plugins(config, plugins, init=True)
@@ -69,11 +73,6 @@ class LudolphBot(ClientXMPP):
         # Register event handlers
         self.add_event_handler('session_start', self.session_start, threaded=True)
         self.add_event_handler('message', self.message, threaded=True)
-
-        # Initialize MUC attributes
-        self.room_users = set()
-        self.room_admins = set()
-        self.muc_invited_users = set()
 
         if self.room:
             self.muc = self.plugin['xep_0045']
