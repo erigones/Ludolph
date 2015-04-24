@@ -10,6 +10,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 from functools import wraps
+from collections import OrderedDict
 
 __all__ = ('cronjob',)
 
@@ -23,11 +24,30 @@ class CronStar(set):
 star = CronStar()
 
 
+def at_fun(job, fun):
+    """
+    Decorator for "at" job commands.
+    """
+    @wraps(fun)
+    def wrap(msg, *args, **kwargs):
+        kwargs['_reply_output'] = False  # Do not send command output to job owner
+        ret = fun(msg, *args, **kwargs)
+        out = 'Scheduled job **%s** run at %s finished with output: %s' % (job.name, datetime.now().isoformat(), ret)
+        fun.__self__.xmpp.msg_reply(msg, out)  # We will inform the owner here
+        return out
+    return wrap
+
+
 class CronJob(object):
     """
     Crontab entry.
     """
-    def __init__(self, fun, args=(), kwargs=(), minute=None, hour=None, day=None, month=None, dow=None):
+    def __init__(self, name, fun, args=(), kwargs=(), minute=None, hour=None, day=None, month=None, dow=None,
+                 onetime=False, owner=None, at=False):
+        if at:
+            fun = at_fun(self, fun)
+
+        self.name = name
         self.fun = fun
         self.args = args
         self.kwargs = dict(kwargs)
@@ -36,10 +56,19 @@ class CronJob(object):
         self.days = self.validate_field(day, 1, 31)
         self.months = self.validate_field(month, 1, 12)
         self.dow = self.validate_field(dow, 0, 6)
+        self.onetime = self.clean_datetime(onetime)
+        self.owner = owner
+        self.at = at
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self.name)
 
     @property
     def schedule(self):
-        """String representation of cron schedule"""
+        """String representation of cron/onetime schedule"""
+        if self.onetime:
+            return self.onetime.isoformat()
+
         j = lambda x: ','.join(map(str, x)) or '*'
         return '%s %s %s %s %s' % (j(self.minutes), j(self.hours), j(self.days), j(self.months), j(self.dow))
 
@@ -52,6 +81,33 @@ class CronJob(object):
     def fqfn(self):
         """Fully qualified function name"""
         return '%s.%s' % (self.fun.__module__, self.fun.__name__)
+
+    @property
+    def command(self):
+        """String representation of job command with all arguments"""
+        if self.at and self.args:
+            return self.args[0]['body']
+
+        cmd = [self.fun.__name__.replace('_', '-')]
+
+        if self.args:
+            cmd.extend(map(str, self.args))
+
+        if self.kwargs:
+            cmd.extend(['%s=%s' % kv for kv in self.kwargs.items()])
+
+        return ' '.join(cmd)
+
+    @staticmethod
+    def clean_datetime(dt):
+        """Return datetime object without seconds"""
+        if dt:
+            return datetime(*dt.timetuple()[:5])
+        return None
+
+    def display(self):
+        """Return string representation of this cron job suitable for logging"""
+        return '%s: %s [%s]: %s' % (self.name, self.command, self.plugin, self.schedule)
 
     # noinspection PyMethodMayBeStatic
     def validate_value(self, value, min_value, max_value):
@@ -79,6 +135,8 @@ class CronJob(object):
 
     def match_time(self, dt):
         """Return True if this event should trigger at the specified datetime"""
+        if self.onetime:
+            return self.onetime <= dt
         return ((dt.minute in self.minutes) and (dt.hour in self.hours) and (dt.day in self.days) and
                 (dt.month in self.months) and (dt.weekday() in self.dow))
 
@@ -87,17 +145,40 @@ class CronJob(object):
         return self.fun(*self.args, **self.kwargs)
 
 
-class CronTab(dict):
+class CronTab(OrderedDict):
     """
     "List" of crontab entries. Each entry is identified by a unique name.
     """
     def add(self, name, fun, **kwargs):
         """Add named crontab entry, which will run fun at specified date/time"""
-        self[name] = CronJob(fun, **kwargs)
+        assert name not in self, 'Cron job with name "%s" is already defined' % name
+        job = CronJob(name, fun, **kwargs)
+        self[name] = job
+
+        return job
 
     def delete(self, name):
         """Delete named crontab entry"""
-        del self[name]
+        return self.pop(name)
+
+    def generate_id(self):
+        """Generate new job ID for a new onetime ("at") job"""
+        try:
+            last = int(self.keys()[-1])
+        except (IndexError, ValueError):
+            return 1
+        else:
+            return last + 1
+
+    def add_onetime(self, fun, onetime, **kwargs):
+        """Add onetime job into crontab"""
+        kwargs['onetime'] = onetime
+
+        return self.add(self.generate_id(), fun, **kwargs)
+
+    def add_at(self, fun, onetime, msg, owner):
+        """Add "at" onetime job into crontab"""
+        return self.add_onetime(fun, onetime, args=(msg,), owner=owner, at=True)
 
 
 CRONJOBS = CronTab()
@@ -112,15 +193,22 @@ class Cron(object):
 
     def run(self):
         logger.info('Starting cron')
-        dt = datetime(*datetime.now().timetuple()[:5])
+        dt = CronJob.clean_datetime(datetime.now())
         self.running = True
 
         while self.running:
             for name, job in self.crontab.items():
                 if job.match_time(dt):
-                    logger.info('Running cron job "%s" (%s) with schedule "%s"', name, job.fqfn, job.schedule)
-                    res = job.run()
-                    logger.debug('\tCron job "%s" output: "%s"', name, res)
+                    logger.info('Running cron job "%s" (%s) with schedule "%s" as user "%s"',
+                                name, job.fqfn, job.schedule, job.owner)
+
+                    try:
+                        res = job.run()
+                    finally:
+                        if job.onetime:
+                            self.crontab.delete(name)
+
+                    logger.info('\tCron job "%s" output: "%s"', name, res)
 
             dt += timedelta(minutes=1)
 
@@ -137,7 +225,7 @@ class Cron(object):
 
     def display_cronjobs(self):
         """Return list of available cron jobs suitable for logging"""
-        return ['%s [%s]: %s' % (name, job.plugin, job.schedule) for name, job in self.crontab.items()]
+        return (job.display() for job in self.crontab.values())
 
 
 def _cronjob(fun):

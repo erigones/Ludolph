@@ -8,6 +8,7 @@ See the LICENSE file for copying permission.
 
 import ssl
 import time
+import copy
 import logging
 from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
@@ -212,8 +213,8 @@ class LudolphBot(ClientXMPP):
                     reinit = True
 
                 try:
-                    cfg = config.items(plugin[0])  # Get only plugin config section as list of (name, value) tuples
-                    obj = plugin[1](self, cfg, reinit=reinit)
+                    cfg = config.items(plugin.name)  # Get only plugin config section as list of (name, value) tuples
+                    obj = plugin.cls(self, cfg, reinit=reinit)
                 except Exception as ex:
                     logger.critical('Could not load plugin: %s', modname)
                     logger.exception(ex)
@@ -409,13 +410,12 @@ class LudolphBot(ClientXMPP):
 
         if cmd:
             start_time = time.time()
-            f_cmd = getattr(self.plugins[cmd[1]], cmd[0])  # Get command bound method from plugin
-            # Run command
-            out = f_cmd(msg)
+            # Get and run command
+            out = cmd.get_fun(self)(msg)
 
             if out:
                 cmd_time = time.time() - start_time
-                logger.info('Command %s.%s finished in %g seconds', cmd[1], cmd[0], cmd_time)
+                logger.info('Command %s.%s finished in %g seconds', cmd.module, cmd.name, cmd_time)
 
             return out
         else:
@@ -453,7 +453,14 @@ class LudolphBot(ClientXMPP):
         if self.cron:
             self.cron.stop()
 
-        self.abort()
+        try:
+            self.abort()
+        except Exception as e:
+            # Unhandled exception in SleekXMPP when socket is not connected and shutdown is requested
+            if not self.socket:
+                logger.exception(e)
+                raise SystemExit(99)
+            raise
 
     def prereload(self):
         """
@@ -481,6 +488,17 @@ class LudolphBot(ClientXMPP):
             self.muc.leaveMUC(self.room, self.nick)
             logger.info('Reinitializing multi-user chat room %s', self.room)
             self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory)
+
+    def msg_copy(self, msg, **kwargs):
+        """
+        Create copy of message stanza.
+        """
+        msg = copy.copy(msg)
+
+        for key, val in kwargs.items():
+            msg[key] = val
+
+        return msg
 
     def msg_send(self, mto, mbody, **kwargs):
         """

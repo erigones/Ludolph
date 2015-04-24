@@ -6,6 +6,8 @@ This file is part of Ludolph.
 See the LICENSE file for copying permission.
 """
 from logging import getLogger
+from functools import wraps
+from collections import namedtuple
 import shlex
 
 __all__ = ('command', 'parameter_required', 'admin_required')
@@ -15,6 +17,15 @@ logger = getLogger(__name__)
 
 class CommandError(Exception):
     pass
+
+
+class Command(namedtuple('Command', ('cmd', 'fun', 'name', 'module', 'doc'))):
+    """
+    Ludolph command wrapper.
+    """
+    def get_fun(self, bot):
+        """Get command bound method from plugin"""
+        return getattr(bot.plugins[self.module], self.name)
 
 
 class Commands(dict):
@@ -37,7 +48,7 @@ class Commands(dict):
 
     def display(self):
         """Return list of available commands suitable for logging output"""
-        return ['%s [%s]' % (name, cmd[1].split('.')[-1]) for name, cmd in self.items()]
+        return ['%s [%s]' % (name, cmd.module.split('.')[-1]) for name, cmd in self.items()]
 
     def get_command(self, cmdstr):
         """Find text in available commands and return command tuple"""
@@ -69,9 +80,11 @@ def command(fun):
     global COMMANDS
     global USERS
 
+    @wraps(fun)
     def wrap(obj, msg, *args, **kwargs):
         user = obj.xmpp.get_jid(msg)
         cmd = '%s.%s' % (fun.__module__, fun.__name__)
+        reply_output = kwargs.pop('_reply_output', True)  # Internal option used for scheduled "at" jobs
 
         if not USERS or user in USERS:
             logger.info('User "%s" requested command "%s" (%s)', user, msg['body'], cmd)
@@ -89,16 +102,17 @@ def command(fun):
                 out = 'ERROR: %s' % e
             except Exception as e:
                 logger.exception(e)
-                obj.xmpp.msg_reply(msg, 'ERROR: Command failed due to internal programming error: %s' % e)
-                return False
-
-            logger.debug('Command output: "%s"', out)
-            obj.xmpp.msg_reply(msg, out)
-            return True
+                out = 'ERROR: Command failed due to internal programming error: %s' % e
+            else:
+                logger.debug('Command output: "%s"', out)
         else:
             logger.warning('Unauthorized command "%s" (%s) from "%s"', msg['body'], cmd, user)
-            obj.xmpp.msg_reply(msg, 'ERROR: Permission denied')
-            return None
+            out = 'ERROR: Permission denied'
+
+        if reply_output:
+            obj.xmpp.msg_reply(msg, out)
+
+        return out
 
     # Create command name - skip methods which start with underscore
     if fun.__name__.startswith('_'):
@@ -110,7 +124,7 @@ def command(fun):
     # Check if command exists
     if name in COMMANDS:
         logger.critical('Command "%s" from plugin "%s" overlaps with existing command from module "%s"',
-                        name, fun.__module__, COMMANDS[name][1])
+                        name, fun.__module__, COMMANDS[name].module)
         return None
 
     # Save documentation
@@ -122,7 +136,8 @@ def command(fun):
 
     # Save module and method name
     logger.debug('Registering command "%s" from plugin "%s"', name, fun.__module__)
-    COMMANDS[name] = (fun.__name__, fun.__module__, doc)
+    fun.admin_required = False
+    COMMANDS[name] = Command(name, fun, fun.__name__, fun.__module__, doc)
 
     return wrap
 
@@ -132,6 +147,7 @@ def parameter_required(count, internal=False):
     Decorator for checking required command parameters.
     """
     def parameter_required_decorator(fun):
+        @wraps(fun)
         def wrap(obj, msg, *args, **kwargs):
             if internal:
                 # Command parameters are args
@@ -161,6 +177,9 @@ def admin_required(fun):
     """
     global ADMINS
 
+    fun.admin_required = True
+
+    @wraps(fun)
     def wrap(obj, msg, *args, **kwargs):
         user = obj.xmpp.get_jid(msg)
 

@@ -10,6 +10,7 @@ import os
 import sys
 import signal
 import logging
+from collections import namedtuple
 
 PY3 = sys.version_info[0] > 2
 
@@ -35,6 +36,8 @@ from ludolph import __version__ as VERSION
 LOGFORMAT = '%(asctime)s %(levelname)-8s %(name)s: %(message)s'
 
 logger = logging.getLogger('ludolph.main')
+
+Plugin = namedtuple('Plugin', ('name', 'cls'))
 
 
 def daemonize():
@@ -206,7 +209,7 @@ The example file is located in: %s\n\n""" % (
                 if not issubclass(imported_class, LudolphPlugin):
                     raise TypeError('Plugin: %s is not LudolphPlugin instance' % modname)
 
-                plugins[modname] = (plugin, imported_class)
+                plugins[modname] = Plugin(plugin, imported_class)
             except Exception as ex:
                 logger.critical('Could not load plugin: %s', modname)
                 logger.exception(ex)

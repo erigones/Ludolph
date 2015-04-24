@@ -32,6 +32,7 @@ Features
         * avatar - list available avatars or set an avatar for Ludolph (admin only)
         * broadcast - sent private message to every user in roster (admin only)
         * help - show this help
+        * message - send new XMPP message to user/room
         * muc-invite - invite user to multi-user chat room (admin only)
         * roster - list and manage users on Ludolph's roster (admin only)
         * shutdown - shutdown Ludolph bot

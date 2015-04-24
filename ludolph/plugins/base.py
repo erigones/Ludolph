@@ -10,6 +10,7 @@ import logging
 import os
 import imghdr
 import signal
+from datetime import datetime, timedelta
 from sleekxmpp.exceptions import XMPPError
 from glob import iglob
 
@@ -19,6 +20,7 @@ from ludolph import __doc__ as ABOUT
 from ludolph import __version__ as VERSION
 from ludolph.command import CommandError, command, parameter_required, admin_required
 from ludolph.web import webhook, request, abort
+from ludolph.utils import pluralize
 from ludolph.plugins.plugin import LudolphPlugin
 
 logger = logging.getLogger(__name__)
@@ -43,15 +45,15 @@ class Base(LudolphPlugin):
             cmd = self.xmpp.commands.get_command(cmdstr)
             if cmd:
                 # Remove whitespaces from __doc__ lines
-                desc = '\n'.join(map(str.strip, cmd[-1].split('\n')))
+                desc = '\n'.join(map(str.strip, cmd.doc.split('\n')))
                 # **Command name** (module) + desc
-                return '**%s** (%s)\n\n%s' % (cmd[0], cmd[1], desc)
+                return '**%s** (%s)\n\n%s' % (cmd.name, cmd.module, desc)
 
         # Create dict with module name as key and list of commands as value
         cmd_map = {}
         for cmd_name in self.xmpp.commands.all():
             cmd = self.xmpp.commands[cmd_name]
-            mod_name = cmd[1]
+            mod_name = cmd.module
 
             if mod_name not in cmd_map:
                 cmd_map[mod_name] = []
@@ -67,7 +69,7 @@ class Base(LudolphPlugin):
             for name in cmd_names:
                 try:
                     # First line of __doc__
-                    desc = self.xmpp.commands[name][-1].split('\n')[0]
+                    desc = self.xmpp.commands[name].doc.split('\n')[0]
                     # Lowercase first char and remove trailing dot
                     desc = ' - ' + desc[0].lower() + desc[1:].rstrip('.')
                 except IndexError:
@@ -100,6 +102,32 @@ class Base(LudolphPlugin):
         """
         return ABOUT.strip()
 
+    def _message_send(self, jid, msg):
+        """Send new xmpp message. Used by message command and /message webhook"""
+        if jid == self.xmpp.room:
+            mtype = 'groupchat'
+        elif jid in self.xmpp.client_roster:
+            mtype = 'normal'
+        else:
+            raise CommandError('User "%s" not in roster' % jid)
+
+        logger.info('Sending message to "%s"', jid)
+        logger.debug('\twith body: "%s"', msg)
+        self.xmpp.msg_send(jid, msg, mtype=mtype)
+
+        return 'Message sent to **%s**' % jid
+
+    # noinspection PyUnusedLocal
+    @command
+    @parameter_required(2)
+    def message(self, msg, jid, *args):
+        """
+        Send new XMPP message to user/room.
+
+        Usage: message <JID> <text>
+        """
+        return self._message_send(jid, ' '.join(args))
+
     def _roster_list(self):
         """List users on Ludolph's roster (admin only)"""
         roster = self.xmpp.client_roster
@@ -108,7 +136,7 @@ class Base(LudolphPlugin):
 
     # noinspection PyUnusedLocal
     @parameter_required(1, internal=True)
-    def _roster_remove(self, msg, user):
+    def _roster_del(self, msg, user):
         """Remove user from Ludolph's roster (admin only)"""
         if user and user in self.xmpp.client_roster:
             self.xmpp.send_presence(pto=user, ptype='unsubscribe')
@@ -131,7 +159,7 @@ class Base(LudolphPlugin):
         Usage: roster del <JID>
         """
         if action == 'del':
-            return self._roster_remove(msg, user)
+            return self._roster_del(msg, user)
 
         return self._roster_list()
 
@@ -335,6 +363,105 @@ class Base(LudolphPlugin):
 
         return 'Inviting **%s** to MUC room %s' % (user, self.xmpp.room)
 
+    def _at_list(self):
+        """List all scheduled jobs"""
+        crontab = self.xmpp.cron.crontab
+        out = ['**%s** [%s] (%s) __%s__' % (name, job.schedule, job.owner, job.command)
+               for name, job in crontab.items() if job.onetime]
+        count = len(out)
+        out.append('\n**%d** %s scheduled' % (count, pluralize(count, 'job is', 'jobs are')))
+
+        return '\n'.join(out)
+
+    @parameter_required(1, internal=True)
+    def _at_del(self, msg, name):
+        """Remove scheduled job"""
+        try:
+            job_id = int(name)
+        except ValueError:
+            raise CommandError('Invalid job ID')
+
+        crontab = self.xmpp.cron.crontab
+        job = crontab.get(job_id, None)
+
+        if job and job.onetime:
+            admins = self.xmpp.admins
+            user = self.xmpp.get_jid(msg)
+
+            if job.owner == user or (not admins or user in admins):
+                crontab.delete(job_id)
+                logger.info('Deleted one-time cron jobs: %s', job.display())
+
+                return 'Scheduled job ID **%s** deleted' % job_id
+            else:
+                raise CommandError('Permission denied')
+
+        raise CommandError('Non-existent job ID')
+
+    @parameter_required(2, internal=True)
+    def _at_add(self, msg, schedule, cmd_name, *args):
+        """Schedule command execution at specific time and date"""
+        # Validate schedule
+        schedule = str(schedule)
+
+        if schedule.startswith('+'):
+            try:
+                dt = datetime.now() + timedelta(minutes=int(schedule))
+            except ValueError:
+                raise CommandError('Invalid date-time (required format: +<integer>)')
+        else:
+            try:
+                dt = datetime.strptime(schedule, '%Y-%m-%d-%H-%M')
+            except ValueError:
+                raise CommandError('Invalid date-time (required format: YYYY-mm-dd-HH-MM)')
+
+        # Validate command
+        cmd = self.xmpp.commands.get_command(cmd_name)
+
+        if not cmd:
+            raise CommandError('Invalid command')
+
+        # Check user permission
+        admins = self.xmpp.admins
+        user = self.xmpp.get_jid(msg)
+
+        if cmd.fun.admin_required and admins and user not in admins:
+            raise CommandError('Permission denied')
+
+        # Create message (the only argument needed for command) with body representing the whole command
+        body = ' '.join([cmd.cmd] + ["%s" % i for i in args])
+        msg = self.xmpp.msg_copy(msg, body=body)
+        job = self.xmpp.cron.crontab.add_at(cmd.get_fun(self.xmpp), dt, msg, user)
+        logger.info('Registered one-time cron job: %s', job.display())
+
+        return 'Scheduled job ID **%s** scheduled at %s' % (job.name, job.schedule)
+
+    @parameter_required(0)
+    @command
+    def at(self, msg, *args):
+        """
+        List, add, or delete jobs for later execution.
+
+        List all scheduled jobs.
+        Usage: at
+
+        Schedule command execution at specific time and date.
+        Usage: at add +minutes <command> [command parameters...]
+        Usage: at add Y-m-d-H-M <command> [command parameters...]
+
+        Remove command from queue of scheduled jobs.
+        Usage: at del <job ID>
+        """
+        if len(args) > 1:
+            action = args[0]
+
+            if action == 'add':
+                return self._at_add(msg, *args[1:])
+            elif action == 'del':
+                return self._at_del(msg, args[1])
+
+        return self._at_list()
+
     @webhook('/')
     def index(self):
         """
@@ -348,6 +475,23 @@ class Base(LudolphPlugin):
         Ping-pong.
         """
         return 'pong'
+
+    @webhook('/message', methods=('POST',))
+    def send_msg(self):
+        """
+        Send xmpp message to user/room.
+        """
+        jid = request.forms.get('jid', None)
+
+        if not jid:
+            abort(400, 'Missing JID in message request')
+
+        msg = request.forms.get('msg', '')
+
+        try:
+            return self._message_send(jid, msg)
+        except CommandError as e:
+            abort(400, str(e))
 
     @webhook('/broadcast', methods=('POST',))
     def broadcast_msg(self):

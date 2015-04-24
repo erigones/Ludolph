@@ -7,14 +7,21 @@ See the LICENSE file for copying permission.
 """
 import logging
 
+LOG_LEVELS = frozenset(['DEBUG', 'INFO', 'WARN', 'WARNING', 'ERROR', 'FATAL', 'CRITICAL'])
+
 
 def parse_loglevel(name):
     """Parse log level name and return log level integer value"""
     name = name.upper()
 
-    if name in ('DEBUG', 'INFO', 'WARN', 'WARNING', 'ERROR', 'FATAL', 'CRITICAL'):
+    if name in LOG_LEVELS:
         return getattr(logging, name, logging.INFO)
 
     return logging.INFO
 
 
+def pluralize(count, singular, plural):
+    """Return singular or plural depending on count"""
+    if count == 1:
+        return singular
+    return plural
