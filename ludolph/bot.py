@@ -39,8 +39,6 @@ class LudolphBot(ClientXMPP):
     admins = ADMINS
     room = None
     room_config = None
-    room_users = set()
-    room_admins = set()
     muc = None
     nick = 'Ludolph'
     xmpp = None
@@ -71,6 +69,11 @@ class LudolphBot(ClientXMPP):
         # Register event handlers
         self.add_event_handler('session_start', self.session_start, threaded=True)
         self.add_event_handler('message', self.message, threaded=True)
+
+        # Initialize MUC attributes
+        self.room_users = set()
+        self.room_admins = set()
+        self.muc_invited_users = set()
 
         if self.room:
             self.muc = self.plugin['xep_0045']
@@ -384,14 +387,17 @@ class LudolphBot(ClientXMPP):
             self.send_presence(pto=presence['from'])
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
-            # Send invitation to all users; unless initialized from reload event
-            if not self._reloaded:
-                for user in self.room_users:
-                    if self._jid_in_room(user):
-                        logger.info('User "%s" already in MUC room', user)
-                    elif user != self.room:
+            # Send invitation to all users; unless an invitation was sent in the past
+            for user in self.room_users:
+                if self._jid_in_room(user):
+                    logger.info('User "%s" already in MUC room', user)
+                elif user != self.room:
+                    if user in self.muc_invited_users:
+                        logger.info('User "%s" was already invited to MUC room', user)
+                    else:
                         logger.info('Inviting "%s" to MUC room', user)
                         self.muc.invite(self.room, user)
+                        self.muc_invited_users.add(user)
 
         else:
             # Say hello to new user
