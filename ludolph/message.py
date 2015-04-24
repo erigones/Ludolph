@@ -126,7 +126,7 @@ class LudolphMessage(object):
             return ET.XML(html)
         except (ParseError, SyntaxError) as e:
             logger.error('Could not parse html: %s', e)
-            raise MessageError(str(e))
+            return None
 
     @classmethod
     def create(cls, mbody, **kwargs):
