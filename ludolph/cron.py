@@ -204,6 +204,10 @@ class Cron(object):
 
                     try:
                         res = job.run()
+                    except Exception as ex:
+                        logger.critical('Error while running cron job "%s" (%s)', name, job.fqfn)
+                        logger.exception(ex)
+                        continue
                     finally:
                         if job.onetime:
                             self.crontab.delete(name)
