@@ -489,7 +489,8 @@ class LudolphBot(ClientXMPP):
             logger.info('Reinitializing multi-user chat room %s', self.room)
             self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory)
 
-    def msg_copy(self, msg, **kwargs):
+    @staticmethod
+    def msg_copy(msg, **kwargs):
         """
         Create copy of message stanza.
         """
