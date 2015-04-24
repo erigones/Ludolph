@@ -208,7 +208,7 @@ class Cron(object):
                         if job.onetime:
                             self.crontab.delete(name)
 
-                    logger.info('\tCron job "%s" output: "%s"', name, res)
+                    logger.info('Cron job "%s" (%s) output: "%s"', name, job.fqfn, res)
 
             dt += timedelta(minutes=1)
 

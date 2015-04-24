@@ -46,25 +46,29 @@ class Commands(LudolphPlugin):
 
         return cmd, decorators, doc
 
+    @staticmethod
+    def _get_fun(name, cmd, decorators, doc):
+        """Return dynamic function"""
+        # noinspection PyProtectedMember
+        fun = lambda obj, msg, *args: obj._execute(msg, cmd, *args)
+        fun.__name__ = name
+        fun.__doc__ = doc
+
+        for decorator in decorators:
+            fun = decorator(fun)
+
+        return fun
+
     def init(self):
         """Initialize commands from config file"""
         logger.debug('Initializing dynamic commands')
 
         for name, value in self.config.items():
-            cmd, decorators, doc = self._parse_config_line(name, value)
-
-            def fun(obj, msg, *args):
-                # noinspection PyProtectedMember
-                return obj._execute(msg, cmd, *args)
-
             fun_name = name.strip().replace('-', '_')
-            fun.__name__ = fun_name
-            fun.__doc__ = doc
-
-            for decorator in decorators:
-                fun = decorator(fun)
+            fun = self._get_fun(fun_name, *self._parse_config_line(name, value))
 
             if fun:
+                logger.info('Registering dynamic command: %s', name)
                 setattr(self, fun_name, MethodType(fun, self, Commands))
             else:
                 logger.error('Dynamic command "%s" could not be registered', name)
