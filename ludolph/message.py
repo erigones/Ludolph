@@ -52,6 +52,13 @@ TEXT2HTML = (
 )
 
 
+class MessageError(Exception):
+    """
+    Error while creating new XMPP message.
+    """
+    pass
+
+
 def red(s):
     return '%%{color:#FF0000}%s%%' % s
 
@@ -119,7 +126,7 @@ class LudolphMessage(object):
             return ET.XML(html)
         except (ParseError, SyntaxError) as e:
             logger.error('Could not parse html: %s', e)
-            return None
+            raise MessageError(str(e))
 
     @classmethod
     def create(cls, mbody, **kwargs):
