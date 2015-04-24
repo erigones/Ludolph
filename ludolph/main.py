@@ -7,6 +7,7 @@ See the LICENSE file for copying permission.
 """
 
 import os
+import re
 import sys
 import signal
 import logging
@@ -181,30 +182,32 @@ The example file is located in: %s\n\n""" % (
     def load_plugins(config, reinit=False):
         plugins = {}
 
-        for plugin in config.sections():
-            plugin = plugin.strip()
+        for config_section in config.sections():
+            config_section = config_section.strip()
 
-            if plugin in config_base_sections:
+            if config_section in config_base_sections:
                 continue
 
             # Parse other possible imports
-            parsed_plugin = plugin.split('.')
+            parsed_plugin = config_section.split('.')
 
             if len(parsed_plugin) == 1:
-                modname = 'ludolph.plugins.' + plugin
-                config_section = plugin
+                modname = 'ludolph.plugins.' + config_section
+                plugin = config_section
             else:
-                modname = plugin
-                config_section = modname
+                modname = config_section
                 plugin = parsed_plugin[-1]
 
             logger.info('Loading plugin: %s', modname)
 
             try:
-                clsname = plugin[0].upper() + plugin[1:]
+                # Translate super_ludolph_plugin into SuperLudolphPlugin
+                clsname = plugin[0].upper() + re.sub(r'_+([a-zA-Z0-9])', lambda m: m.group(1).upper(), plugin[1:])
                 module = __import__(modname, fromlist=[clsname])
+
                 if reinit and getattr(module, '_loaded_', False):
                     reload(module)
+
                 module._loaded_ = True
                 imported_class = getattr(module, clsname)
 
