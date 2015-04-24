@@ -304,49 +304,6 @@ class Base(LudolphPlugin):
 
     @admin_required
     @command
-    def shutdown(self, msg, announce=False, timeout=5):
-        """
-        Shutdown Ludolph bot.
-
-        Usage: shutdown [announce] [timeout]
-
-        announce: boolean - broadcast shutdown announcement (default: false)
-        timeout: integer - delay shutdown in seconds (default: 5)
-        """
-        try:
-            timeout = int(timeout)
-        except ValueError:
-            raise CommandError('Integer required')
-
-        bot = self.xmpp
-        user = bot.get_jid(msg)
-        warn_msg = 'Shutting down in %s seconds...'
-
-        if str(announce).lower() in ('yes', 'true', 't', 'y', '1', 'a', 'announce'):
-            announce = True
-            bot.msg_broadcast('User %s requested Ludolph shutdown.' % user)
-        else:
-            announce = False
-
-        while timeout > 0:
-            if timeout < 6 or timeout % 10 == 0:
-                if announce:
-                    bot.msg_broadcast(warn_msg % timeout)
-                else:
-                    bot.msg_send(user, warn_msg % timeout)
-
-            time.sleep(1)
-            timeout -= 1
-
-        if announce:
-            bot.msg_broadcast('Bye.')
-        else:
-            bot.msg_send(user, 'Bye.')
-
-        bot.shutdown(signal.SIGTERM, self)
-
-    @admin_required
-    @command
     def muc_invite(self, msg, user=None):
         """
         Invite user or yourself to multi-user chat room (admin only).

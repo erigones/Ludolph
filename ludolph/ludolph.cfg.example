@@ -83,6 +83,18 @@ admins =
 # Absolute path to directory with avatars
 #avatar_dir =
 
+
+[commands]  # Ludolph commands plugin
+# <name> = <command>, [flags], [comment]
+#
+# name      - name of the Ludolph's command
+# command   - command or script to be executed in OS
+# flags     - comma-separated flags (decorators): admin_required, parameter_required(n)
+# comment   - help message displayed in Ludolph
+#
+os-uptime = uptime, Display system uptime
+
+
 # Zabbix plugin
 #[zabbix]
 # Zabbix server URI

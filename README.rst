@@ -35,9 +35,11 @@ Features
         * message - send new XMPP message to user/room
         * muc-invite - invite user to multi-user chat room (admin only)
         * roster - list and manage users on Ludolph's roster (admin only)
-        * shutdown - shutdown Ludolph bot
         * uptime - show Ludolph uptime
         * version - display Ludolph version
+
+    * ludolph.plugins.commands
+        * os-uptime - display system uptime
 
 
 Installation
