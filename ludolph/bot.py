@@ -30,6 +30,7 @@ class LudolphBot(ClientXMPP):
     """
     Ludolph bot.
     """
+    _reloaded = False
     _start_time = None
     _muc_ready = False
     commands = COMMANDS
@@ -383,13 +384,14 @@ class LudolphBot(ClientXMPP):
             self.send_presence(pto=presence['from'])
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
-            # Send invitation to all users
-            for user in self.room_users:
-                if self._jid_in_room(user):
-                    logger.info('User "%s" already in MUC room', user)
-                elif user != self.room:
-                    logger.info('Inviting "%s" to MUC room', user)
-                    self.muc.invite(self.room, user)
+            # Send invitation to all users; unless initialized from reload event
+            if not self._reloaded:
+                for user in self.room_users:
+                    if self._jid_in_room(user):
+                        logger.info('User "%s" already in MUC room', user)
+                    elif user != self.room:
+                        logger.info('Inviting "%s" to MUC room', user)
+                        self.muc.invite(self.room, user)
 
         else:
             # Say hello to new user
@@ -480,6 +482,7 @@ class LudolphBot(ClientXMPP):
         Reload bot configuration and plugins.
         """
         logger.info('Requested reload')
+        self._reloaded = True
         self._load_config(config, init=False)
         self._load_plugins(config, plugins, init=False)
 
