@@ -9,7 +9,6 @@ import time
 import logging
 import os
 import imghdr
-import signal
 from datetime import datetime, timedelta
 from sleekxmpp.exceptions import XMPPError
 from glob import iglob
