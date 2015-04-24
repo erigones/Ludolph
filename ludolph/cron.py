@@ -10,7 +10,12 @@ import logging
 import time
 from datetime import datetime, timedelta
 from functools import wraps
-from collections import OrderedDict
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    # noinspection PyUnresolvedReferences
+    from ordereddict import OrderedDict
 
 __all__ = ('cronjob',)
 

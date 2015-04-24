@@ -23,6 +23,9 @@ DEPS = ['zabbix-api-erigones', 'sleekxmpp>=1.1.11', 'bottle']
 
 if sys.version_info[0] < 3:
     DEPS.append('dnspython')
+
+    if sys.version_info[1] < 7:
+        DEPS.append('ordereddict')
 else:
     DEPS.append('dnspython3')
 
