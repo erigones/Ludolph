@@ -76,11 +76,19 @@ class Commands(LudolphPlugin):
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     def _execute(self, msg, cmd, *args, **kwargs):
         """Execute a command and return stdout or raise CommandError"""
-        cmd = shlex.split(cmd)
-        cmd.extend(args)
+        try:
+            cmd = shlex.split(cmd)
+            cmd.extend(map(str, args))
+        except Exception as e:
+            raise CommandError('Could not parse command parameters')
+
         logger.info('Running dynamic command: "%s"', ' '.join(cmd))
-        p = Popen(cmd, bufsize=0, close_fds=True, stdout=PIPE, stderr=STDOUT)
-        stdout, stderr = p.communicate()
+
+        try:
+            p = Popen(cmd, bufsize=0, close_fds=True, stdout=PIPE, stderr=STDOUT)
+            stdout, stderr = p.communicate()
+        except Exception as e:
+            raise CommandError('Could not run command (%s)' % e)
 
         if p.returncode == 0:
             return stdout
