@@ -73,6 +73,9 @@ admins =
 # You can use @users, @admins or @room_users keywords here.
 #room_admins =
 
+# Whether to send invites to new users to join the MUC room.
+# room_invites = True
+
 
 ###############################################################################
 # Ludolph Plugins. You can enable plugins by uncommenting a configuration section.

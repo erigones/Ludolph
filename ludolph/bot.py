@@ -39,6 +39,7 @@ class LudolphBot(ClientXMPP):
     admins = ADMINS
     room = None
     room_config = None
+    room_invites = True
     muc = None
     nick = 'Ludolph'
     xmpp = None
@@ -152,6 +153,13 @@ class LudolphBot(ClientXMPP):
         # MUC room
         if config.has_option('xmpp', 'room'):
             self.room = config.get('xmpp', 'room').strip()
+        else:
+            self.room = None
+
+        if config.has_option('xmpp', 'enabled'):
+            self.room_invites = config.getboolean('xmpp', 'room_invites')
+        else:
+            self.room_invites = True
 
         # MUC room users
         self.room_users.clear()
@@ -387,16 +395,17 @@ class LudolphBot(ClientXMPP):
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
             # Send invitation to all users; unless an invitation was sent in the past
-            for user in self.room_users:
-                if self._jid_in_room(user):
-                    logger.info('User "%s" already in MUC room', user)
-                elif user != self.room:
-                    if user in self.muc_invited_users:
-                        logger.info('User "%s" was already invited to MUC room', user)
-                    else:
-                        logger.info('Inviting "%s" to MUC room', user)
-                        self.muc.invite(self.room, user)
-                        self.muc_invited_users.add(user)
+            if self.room_invites:
+                for user in self.room_users:
+                    if self._jid_in_room(user):
+                        logger.info('User "%s" already in MUC room', user)
+                    elif user != self.room:
+                        if user in self.muc_invited_users:
+                            logger.info('User "%s" was already invited to MUC room', user)
+                        else:
+                            logger.info('Inviting "%s" to MUC room', user)
+                            self.muc.invite(self.room, user)
+                            self.muc_invited_users.add(user)
 
         else:
             # Say hello to new user
