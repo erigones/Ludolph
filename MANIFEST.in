@@ -4,6 +4,6 @@ include MANIFEST.in
 include setup.py
 include ludolph/ludolph.cfg.example
 recursive-include ludolph *.py
-recursive-include ludolph/plugins/avatars *.png *.jpg *.jpeg *.gif
+recursive-include ludolph/plugins/avatars *.png
 recursive-include init.d *
 recursive-include bin *
