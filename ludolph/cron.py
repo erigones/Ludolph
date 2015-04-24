@@ -14,7 +14,7 @@ from functools import wraps
 try:
     from collections import OrderedDict
 except ImportError:
-    # noinspection PyUnresolvedReferences
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
     from ordereddict import OrderedDict
 
 __all__ = ('cronjob',)
