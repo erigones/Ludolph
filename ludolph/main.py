@@ -192,8 +192,10 @@ The example file is located in: %s\n\n""" % (
 
             if len(parsed_plugin) == 1:
                 modname = 'ludolph.plugins.' + plugin
+                config_section = plugin
             else:
                 modname = plugin
+                config_section = modname
                 plugin = parsed_plugin[-1]
 
             logger.info('Loading plugin: %s', modname)
@@ -209,7 +211,7 @@ The example file is located in: %s\n\n""" % (
                 if not issubclass(imported_class, LudolphPlugin):
                     raise TypeError('Plugin: %s is not LudolphPlugin instance' % modname)
 
-                plugins[modname] = Plugin(plugin, imported_class)
+                plugins[modname] = Plugin(config_section, imported_class)
             except Exception as ex:
                 logger.critical('Could not load plugin: %s', modname)
                 logger.exception(ex)
