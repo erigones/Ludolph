@@ -62,7 +62,7 @@ Installation
 
 **Dependencies:**
 
-- `zabbix-api-erigones <https://github.com/erigones/zabbix-api/>`_ (1.0+)
+- `ludolph-zabbix <https://github.com/erigones/ludolph-zabbix/>`_ (1.0+)
 - `dnspython <http://www.dnspython.org/>`_ (1.10.0+) (or dnspython3 when using Python 3)
 - `sleekxmpp <http://sleekxmpp.com/>`_ (1.1.11+)
 - `bottle <http://bottlepy.org/>`_ (0.12.7+)
@@ -73,6 +73,7 @@ Links
 
 - Wiki: https://github.com/erigones/Ludolph/wiki
 - Bug Tracker: https://github.com/erigones/Ludolph/issues
+- Google+ Community: https://plus.google.com/u/0/communities/112192048027134229675
 - Twitter: https://twitter.com/erigones
 
 
@@ -82,7 +83,3 @@ License
 For more information see the `LICENSE <https://github.com/erigones/Ludolph/blob/master/LICENSE>`_ file.
 
 Avatars have been designed by `Freepik.com <http://www.freepik.com>`_.
-
-####
-
-The Zabbix plugin is inspired by `Dante <http://www.digmia.com>`_.
