@@ -196,7 +196,6 @@ class Base(LudolphPlugin):
         if os.path.splitext(avatar_name)[-1] not in self._avatar_allowed_extensions:
             raise CommandError('You have requested a file that is not supported')
 
-        user = self.xmpp.get_jid(msg)
         avatar = None
         available_avatar_directories = self._get_avatar_dirs()
 
@@ -221,7 +220,8 @@ class Base(LudolphPlugin):
             raise CommandError('Avatar "%s" has not been found.\n'
                                'You can list available avatars with the command: **avatar-list**' % avatar_name)
         else:
-            self.xmpp.msg_send(user, 'I have found selected avatar, changing it might take few seconds...')
+            self.xmpp.msg_reply(msg, 'I have found the selected avatar, changing it might take few seconds...',
+                                preserve_msg=True)
 
         avatar_type = 'image/%s' % imghdr.what('', avatar)
         avatar_id = self.xmpp.plugin['xep_0084'].generate_id(avatar)
@@ -241,7 +241,7 @@ class Base(LudolphPlugin):
             logger.error('Could not publish XEP-0153 vCard avatar: %s' % e.text)
             raise CommandError('Could not set vCard avatar')
 
-        self.xmpp.msg_send(user, 'Almost done, please be patient')
+        self.xmpp.msg_reply(msg, 'Almost done, please be patient', preserve_msg=True)
 
         try:
             logger.debug('Advertise XEP-0084 avatar metadata')
