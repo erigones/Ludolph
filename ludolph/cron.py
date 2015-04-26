@@ -10,6 +10,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 from functools import wraps
+from collections import namedtuple
 
 try:
     from collections import OrderedDict
@@ -21,17 +22,12 @@ __all__ = ('cronjob',)
 
 logger = logging.getLogger(__name__)
 
-
-class CronStar(set):
-    """Universal set - match everything"""
-    def __contains__(self, item):
-        return True
-star = CronStar()
+CronJobFun = namedtuple('CronJobFun', ('name', 'module'))
 
 
 def at_fun(job, fun):
     """
-    Decorator for "at" job commands.
+    Decorator for "at" job command functions.
     """
     @wraps(fun)
     def wrap(msg, *args, **kwargs):
@@ -43,17 +39,28 @@ def at_fun(job, fun):
     return wrap
 
 
+class CronStar(set):
+    """Universal set - match everything"""
+    def __contains__(self, item):
+        return True
+star = CronStar()
+
+
+class CronJobError(Exception):
+    pass
+
+
 class CronJob(object):
     """
     Crontab entry.
     """
     def __init__(self, name, fun, args=(), kwargs=(), minute=None, hour=None, day=None, month=None, dow=None,
                  onetime=False, owner=None, at=False):
-        if at:
-            fun = at_fun(self, fun)
+        if not isinstance(fun, CronJobFun):
+            raise TypeError('fun must be a instance of CronJobFun')
 
         self.name = name
-        self.fun = fun
+        self._fun = fun
         self.args = args
         self.kwargs = dict(kwargs)
         self.minutes = self.validate_field(minute, 0, 59)
@@ -80,12 +87,12 @@ class CronJob(object):
     @property
     def plugin(self):
         """Return plugin name"""
-        return self.fun.__module__.split('.')[-1]
+        return self._fun.module.split('.')[-1]
 
     @property
     def fqfn(self):
         """Fully qualified function name"""
-        return '%s.%s' % (self.fun.__module__, self.fun.__name__)
+        return '%s.%s' % (self._fun.module, self._fun.name)
 
     @property
     def command(self):
@@ -93,7 +100,7 @@ class CronJob(object):
         if self.at and self.args:
             return self.args[0]['body']
 
-        cmd = [self.fun.__name__.replace('_', '-')]
+        cmd = [self._fun.name.replace('_', '-')]
 
         if self.args:
             cmd.extend(map(str, self.args))
@@ -102,6 +109,22 @@ class CronJob(object):
             cmd.extend(['%s=%s' % kv for kv in self.kwargs.items()])
 
         return ' '.join(cmd)
+
+    @property
+    def fun(self):
+        """Get the real fun - the plugin object's bound method"""
+        from ludolph.bot import PLUGINS
+
+        try:
+            obj = PLUGINS[self._fun.module]
+            obj_fun = getattr(obj, self._fun.name)
+        except (KeyError, AttributeError):
+            raise CronJobError('%r lost its fun' % self)
+
+        if self.at:
+            obj_fun = at_fun(self, obj_fun)
+
+        return obj_fun
 
     @staticmethod
     def clean_datetime(dt):
@@ -147,17 +170,37 @@ class CronJob(object):
 
     def run(self):
         """Go!"""
-        return self.fun(*self.args, **self.kwargs)
+        try:
+            return self.fun(*self.args, **self.kwargs)
+        except CronJobError as e:
+            logger.error('Error while running cron job "%s" (%s): %s', self.name, self.fqfn, e)
+            return None
 
 
 class CronTab(OrderedDict):
     """
     "List" of crontab entries. Each entry is identified by a unique name.
     """
+    def __reduce__(self):
+        """Pickle only onetime cron jobs"""
+        clean_crontab = self.__class__((name, job) for name, job in self.items() if job.onetime)
+        return super(CronTab, clean_crontab).__reduce__()
+
+    def __setitem__(self, key, value, **kwargs):
+        if not isinstance(value, CronJob):
+            raise TypeError('value must be a instance of CronJob')
+
+        return super(CronTab, self).__setitem__(key, value, **kwargs)
+
     def add(self, name, fun, **kwargs):
         """Add named crontab entry, which will run fun at specified date/time"""
-        assert name not in self, 'Cron job with name "%s" is already defined' % name
-        job = CronJob(name, fun, **kwargs)
+        if name in self:
+            raise NameError('Cron job with name "%s" is already defined' % name)
+
+        if not hasattr(fun, '__call__'):
+            raise ValueError('fun must be a callable function')
+
+        job = CronJob(name, CronJobFun(fun.__name__, fun.__module__), **kwargs)
         self[name] = job
 
         return job
@@ -184,6 +227,12 @@ class CronTab(OrderedDict):
     def add_at(self, fun, onetime, msg, owner):
         """Add "at" onetime job into crontab"""
         return self.add_onetime(fun, onetime, args=(msg,), owner=owner, at=True)
+
+    def clear_cron_jobs(self):
+        """Remove all cron jobs, but keep onetime jobs"""
+        for name, job in self.items():
+            if not job.onetime:
+                del self[name]
 
 
 CRONJOBS = CronTab()
@@ -230,31 +279,11 @@ class Cron(object):
 
     def reset(self):
         logger.info('Reinitializing crontab')
-        self.crontab.clear()
+        self.crontab.clear_cron_jobs()
 
     def display_cronjobs(self):
         """Return list of available cron jobs suitable for logging"""
         return (job.display() for job in self.crontab.values())
-
-
-def _cronjob(fun):
-    """
-    Wrapper cron job function responsible for finding back the bound method.
-    """
-    @wraps(fun)
-    def wrap(*args, **kwargs):
-        from ludolph.bot import PLUGINS
-
-        try:
-            obj = PLUGINS[CRONJOBS[fun.__name__].fun.__module__]
-            obj_fun = getattr(obj, fun.__name__)
-        except (KeyError, AttributeError) as e:
-            logger.error('Cron job "%s" is not registered (%s)', fun.__name__, e)
-            return None
-        else:
-            return obj_fun(*args, **kwargs)
-
-    return wrap
 
 
 def cronjob(minute='*', hour='*', day='*', month='*', dow='*'):
@@ -269,7 +298,7 @@ def cronjob(minute='*', hour='*', day='*', month='*', dow='*'):
 
         logging.debug('Registering cron job "%s" from plugin "%s" to run at "%s %s %s %s %s"',
                       fun.__name__, fun.__module__, minute, hour, day, month, dow)
-        CRONJOBS.add(fun.__name__, _cronjob(fun), minute=minute, hour=hour, day=day, month=month, dow=dow)
+        CRONJOBS.add(fun.__name__, fun, minute=minute, hour=hour, day=day, month=month, dow=dow)
 
         return fun
 
