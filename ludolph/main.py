@@ -26,6 +26,7 @@ try:
     # noinspection PyCompatibility
     from importlib import reload
 except ImportError:
+    # noinspection PyUnresolvedReferences
     from imp import reload
 
 from ludolph.utils import parse_loglevel
