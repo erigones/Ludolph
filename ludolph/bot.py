@@ -14,7 +14,7 @@ from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
 from sleekxmpp.exceptions import IqError
 
-from ludolph.message import LudolphMessage
+from ludolph.message import IncomingLudolphMessage, OutgoingLudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
 from ludolph.web import WebServer
 from ludolph.cron import Cron
@@ -421,6 +421,8 @@ class LudolphBot(ClientXMPP):
         if msg['type'] not in types:
             return
 
+        # Wrap around the Message object
+        msg = IncomingLudolphMessage.wrap_msg(msg)
         # Seek received text in available commands and get command
         cmd = self.commands.get_command(msg['body'].split()[0].strip())
 
@@ -522,23 +524,26 @@ class LudolphBot(ClientXMPP):
         """
         Create message and send it.
         """
-        return LudolphMessage.create(mbody, **kwargs).send(self, mto)
+        return OutgoingLudolphMessage.create(mbody, **kwargs).send(self, mto)
 
     # noinspection PyMethodMayBeStatic
-    def msg_reply(self, msg, mbody, **kwargs):
+    def msg_reply(self, msg, mbody, preserve_msg=False, **kwargs):
         """
         Set message reply text and html, and send it.
         """
         if mbody is None:
             return None  # Command performs custom message sending
 
-        return LudolphMessage.create(mbody, **kwargs).reply(msg)
+        if preserve_msg:
+            msg = self.msg_copy(msg)
+
+        return OutgoingLudolphMessage.create(mbody, **kwargs).reply(msg)
 
     def msg_broadcast(self, mbody, **kwargs):
         """
         Send message to all users in roster.
         """
-        msg = LudolphMessage.create(mbody, **kwargs)
+        msg = OutgoingLudolphMessage.create(mbody, **kwargs)
 
         for jid in self.client_roster:
             msg.send(self, jid)

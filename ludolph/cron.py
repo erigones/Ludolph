@@ -35,9 +35,9 @@ def at_fun(job, fun):
     """
     @wraps(fun)
     def wrap(msg, *args, **kwargs):
-        kwargs['_reply_output'] = False  # Do not send command output to job owner
+        msg.reply_output = False  # Do not send command output to job owner
         ret = fun(msg, *args, **kwargs)
-        out = 'Scheduled job **%s** run at %s finished with output: %s' % (job.name, datetime.now().isoformat(), ret)
+        out = 'Scheduled job **%s** run at %s finished with output:\n%s' % (job.name, datetime.now().isoformat(), ret)
         fun.__self__.xmpp.msg_reply(msg, out)  # We will inform the owner here
         return out
     return wrap

@@ -8,12 +8,13 @@ See the file LICENSE for copying permission.
 import logging
 import re
 from sleekxmpp.xmlstream import ET
+from sleekxmpp.stanza import Message
 try:
     from xml.etree.ElementTree import ParseError
 except ImportError:
     from xml.parsers.expat import ExpatError as ParseError
 
-__all__ = ('red', 'green', 'blue', 'LudolphMessage')
+__all__ = ('red', 'green', 'blue', 'IncomingLudolphMessage', 'OutgoingLudolphMessage')
 
 logger = logging.getLogger(__name__)
 r = re.compile
@@ -71,7 +72,49 @@ def blue(s):
     return '%%{color:#0000FF}%s%%' % s
 
 
-class LudolphMessage(object):
+# noinspection PyAttributeOutsideInit
+class IncomingLudolphMessage(Message):
+    """
+    SleekXMPP Message object wrapper.
+    """
+    @classmethod
+    def wrap_msg(cls, msg):
+        """Inject our properties into original Message object"""
+        if isinstance(msg, cls):
+            raise TypeError('Message object is already wrapped')
+
+        obj = cls()
+        obj.__class__ = type(msg.__class__.__name__, (cls, msg.__class__), {})
+        obj.__dict__ = msg.__dict__
+
+        return obj
+
+    def _get_ludolph_attr(self, attr, default, set_default=False):
+        try:
+            return getattr(self, attr)
+        except AttributeError:
+            if set_default:
+                setattr(self, attr, default)
+            return default
+
+    def get_reply_output(self, default=True, set_default=False):
+        return self._get_ludolph_attr('_reply_output_', default, set_default=set_default)
+
+    def set_reply_output(self, value):
+        self._reply_output_ = value
+
+    reply_output = property(get_reply_output, set_reply_output)
+
+    def get_stream_output(self, default=False, set_default=False):
+        return self._get_ludolph_attr('_stream_output_', default, set_default=set_default)
+
+    def set_stream_output(self, value):
+        self._stream_output_ = value
+
+    stream_output = property(get_stream_output, set_stream_output)
+
+
+class OutgoingLudolphMessage(object):
     """
     Creating and sending bots messages (replies).
     """
@@ -154,3 +197,6 @@ class LudolphMessage(object):
         msg['html']['body'] = self.mhtml
 
         return msg.send()
+
+
+LudolphMessage = OutgoingLudolphMessage  # Backward compatibility

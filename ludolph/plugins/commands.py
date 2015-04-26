@@ -9,6 +9,45 @@ from ludolph.plugins.plugin import LudolphPlugin
 logger = logging.getLogger(__name__)
 
 
+class Process(Popen):
+    """
+    Command wrapper.
+    """
+    def __init__(self, args):
+        super(Process, self).__init__(args, stdout=PIPE, stderr=STDOUT, close_fds=True, bufsize=0)
+
+    @property
+    def output(self):
+        """Stdout generator"""
+        while self.poll() is None:
+            yield self.stdout.readline().decode('utf-8').rstrip('\n')
+
+    # noinspection PyUnusedLocal
+    def _get_output(self, name):
+        """Classic Ludolph command output"""
+        out = '\n'.join(self.output)
+
+        if self.returncode == 0:
+            return out
+        else:
+            raise CommandError(out)
+
+    def _get_output_stream(self, name):
+        """Stream Ludolph command output"""
+        for line in self.output:
+            yield line
+
+        if self.returncode != 0:
+            raise CommandError('Command "%s" exited with non-zero status %s' % (name, self.returncode))
+
+    def cmd_output(self, name, stream=False):
+        """Return output suitable for Ludolph commands"""
+        if stream:
+            return self._get_output_stream(name)
+        else:
+            return self._get_output(name)
+
+
 class Commands(LudolphPlugin):
     """
     Create dynamic Ludolph commands associated with real OS commands and scripts.
@@ -22,7 +61,8 @@ class Commands(LudolphPlugin):
         """Parse one config value"""
         value = value.strip().split(',')
         cmd = value.pop(0).strip()
-        decorators = [command]
+        decorators = []
+        command_kwargs = {}
         doc = ''
 
         for i, opt in enumerate(value):
@@ -30,7 +70,11 @@ class Commands(LudolphPlugin):
 
             if opt == 'command':
                 continue
-            if opt == 'admin_required':
+            elif opt == 'stream_output':
+                command_kwargs['stream_output'] = True
+            elif opt == 'ignore_output':
+                command_kwargs['reply_output'] = False
+            elif opt == 'admin_required':
                 decorators.append(admin_required)
             elif opt.startswith('parameter_required('):
                 try:
@@ -44,13 +88,16 @@ class Commands(LudolphPlugin):
                 doc = ','.join(value[i:]).strip()
                 break
 
+        # The @command decorator must be always first
+        decorators.insert(0, command(**command_kwargs))
+
         return cmd, decorators, doc
 
     @staticmethod
     def _get_fun(name, cmd, decorators, doc):
         """Return dynamic function"""
         # noinspection PyProtectedMember
-        fun = lambda obj, msg, *args: obj._execute(msg, cmd, *args)
+        fun = lambda obj, msg, *args: obj._execute(msg, name, cmd, *args)
         fun.__name__ = name
         fun.__doc__ = doc
 
@@ -64,33 +111,30 @@ class Commands(LudolphPlugin):
         logger.debug('Initializing dynamic commands')
 
         for name, value in self.config.items():
-            fun_name = name.strip().replace('-', '_')
-            fun = self._get_fun(fun_name, *self._parse_config_line(name, value))
+            try:
+                fun_name = name.strip().replace('-', '_')
+                fun = self._get_fun(fun_name, *self._parse_config_line(name, value))
 
-            if fun:
-                logger.info('Registering dynamic command: %s', name)
-                setattr(self, fun_name, MethodType(fun, self, Commands))
-            else:
-                logger.error('Dynamic command "%s" could not be registered', name)
+                if fun:
+                    logger.info('Registering dynamic command: %s', name)
+                    setattr(self, fun_name, MethodType(fun, self))
+                else:
+                    raise ValueError('Error while decorating dynamic command function')
+            except Exception as e:
+                logger.error('Dynamic command "%s" could not be registered (%s)', name, e)
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
-    def _execute(self, msg, cmd, *args, **kwargs):
+    def _execute(self, msg, name, cmd, *args, **kwargs):
         """Execute a command and return stdout or raise CommandError"""
         try:
             cmd = shlex.split(cmd)
             cmd.extend(map(str, args))
-        except Exception as e:
+        except Exception:
             raise CommandError('Could not parse command parameters')
 
-        logger.info('Running dynamic command: "%s"', ' '.join(cmd))
+        logger.info('Running dynamic command: %s', cmd)
 
         try:
-            p = Popen(cmd, bufsize=0, close_fds=True, stdout=PIPE, stderr=STDOUT)
-            stdout, stderr = p.communicate()
+            return Process(cmd).cmd_output(name, stream=msg.stream_output)
         except Exception as e:
             raise CommandError('Could not run command (%s)' % e)
-
-        if p.returncode == 0:
-            return stdout
-        else:
-            raise CommandError(stdout)

@@ -92,7 +92,7 @@ admins =
 #
 # name      - name of the Ludolph's command
 # command   - command or script to be executed in OS
-# flags     - comma-separated flags (decorators): admin_required, parameter_required(n)
+# flags     - comma-separated flags: admin_required, parameter_required(n), stream_output, ignore_output
 # comment   - help message displayed in Ludolph
 #
 os-uptime = uptime, Display system uptime
