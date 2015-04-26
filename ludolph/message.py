@@ -166,6 +166,7 @@ class OutgoingLudolphMessage(object):
         html = '<div>\n' + html + '\n</div>'
 
         try:
+            # noinspection PyUnresolvedReferences
             return ET.XML(html)
         except (ParseError, SyntaxError) as e:
             logger.error('Could not parse html: %s', e)
