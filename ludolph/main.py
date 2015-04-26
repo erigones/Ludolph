@@ -39,7 +39,7 @@ LOGFORMAT = '%(asctime)s %(levelname)-8s %(name)s: %(message)s'
 
 logger = logging.getLogger('ludolph.main')
 
-Plugin = namedtuple('Plugin', ('name', 'cls'))
+Plugin = namedtuple('Plugin', ('name', 'module', 'cls'))
 
 
 def daemonize():
@@ -181,7 +181,7 @@ The example file is located in: %s\n\n""" % (
     # Load plugins
     # noinspection PyShadowingNames
     def load_plugins(config, reinit=False):
-        plugins = {}
+        plugins = []
 
         for config_section in config.sections():
             config_section = config_section.strip()
@@ -215,7 +215,7 @@ The example file is located in: %s\n\n""" % (
                 if not issubclass(imported_class, LudolphPlugin):
                     raise TypeError('Plugin: %s is not LudolphPlugin instance' % modname)
 
-                plugins[modname] = Plugin(config_section, imported_class)
+                plugins.append(Plugin(config_section, modname, imported_class))
             except Exception as ex:
                 logger.critical('Could not load plugin: %s', modname)
                 logger.exception(ex)

@@ -14,6 +14,12 @@ from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
 from sleekxmpp.exceptions import IqError
 
+try:
+    from collections import OrderedDict
+except ImportError:
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
+    from ordereddict import OrderedDict
+
 from ludolph.message import IncomingLudolphMessage, OutgoingLudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
 from ludolph.web import WebServer
@@ -23,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ('LudolphBot',)
 
-PLUGINS = {}  # {modname : instance}
+PLUGINS = OrderedDict()  # {modname : instance}
 
 
 class LudolphBot(ClientXMPP):
@@ -214,7 +220,9 @@ class LudolphBot(ClientXMPP):
                     del self.plugins[enabled_plugin]
 
         if plugins:
-            for modname, plugin in plugins.items():
+            for plugin in plugins:
+                modname = plugin.module
+
                 if init or modname not in self.plugins:
                     logger.info('Initializing plugin: %s', modname)
                     reinit = False
