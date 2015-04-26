@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ('LudolphBot',)
 
-PLUGINS = {}  # {modname : instance}
+PLUGINS = {}  # {modname : (name, cls)}
 
 
 class LudolphBot(ClientXMPP):
