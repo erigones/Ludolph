@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Version: 0.5.1
+Version: 0.6.0a
 Homepage: https://github.com/erigones/Ludolph
 Copyright (C) 2012-2015 Erigones, s. r. o.
 
