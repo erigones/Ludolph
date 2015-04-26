@@ -31,6 +31,52 @@ class Base(LudolphPlugin):
     """
     _avatar_allowed_extensions = ('.png', '.jpg', '.jpeg', '.gif')
 
+    def __init__(self, xmpp, config, **kwargs):
+        super(Base, self).__init__(xmpp, config, **kwargs)
+        self._help_cache = None
+
+    def _help_all(self):
+        """Return list of all commands organized by plugins"""
+        if self._help_cache is None:
+            # Create dict with module name as key and list of commands as value
+            cmd_map = {}
+            for cmd_name in self.xmpp.commands.all():
+                cmd = self.xmpp.commands[cmd_name]
+                mod_name = cmd.module
+
+                if mod_name not in cmd_map:
+                    cmd_map[mod_name] = []
+
+                cmd_map[mod_name].append(cmd_name)
+
+            out = ['List of available Ludolph commands:']
+
+            for mod_name in self.xmpp.plugins:  # The plugins dict knows the plugin order
+                try:
+                    cmd_names = cmd_map[mod_name]
+                except KeyError:
+                    continue
+
+                # Item: module name
+                out.append('\n* %s\n' % mod_name)
+
+                for name in cmd_names:
+                    try:
+                        # First line of __doc__
+                        desc = self.xmpp.commands[name].doc.split('\n')[0]
+                        # Lowercase first char and remove trailing dot
+                        desc = ' - ' + desc[0].lower() + desc[1:].rstrip('.')
+                    except IndexError:
+                        desc = ''
+
+                    # SubItem: line of command + description
+                    out.append('  * **%s**%s' % (name, desc))
+
+            out.append('\nUse "help <command>" for more information about the command usage')
+            self._help_cache = '\n'.join(out)
+
+        return self._help_cache
+
     # noinspection PyUnusedLocal
     @command
     def help(self, msg, cmdstr=None):
@@ -48,38 +94,7 @@ class Base(LudolphPlugin):
                 # **Command name** (module) + desc
                 return '**%s** (%s)\n\n%s' % (cmd.name, cmd.module, desc)
 
-        # Create dict with module name as key and list of commands as value
-        cmd_map = {}
-        for cmd_name in self.xmpp.commands.all():
-            cmd = self.xmpp.commands[cmd_name]
-            mod_name = cmd.module
-
-            if mod_name not in cmd_map:
-                cmd_map[mod_name] = []
-
-            cmd_map[mod_name].append(cmd_name)
-
-        out = ['List of available Ludolph commands:']
-
-        for mod_name, cmd_names in cmd_map.items():
-            # Item: module name
-            out.append('\n* %s\n' % mod_name)
-
-            for name in cmd_names:
-                try:
-                    # First line of __doc__
-                    desc = self.xmpp.commands[name].doc.split('\n')[0]
-                    # Lowercase first char and remove trailing dot
-                    desc = ' - ' + desc[0].lower() + desc[1:].rstrip('.')
-                except IndexError:
-                    desc = ''
-
-                # SubItem: line of command + description
-                out.append('  * **%s**%s' % (name, desc))
-
-        out.append('\nUse "help <command>" for more information about the command usage')
-
-        return '\n'.join(out)
+        return self._help_all()
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
