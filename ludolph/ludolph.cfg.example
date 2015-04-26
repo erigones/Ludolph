@@ -99,7 +99,7 @@ os-uptime = uptime, Display system uptime
 
 
 # Zabbix API plugin (ludolph-zabbix)
-#[zapi.zabbix]
+#[ludolph_zabbix.zapi]
 # Zabbix server URI
 #server = https://zabbix.example.com/zabbix
 
