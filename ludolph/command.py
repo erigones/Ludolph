@@ -68,7 +68,7 @@ class Commands(dict):
         return cmd
 
 
-COMMANDS = Commands()  # command : (name, module, doc)
+COMMANDS = Commands()  # command : (cmd, fun, name, module, doc)
 USERS = set()  # List of users
 ADMINS = set()  # List of admins
 
