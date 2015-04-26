@@ -8,6 +8,7 @@ See the LICENSE file for copying permission.
 import logging
 import socket
 from functools import wraps
+from collections import namedtuple
 # noinspection PyUnresolvedReferences
 from bottle import Bottle, ServerAdapter, abort, request
 
@@ -26,7 +27,8 @@ class LudolphBottle(Bottle):
 
 
 WEBAPP = LudolphBottle()
-WEBHOOKS = {}  # webhook : (module, path)
+WEBHOOKS = {}  # {webhook : (name, module, path)}
+Webhook = namedtuple('Webhook', ('name', 'module', 'path'))
 
 
 class WebServer(ServerAdapter):
@@ -89,7 +91,7 @@ class WebServer(ServerAdapter):
 
     def display_webhooks(self):
         """Return list of available webhooks suitable for logging"""
-        return ['%s [%s]: %s' % (name, hook[0].split('.')[-1], hook[1]) for name, hook in self.webhooks.items()]
+        return ['%s [%s]: %s' % (name, hook.module.split('.')[-1], hook.path) for name, hook in self.webhooks.items()]
 
 
 def _webview(fun):
@@ -101,7 +103,7 @@ def _webview(fun):
         from ludolph.bot import PLUGINS
 
         try:
-            obj = PLUGINS[WEBHOOKS[fun.__name__][0]]
+            obj = PLUGINS[WEBHOOKS[fun.__name__].module]
             obj_fun = getattr(obj, fun.__name__)
         except (KeyError, AttributeError) as e:
             logger.error('Requested webhook "%s" is not registered (%s)', fun.__name__, e)
@@ -119,12 +121,12 @@ def webhook(path, methods=('GET',)):
     def webhook_decorator(fun):
         if fun.__name__ in WEBHOOKS:
             logger.critical('Webhook "%s" from plugin "%s" overlaps with existing webhook from module "%s"',
-                            fun.__name__, fun.__module__, WEBHOOKS[fun.__name__][0])
+                            fun.__name__, fun.__module__, WEBHOOKS[fun.__name__].module)
             return None
 
         logging.debug('Registering web hook "%s" from plugin "%s" to URL "%s"', fun.__name__, fun.__module__, path)
         WEBAPP.route(path, methods, _webview(fun))
-        WEBHOOKS[fun.__name__] = (fun.__module__, path)
+        WEBHOOKS[fun.__name__] = Webhook(fun.__name__, fun.__module__, path)
 
         return fun
 
