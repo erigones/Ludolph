@@ -1,0 +1,24 @@
+# Ludolph systemd service file
+#
+# INSTALL:
+#   - copy ludolph.conf tmpfiles configuration into /usr/lib/tmpfiles.d
+#   - copy ludolph.service into /usr/lib/systemd/system
+#   - run: systemd-tmpfiles --create /usr/lib/tmpfiles.d/ludolph.conf 
+#   - run: systemctl enable ludolph.service && systemctl start ludolph.service
+
+[Unit]
+Description=Ludolph - Monitoring Jabber Bot
+Documentation=https://github.com/erigones/Ludolph
+After=network.target
+
+[Service]
+Type=simple
+User=daemon
+PIDFile=/run/ludolph/ludolph.pid
+ExecStart=/usr/bin/ludolph
+Restart=on-failure
+RestartPreventExitStatus=2
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
