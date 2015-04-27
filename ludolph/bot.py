@@ -110,18 +110,12 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     def _db_set_items(self):
         """Save data to persistent DB"""
-        if self.db is None:
-            return
-
         logger.info('Syncing LudolphBot data with persistent DB file')
         self.db['room_users_invited'] = self.room_users_invited
         self.db['room_users_last_seen'] = self.room_users_last_seen
 
     def _db_load_items(self):
         """Load saved data from persistent DB"""
-        if self.db is None:
-            return
-
         logger.info('Loading LudolphBot data from persistent DB file')
         self.room_users_invited.update(self.db.get('room_users_invited', ()))
         self.room_users_last_seen.update(self.db.get('room_users_last_seen', {}))
@@ -553,7 +547,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             return
 
         self.shutting_down = True
-        self._db_set_items()
 
         try:
             if self.webserver:
@@ -569,6 +562,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         try:
             if self.db is not None:
+                self._db_set_items()
                 self.db.close()
                 self.db_disable()
         except Exception as e:
@@ -587,7 +581,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         """
         Cleanup during reload phase. Runs before plugin loading in main.
         """
-        self._db_set_items()
         self.commands.reset()
 
         if self.webserver:
@@ -598,6 +591,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             self.cron.reset()
 
         if self.db is not None:
+            self._db_set_items()
             self.db.close()
             self.db_disable()
 
