@@ -19,12 +19,11 @@ except ImportError:
     from ordereddict import OrderedDict
 
 from ludolph.message import IncomingLudolphMessage
+from ludolph.db import LudolphDBMixin
 
 __all__ = ('cronjob',)
 
 logger = logging.getLogger(__name__)
-
-noop = lambda *args, **kwargs: None
 
 CronJobFun = namedtuple('CronJobFun', ('name', 'module'))
 
@@ -190,16 +189,11 @@ class CronTab(OrderedDict):
     """
     "List" of crontab entries. Each entry is identified by a unique name.
     """
-    db_sync = noop  # Run after add()/delete() operations.
+    db = None
 
     # noinspection PyMethodOverriding
     def __repr__(self):
         return '%s(jobs=%s)' % (self.__class__.__name__, len(self))
-
-    def __reduce__(self):
-        """Pickle only onetime cron jobs"""
-        clean_crontab = self.__class__((name, job) for name, job in self.items() if job.onetime)
-        return super(CronTab, clean_crontab).__reduce__()
 
     def __setitem__(self, key, value, **kwargs):
         if not isinstance(value, CronJob):
@@ -208,10 +202,24 @@ class CronTab(OrderedDict):
         return super(CronTab, self).__setitem__(key, value, **kwargs)
 
     def sync(self):
+        """Store only onetime cron jobs into persistent DB"""
         try:
-            self.db_sync()
+            if self.db is not None:
+                self.db['crontab'] = self.__class__((name, job) for name, job in self.items() if job.onetime)
         except Exception as ex:
             logger.critical('Could not sync crontab with persistent DB file: %s', ex)
+
+    def load(self):
+        """Load cronjobs from external source"""
+        try:
+            if self.db is not None:
+                cronjobs = self.db.get('crontab', None)
+
+                if cronjobs:
+                    logger.info('Loading %d cron job(s) from persistent DB file', len(cronjobs))
+                    self.update(cronjobs)
+        except Exception as ex:
+            logger.critical('Could not load crontab from persistent DB file: %s', ex)
 
     def add(self, name, fun, **kwargs):
         """Add named crontab entry, which will run fun at specified date/time"""
@@ -271,37 +279,26 @@ class CronTab(OrderedDict):
 CRONJOBS = CronTab()
 
 
-class Cron(object):
+class Cron(LudolphDBMixin):
     """
     Cron thread (the scheduler).
     """
     running = False
     crontab = CRONJOBS
-    db = None
 
-    def __init__(self, db=None):
-        """Enable DB support if available"""
-        if db is not None:
-            self.db_enable(db)
+    def _db_set_items(self):
+        self.crontab.sync()
 
-    def db_set_crontab(self):
-        if self.db is not None:
-            self.db['crontab'] = self.crontab
+    def _db_load_items(self):
+        self.crontab.load()
 
-    def db_enable(self, db):
-        self.db = db
-        cronjobs = db.get('crontab', None)
-
-        if cronjobs:
-            logger.info('Loading %d cron jobs from persistent DB file', len(cronjobs))
-            self.crontab.update(cronjobs)
-
-        self.db_set_crontab()
-        self.crontab.db_sync = db.sync
+    def db_enable(self, db, init=False):
+        self.crontab.db = db
+        super(Cron, self).db_enable(db, init=init)
 
     def db_disable(self):
-        self.db = None
-        self.crontab.db_sync = noop
+        self.crontab.db = None
+        super(Cron, self).db_disable()
 
     def run(self):
         logger.info('Starting cron')
@@ -333,12 +330,10 @@ class Cron(object):
 
     def stop(self):
         logger.info('Stopping cron')
-        self.db_set_crontab()
         self.running = False
 
     def reset(self):
         logger.info('Reinitializing crontab')
-        self.db_set_crontab()
         self.crontab.clear_cron_jobs()
 
     def display_cronjobs(self):
