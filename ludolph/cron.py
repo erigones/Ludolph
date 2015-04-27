@@ -249,7 +249,7 @@ class CronTab(OrderedDict):
     def generate_id(self):
         """Generate new job ID for a new onetime ("at") job"""
         try:
-            last = int(self.keys()[-1])
+            last = int(list(self.keys())[-1])
         except (IndexError, ValueError):
             return 1
         else:
