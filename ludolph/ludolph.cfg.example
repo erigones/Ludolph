@@ -14,7 +14,7 @@ loglevel = INFO
 
 # DB file used for storing operational user data (optional)
 # Currently only used to achieve persistence of scheduled "at" commands across reboots.
-#dbfile = /var/lib/ludolph/ludolph
+#dbfile = /var/lib/ludolph/ludolph.db
 
 [webserver]
 # Start web server listening on host:port. Needed for webhooks functionality.
@@ -90,6 +90,8 @@ admins =
 # Absolute path to directory with avatars
 #avatar_dir =
 
+# Multi-User chat room commands (only useful when room option is enabled)
+#[muc]
 
 # Ludolph commands plugin
 [commands]
