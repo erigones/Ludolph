@@ -41,7 +41,7 @@ rh_start() {
 
 rh_stop() {
     echo -n "Stopping ${DESC}: "
-    killproc -p ${PIDFILE} ${NAME}
+    killproc -p ${PIDFILE} -d 30 ${NAME}
     RETVAL=$?
     echo
     return $RETVAL
