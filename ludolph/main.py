@@ -105,7 +105,7 @@ def start():
     cfg = 'ludolph.cfg'
     cfg_fp = None
     cfg_lo = ((os.path.expanduser('~'), '.' + cfg), (sys.prefix, 'etc', cfg), ('/etc', cfg))
-    config_base_sections = ('global', 'xmpp', 'webserver', 'cron')
+    config_base_sections = ('global', 'xmpp', 'webserver', 'cron', 'ludolph.bot')
 
     # Try to read config file from ~/.ludolph.cfg or /etc/ludolph.cfg
     for i in cfg_lo:
@@ -243,11 +243,19 @@ The example file is located in: %s\n\n""" % (
 
     # noinspection PyUnusedLocal,PyShadowingNames
     def sighup(signalnum, handler):
-        config = load_config(cfg_fp, reopen=True)
-        logger.info('Reloaded configuration from %s', cfg_fp.name)
-        xmpp.prereload()
-        plugins = load_plugins(config, reinit=True)
-        xmpp.reload(config, plugins=plugins)
+        if xmpp.reloading:
+            logger.warn('Reload already in progress')
+        else:
+            xmpp.reloading = True
+
+            try:
+                config = load_config(cfg_fp, reopen=True)
+                logger.info('Reloaded configuration from %s', cfg_fp.name)
+                xmpp.prereload()
+                plugins = load_plugins(config, reinit=True)
+                xmpp.reload(config, plugins=plugins)
+            finally:
+                xmpp.reloading = False
 
     signal.signal(signal.SIGINT, xmpp.shutdown)
     signal.signal(signal.SIGTERM, xmpp.shutdown)

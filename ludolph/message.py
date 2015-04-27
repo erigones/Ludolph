@@ -89,6 +89,29 @@ class IncomingLudolphMessage(Message):
 
         return obj
 
+    def dump(self):
+        data = {}
+
+        # The underlying ElementBase object does not implement the dict interface properly
+        for k in self.interfaces:
+            v = self.get(k, None)
+
+            if v is not None:
+                data[k] = v
+
+        return data
+
+    @classmethod
+    def load(cls, data):
+        from ludolph.bot import get_xmpp
+
+        obj = cls(stream=get_xmpp())
+
+        for k, v in data.items():
+            obj[k] = v
+
+        return obj
+
     def _get_ludolph_attr(self, attr, default, set_default=False):
         try:
             return getattr(self, attr)

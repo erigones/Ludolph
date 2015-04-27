@@ -22,6 +22,7 @@ except ImportError:
 
 from ludolph.message import IncomingLudolphMessage, OutgoingLudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
+from ludolph.db import LudolphDB
 from ludolph.web import WebServer
 from ludolph.cron import Cron
 
@@ -32,13 +33,20 @@ __all__ = ('LudolphBot',)
 PLUGINS = OrderedDict()  # {modname : instance}
 
 
+def get_xmpp():
+    """Return LudolphBot instance"""
+    return PLUGINS[__name__]
+
+
 class LudolphBot(ClientXMPP):
     """
     Ludolph bot.
     """
-    _reloaded = False
     _start_time = None
     _muc_ready = False
+    _reloaded = False
+    reloading = False
+    shutting_down = False
     commands = COMMANDS
     plugins = PLUGINS
     users = USERS
@@ -52,6 +60,7 @@ class LudolphBot(ClientXMPP):
     maxhistory = '4096'
     webserver = None
     cron = None
+    db = None
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
@@ -103,6 +112,12 @@ class LudolphBot(ClientXMPP):
         The init parameter indicates whether this is a first-time initialization or a reload.
         """
         logger.info('Configuring jabber bot')
+
+        # Get DB file
+        if config.has_option('global', 'dbfile'):
+            dbfile = config.get('global', 'dbfile')
+            if dbfile:
+                self.db = LudolphDB(dbfile)
 
         # Get nick name
         if config.has_option('xmpp', 'nick'):
@@ -197,7 +212,11 @@ class LudolphBot(ClientXMPP):
         # Cron (any change in configuration requires restart)
         if init and not self.cron:
             if config.has_option('cron', 'enabled') and config.getboolean('cron', 'enabled'):
-                self.cron = Cron()
+                self.cron = Cron(db=self.db)
+
+        if self._reloaded:
+            if self.cron and self.db is None:  # DB support was disabled during reload
+                self.cron.db_disable()
 
     def _load_plugins(self, config, plugins, init=False):
         """
@@ -473,11 +492,21 @@ class LudolphBot(ClientXMPP):
         """
         logger.info('Requested shutdown (%s)', signalnum)
 
+        if self.shutting_down:
+            logger.warn('Shutdown is already in progress...')
+            return
+
+        self.shutting_down = True
+
         if self.webserver:
             self.webserver.stop()
 
         if self.cron:
             self.cron.stop()
+
+        if self.db is not None:
+            self.db.close()
+            self.db = None
 
         try:
             self.abort()
@@ -500,6 +529,10 @@ class LudolphBot(ClientXMPP):
 
         if self.cron:
             self.cron.reset()
+
+        if self.db is not None:
+            self.db.close()
+            self.db = None
 
     def reload(self, config, plugins=None):
         """

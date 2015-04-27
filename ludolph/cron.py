@@ -18,9 +18,13 @@ except ImportError:
     # noinspection PyUnresolvedReferences,PyPackageRequirements
     from ordereddict import OrderedDict
 
+from ludolph.message import IncomingLudolphMessage
+
 __all__ = ('cronjob',)
 
 logger = logging.getLogger(__name__)
+
+noop = lambda *args, **kwargs: None
 
 CronJobFun = namedtuple('CronJobFun', ('name', 'module'))
 
@@ -98,7 +102,7 @@ class CronJob(object):
     def command(self):
         """String representation of job command with all arguments"""
         if self.at and self.args:
-            return self.args[0]['body']
+            return self.args[0].get('body')
 
         cmd = [self._fun.name.replace('_', '-')]
 
@@ -170,8 +174,13 @@ class CronJob(object):
 
     def run(self):
         """Go!"""
+        fun = self.fun
+
         try:
-            return self.fun(*self.args, **self.kwargs)
+            if self.at:
+                return fun(IncomingLudolphMessage.load(self.args[0]))
+            else:
+                return fun(*self.args, **self.kwargs)
         except CronJobError as e:
             logger.error('Error while running cron job "%s" (%s): %s', self.name, self.fqfn, e)
             return None
@@ -181,6 +190,12 @@ class CronTab(OrderedDict):
     """
     "List" of crontab entries. Each entry is identified by a unique name.
     """
+    db_sync = noop  # Run after add()/delete() operations.
+
+    # noinspection PyMethodOverriding
+    def __repr__(self):
+        return '%s(jobs=%s)' % (self.__class__.__name__, len(self))
+
     def __reduce__(self):
         """Pickle only onetime cron jobs"""
         clean_crontab = self.__class__((name, job) for name, job in self.items() if job.onetime)
@@ -191,6 +206,12 @@ class CronTab(OrderedDict):
             raise TypeError('value must be a instance of CronJob')
 
         return super(CronTab, self).__setitem__(key, value, **kwargs)
+
+    def sync(self):
+        try:
+            self.db_sync()
+        except Exception as ex:
+            logger.critical('Could not sync crontab with persistent DB file: %s', ex)
 
     def add(self, name, fun, **kwargs):
         """Add named crontab entry, which will run fun at specified date/time"""
@@ -203,11 +224,19 @@ class CronTab(OrderedDict):
         job = CronJob(name, CronJobFun(fun.__name__, fun.__module__), **kwargs)
         self[name] = job
 
+        if job.onetime:
+            self.sync()
+
         return job
 
     def delete(self, name):
         """Delete named crontab entry"""
-        return self.pop(name)
+        job = self.pop(name)
+
+        if job.onetime:
+            self.sync()
+
+        return job
 
     def generate_id(self):
         """Generate new job ID for a new onetime ("at") job"""
@@ -226,13 +255,17 @@ class CronTab(OrderedDict):
 
     def add_at(self, fun, onetime, msg, owner):
         """Add "at" onetime job into crontab"""
-        return self.add_onetime(fun, onetime, args=(msg,), owner=owner, at=True)
+        return self.add_onetime(fun, onetime, args=(msg.dump(),), owner=owner, at=True)
 
     def clear_cron_jobs(self):
         """Remove all cron jobs, but keep onetime jobs"""
         for name, job in self.items():
             if not job.onetime:
                 del self[name]
+
+    def display_cron_jobs(self):
+        """Return list of available non-onetime cron jobs suitable for logging"""
+        return (job.display() for job in self.values() if not job.onetime)
 
 
 CRONJOBS = CronTab()
@@ -244,6 +277,31 @@ class Cron(object):
     """
     running = False
     crontab = CRONJOBS
+    db = None
+
+    def __init__(self, db=None):
+        """Enable DB support if available"""
+        if db is not None:
+            self.db_enable(db)
+
+    def db_set_crontab(self):
+        if self.db is not None:
+            self.db['crontab'] = self.crontab
+
+    def db_enable(self, db):
+        self.db = db
+        cronjobs = db.get('crontab', None)
+
+        if cronjobs:
+            logger.info('Loading %d cron jobs from persistent DB file', len(cronjobs))
+            self.crontab.update(cronjobs)
+
+        self.db_set_crontab()
+        self.crontab.db_sync = db.sync
+
+    def db_disable(self):
+        self.db = None
+        self.crontab.db_sync = noop
 
     def run(self):
         logger.info('Starting cron')
@@ -275,15 +333,16 @@ class Cron(object):
 
     def stop(self):
         logger.info('Stopping cron')
+        self.db_set_crontab()
         self.running = False
 
     def reset(self):
         logger.info('Reinitializing crontab')
+        self.db_set_crontab()
         self.crontab.clear_cron_jobs()
 
     def display_cronjobs(self):
-        """Return list of available cron jobs suitable for logging"""
-        return (job.display() for job in self.crontab.values())
+        return self.crontab.display_cron_jobs()
 
 
 def cronjob(minute='*', hour='*', day='*', month='*', dow='*'):
