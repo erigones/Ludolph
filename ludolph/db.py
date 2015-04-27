@@ -51,11 +51,11 @@ class LudolphDBMixin(object):
     """
     Interface for classes that want to use the LudolphDB object.
     """
+    db = None
+
     def __init__(self, db=None):
         """Enable DB support if available"""
-        if db is None:
-            self.db = None
-        else:
+        if db is not None:
             self.db_enable(db, init=True)
 
     def _db_set_items(self):

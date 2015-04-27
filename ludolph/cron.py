@@ -283,6 +283,7 @@ class Cron(LudolphDBMixin):
     """
     Cron thread (the scheduler).
     """
+    _running = False
     running = False
     crontab = CRONJOBS
 
@@ -303,10 +304,13 @@ class Cron(LudolphDBMixin):
     def run(self):
         logger.info('Starting cron')
         dt = CronJob.clean_datetime(datetime.now())
-        self.running = True
+        self.running = self._running = True
 
-        while self.running:
+        while self._running:
             for name, job in self.crontab.items():
+                if not self._running:
+                    break
+
                 if job.match_time(dt):
                     logger.info('Running cron job "%s" (%s) with schedule "%s" as user "%s"',
                                 name, job.fqfn, job.schedule, job.owner)
@@ -325,12 +329,20 @@ class Cron(LudolphDBMixin):
 
             dt += timedelta(minutes=1)
 
-            while self.running and datetime.now() < dt:
+            while self._running and datetime.now() < dt:
                 time.sleep(5)
+
+        self.running = False
 
     def stop(self):
         logger.info('Stopping cron')
-        self.running = False
+        self._running = False
+
+        while self.running:  # Wait for running job to finish
+            time.sleep(0.5)
+
+        self.db_disable()
+        logger.debug('Cron stopped')
 
     def reset(self):
         logger.info('Reinitializing crontab')
