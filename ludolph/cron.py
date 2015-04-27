@@ -330,7 +330,7 @@ class Cron(LudolphDBMixin):
             dt += timedelta(minutes=1)
 
             while self._running and datetime.now() < dt:
-                time.sleep(5)
+                time.sleep(1)
 
         self.running = False
 
