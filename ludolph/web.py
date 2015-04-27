@@ -54,7 +54,7 @@ class WebServer(ServerAdapter):
 
             def log_message(self, fmt, *args, **kwargs):  # Log into default log file instead of stderr
                 level = kwargs.get('level', logging.INFO)
-                logger.log(level, '%s - - %s', self.client_address[0], str(fmt % args).strip())
+                logger.log(level, '%s - - %s', self.client_address[0], str(fmt % args).rstrip('\n'))
 
         handler_cls = self.options.get('handler_class', CustomHandler)
         server_cls = self.options.get('server_class', WSGIServer)
