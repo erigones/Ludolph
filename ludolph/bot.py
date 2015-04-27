@@ -110,7 +110,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     def _db_set_items(self):
         """Save data to persistent DB"""
-        logger.info('Syncing LudolphBot data with persistent DB file')
+        logger.info('Syncing runtime data with persistent DB file')
         self.db['room_users_invited'] = self.room_users_invited
         self.db['room_users_last_seen'] = self.room_users_last_seen
 
@@ -191,7 +191,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         else:
             self.room = None
 
-        if config.has_option('xmpp', 'enabled'):
+        if config.has_option('xmpp', 'room_invites'):
             self.room_invites = config.getboolean('xmpp', 'room_invites')
         else:
             self.room_invites = True
@@ -477,7 +477,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             muc = presence['muc']
             logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is joining MUC room',
                         muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
-            self._jid_entered_room(muc['jid'])
+            self._jid_entered_room(muc['jid'].bare)
             self.msg_send(presence['from'].bare, 'Hello %s!' % muc['nick'], mtype='groupchat')
 
     def muc_offline(self, presence):
@@ -488,7 +488,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         muc = presence['muc']
         logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is leaving MUC room',
                     muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
-        self._jid_left_room(muc['jid'])
+        self._jid_left_room(muc['jid'].bare)
         self.msg_send(presence['from'].bare, 'Bye bye %s' % muc['nick'], mtype='groupchat')
 
     def message(self, msg, types=('chat', 'normal')):
