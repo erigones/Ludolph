@@ -10,6 +10,7 @@ import ssl
 import time
 import copy
 import logging
+from datetime import datetime
 from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
 from sleekxmpp.exceptions import IqError
@@ -22,7 +23,7 @@ except ImportError:
 
 from ludolph.message import IncomingLudolphMessage, OutgoingLudolphMessage
 from ludolph.command import COMMANDS, USERS, ADMINS
-from ludolph.db import LudolphDB
+from ludolph.db import LudolphDB, LudolphDBMixin
 from ludolph.web import WebServer
 from ludolph.cron import Cron
 
@@ -38,7 +39,7 @@ def get_xmpp():
     return PLUGINS[__name__]
 
 
-class LudolphBot(ClientXMPP):
+class LudolphBot(ClientXMPP, LudolphDBMixin):
     """
     Ludolph bot.
     """
@@ -60,13 +61,13 @@ class LudolphBot(ClientXMPP):
     maxhistory = '4096'
     webserver = None
     cron = None
-    db = None
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
         self.room_users = set()
         self.room_admins = set()
-        self.muc_invited_users = set()
+        self.room_users_invited = set()
+        self.room_users_last_seen = {}
 
         self._load_config(config, init=True)
         logger.info('Initializing *%s* jabber bot', self.nick)
@@ -94,6 +95,7 @@ class LudolphBot(ClientXMPP):
             self.muc = self.plugin['xep_0045']
             self.add_event_handler('groupchat_message', self.muc_message, threaded=True)
             self.add_event_handler('muc::%s::got_online' % self.room, self.muc_online, threaded=True)
+            self.add_event_handler('muc::%s::got_offline' % self.room, self.muc_offline, threaded=True)
 
         # Start the web server thread for processing HTTP requests
         if self.webserver:
@@ -106,6 +108,24 @@ class LudolphBot(ClientXMPP):
         # Save start time
         self._start_time = time.time()
 
+    def _db_set_items(self):
+        """Save data to persistent DB"""
+        if self.db is None:
+            return
+
+        logger.info('Syncing LudolphBot data with persistent DB file')
+        self.db['room_users_invited'] = self.room_users_invited
+        self.db['room_users_last_seen'] = self.room_users_last_seen
+
+    def _db_load_items(self):
+        """Load saved data from persistent DB"""
+        if self.db is None:
+            return
+
+        logger.info('Loading LudolphBot data from persistent DB file')
+        self.room_users_invited.update(self.db.get('room_users_invited', ()))
+        self.room_users_last_seen.update(self.db.get('room_users_last_seen', {}))
+
     def _load_config(self, config, init=False):
         """
         Load bot settings from config object.
@@ -117,7 +137,7 @@ class LudolphBot(ClientXMPP):
         if config.has_option('global', 'dbfile'):
             dbfile = config.get('global', 'dbfile')
             if dbfile:
-                self.db = LudolphDB(dbfile)
+                self.db_enable(LudolphDB(dbfile), init=True)
 
         # Get nick name
         if config.has_option('xmpp', 'nick'):
@@ -169,7 +189,7 @@ class LudolphBot(ClientXMPP):
         if not self.admins.issubset(self.users):
             for i in self.admins.difference(self.users):
                 logger.error('Admin "%s" is not specified in users. '
-                             'This may lead to unexpected behaviour. ', i)
+                             'This may lead to unexpected behaviour.', i)
 
         # MUC room
         if config.has_option('xmpp', 'room'):
@@ -198,7 +218,11 @@ class LudolphBot(ClientXMPP):
         if not self.room_admins.issubset(self.room_users):
             for i in self.room_admins.difference(self.room_users):
                 logger.error('Room admin "%s" is not specified in room_users. '
-                             'This may lead to unexpected behaviour. ', i)
+                             'This may lead to unexpected behaviour.', i)
+
+        # Room users vs. room_users_invited
+        if self.room_users_invited:
+            self.room_users_invited.intersection_update(self.room_users)
 
         # Web server (any change in configuration requires restart)
         if init and not self.webserver:
@@ -336,10 +360,8 @@ class LudolphBot(ClientXMPP):
             logger.error('Could not configure MUC room member list. Error was: %s (condition=%s, etype=%s)',
                          e.text, e.condition, e.etype)
 
-    def _jid_in_room(self, jid):
-        """
-        Determine if jid is present in chat room.
-        """
+    def _is_jid_in_room(self, jid):
+        """Determine if jid is present in chat room"""
         for nick in self.muc.rooms[self.room]:
             entry = self.muc.rooms[self.room][nick]
 
@@ -347,6 +369,18 @@ class LudolphBot(ClientXMPP):
                 return True
 
         return False
+
+    def _update_room_users_last_seen(self, jid):
+        """Update last seen timestamp of user in chat room"""
+        self.room_users_last_seen[jid] = datetime.now()
+
+    def _jid_entered_room(self, jid):
+        """User joined the chat room"""
+        self._update_room_users_last_seen(jid)
+
+    def _jid_left_room(self, jid):
+        """User left the chat room"""
+        self._update_room_users_last_seen(jid)
 
     def _handle_new_subscription(self, pres):
         """
@@ -411,7 +445,7 @@ class LudolphBot(ClientXMPP):
 
     def muc_online(self, presence):
         """
-        Process a presence stanza from a chat room.
+        Process an online presence stanza from a chat room.
         """
         # Configure room and say hello from jabber bot if this is a presence stanza
         if presence['from'] == '%s/%s' % (self.room, self.nick):
@@ -421,25 +455,47 @@ class LudolphBot(ClientXMPP):
             self.send_presence(pto=presence['from'])
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
-            # Send invitation to all users; unless an invitation was sent in the past
-            if self.room_invites:
-                for user in self.room_users:
-                    if self._jid_in_room(user):
-                        logger.info('User "%s" already in MUC room', user)
-                    elif user != self.room:
-                        if user in self.muc_invited_users:
+            # Reminder: We cannot use presence stanzas here because they are asynchronous
+            # Reminder: We cannot use roster information here, because roster may not be ready at this point and
+            #           roster_users != room_users
+            # Save last seen info and send invitation to all users; unless an invitation was sent in the past
+            for user in self.room_users:
+                if self._is_jid_in_room(user):
+                    logger.info('User "%s" already in MUC room', user)
+                    self._update_room_users_last_seen(user)
+                elif user != self.room:
+                    if user in self.room_users_last_seen:
+                        logger.info('User "%s" is not currently present in MUC room, but was last seen %s',
+                                    user, self.room_users_last_seen[user].isoformat())
+                    else:
+                        logger.info('User "%s" is not present in MUC room', user)
+
+                    if self.room_invites:
+                        if user in self.room_users_invited:
                             logger.info('User "%s" was already invited to MUC room', user)
                         else:
                             logger.info('Inviting "%s" to MUC room', user)
                             self.muc.invite(self.room, user)
-                            self.muc_invited_users.add(user)
+                            self.room_users_invited.add(user)
 
         else:
             # Say hello to new user
             muc = presence['muc']
             logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is joining MUC room',
                         muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
+            self._jid_entered_room(muc['jid'])
             self.msg_send(presence['from'].bare, 'Hello %s!' % muc['nick'], mtype='groupchat')
+
+    def muc_offline(self, presence):
+        """
+        Process a offline presence stanza from a chat room.
+        """
+        # Log user last seen status
+        muc = presence['muc']
+        logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is leaving MUC room',
+                    muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
+        self._jid_left_room(muc['jid'])
+        self.msg_send(presence['from'].bare, 'Bye bye %s' % muc['nick'], mtype='groupchat')
 
     def message(self, msg, types=('chat', 'normal')):
         """
@@ -497,16 +553,26 @@ class LudolphBot(ClientXMPP):
             return
 
         self.shutting_down = True
+        self._db_set_items()
 
-        if self.webserver:
-            self.webserver.stop()
+        try:
+            if self.webserver:
+                self.webserver.stop()
+        except Exception as e:
+            logger.error('Webserver shutdown failed: %s', e)
 
-        if self.cron:
-            self.cron.stop()
+        try:
+            if self.cron:
+                self.cron.stop()
+        except Exception as e:
+            logger.error('Cron shutdown failed: %s', e)
 
-        if self.db is not None:
-            self.db.close()
-            self.db = None
+        try:
+            if self.db is not None:
+                self.db.close()
+                self.db_disable()
+        except Exception as e:
+            logger.critical('Persistent DB file could not be properly closed: %s', e)
 
         try:
             self.abort()
@@ -521,6 +587,7 @@ class LudolphBot(ClientXMPP):
         """
         Cleanup during reload phase. Runs before plugin loading in main.
         """
+        self._db_set_items()
         self.commands.reset()
 
         if self.webserver:
@@ -532,7 +599,7 @@ class LudolphBot(ClientXMPP):
 
         if self.db is not None:
             self.db.close()
-            self.db = None
+            self.db_disable()
 
     def reload(self, config, plugins=None):
         """
