@@ -22,7 +22,7 @@ except ImportError:
     from ordereddict import OrderedDict
 
 from ludolph.message import IncomingLudolphMessage, OutgoingLudolphMessage
-from ludolph.command import COMMANDS, USERS, ADMINS
+from ludolph.command import COMMANDS
 from ludolph.db import LudolphDB, LudolphDBMixin
 from ludolph.web import WebServer
 from ludolph.cron import Cron
@@ -51,8 +51,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
     shutting_down = False
     commands = COMMANDS
     plugins = PLUGINS
-    users = USERS
-    admins = ADMINS
     room = None
     room_config = None
     room_invites = True
@@ -66,6 +64,8 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
+        self.users = set()
+        self.admins = set()
         self.room_users = set()
         self.room_admins = set()
         self.room_users_invited = set()
@@ -433,20 +433,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         """User left the chat room"""
         self._update_room_users_last_seen(jid)
 
-    def _handle_new_subscription(self, pres):
-        """
-        xmpp.auto_authorize is True by default, which is fine. But we want to
-        restrict this to users only (if set). We do this by overriding the
-        automatic subscription mechanism.
-        """
-        user = pres['from']
-
-        if not self.users or user in self.users:
-            logger.info('Allowing user "%s" to auto subscribe', user)
-            return super(LudolphBot, self)._handle_new_subscription(pres)
-        else:
-            logger.warning('User "%s" is not allowed to subscribe', user)
-
     def get_jid(self, msg, bare=True):
         """
         Helper method for retrieving jid from message.
@@ -460,6 +446,44 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             return jid.bare
 
         return jid
+
+    def is_jid_user(self, jid):
+        """
+        Return True if bare JID (obtained by get_jid()) is user or users are not set.
+        """
+        return not self.users or jid in self.users
+
+    def is_jid_admin(self, jid):
+        """
+        Return True if bare JID (obtained by get_jid()) is admin or admins are not set.
+        """
+        return not self.admins or jid in self.admins
+
+    def is_jid_room_user(self, jid):
+        """
+        Return True if bare JID (obtained by get_jid()) is user or users are not set.
+        """
+        return not self.room_users or jid in self.room_users
+
+    def is_jid_room_admin(self, jid):
+        """
+        Return True if bare JID (obtained by get_jid()) is admin or admins are not set.
+        """
+        return not self.room_admins or jid in self.room_admins
+
+    def _handle_new_subscription(self, pres):
+        """
+        xmpp.auto_authorize is True by default, which is fine. But we want to
+        restrict this to users only (if set). We do this by overriding the
+        automatic subscription mechanism.
+        """
+        user = pres['from']
+
+        if not self.users or user in self.users:
+            logger.info('Allowing user "%s" to auto subscribe', user)
+            return super(LudolphBot, self)._handle_new_subscription(pres)
+        else:
+            logger.warning('User "%s" is not allowed to subscribe', user)
 
     # noinspection PyUnusedLocal
     def session_start(self, event):

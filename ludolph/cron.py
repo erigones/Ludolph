@@ -90,7 +90,7 @@ class CronJob(object):
     @property
     def plugin(self):
         """Return plugin name"""
-        return self._fun.module.split('.')[-1]
+        return self._fun.module
 
     @property
     def fqfn(self):

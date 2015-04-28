@@ -47,30 +47,30 @@ class Base(LudolphPlugin):
                 if mod_name not in cmd_map:
                     cmd_map[mod_name] = []
 
-                cmd_map[mod_name].append(cmd_name)
+                cmd_map[mod_name].append(cmd)
 
             out = ['List of available Ludolph commands:']
 
             for mod_name in self.xmpp.plugins:  # The plugins dict knows the plugin order
                 try:
-                    cmd_names = cmd_map[mod_name]
+                    commands = cmd_map[mod_name]
                 except KeyError:
                     continue
 
                 # Item: module name
                 out.append('\n* %s\n' % mod_name)
 
-                for name in cmd_names:
+                for cmd in commands:
                     try:
                         # First line of __doc__
-                        desc = self.xmpp.commands[name].doc.split('\n')[0]
+                        desc = cmd.doc.split('\n')[0]
                         # Lowercase first char and remove trailing dot
                         desc = ' - ' + desc[0].lower() + desc[1:].rstrip('.')
                     except IndexError:
                         desc = ''
 
                     # SubItem: line of command + description
-                    out.append('  * **%s**%s' % (name, desc))
+                    out.append('  * **%s**%s' % (cmd.name, desc))
 
             out.append('\nUse "help <command>" for more information about the command usage')
             self._help_cache = '\n'.join(out)
@@ -116,6 +116,22 @@ class Base(LudolphPlugin):
         """
         return ABOUT.strip()
 
+    # noinspection PyUnusedLocal
+    @command
+    def uptime(self, msg):
+        """
+        Show Ludolph uptime.
+
+        Usage: uptime
+        """
+        # noinspection PyProtectedMember
+        u = time.time() - self.xmpp._start_time
+        m, s = divmod(u, 60)
+        h, m = divmod(m, 60)
+        d, h = divmod(h, 24)
+
+        return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
+
     def _message_send(self, jid, msg):
         """Send new xmpp message. Used by message command and /message webhook"""
         if jid == self.xmpp.room:
@@ -141,6 +157,18 @@ class Base(LudolphPlugin):
         Usage: message <JID> <text>
         """
         return self._message_send(jid, ' '.join(args))
+
+    # noinspection PyUnusedLocal
+    @admin_required
+    @parameter_required(1)
+    @command
+    def broadcast(self, msg, *args):
+        """
+        Send private message to every user in roster.
+
+        Usage: broadcast <message>
+        """
+        return 'Message broadcasted to %dx users.' % self.xmpp.msg_broadcast(' '.join(args))
 
     def _roster_list(self):
         """List users on Ludolph's roster (admin only)"""
@@ -288,57 +316,18 @@ class Base(LudolphPlugin):
 
         return self._avatar_list()
 
-    # noinspection PyUnusedLocal
-    @admin_required
-    @parameter_required(1)
-    @command
-    def broadcast(self, msg, *args):
-        """
-        Send private message to every user in roster.
-
-        Usage: broadcast <message>
-        """
-        return 'Message broadcasted to %dx users.' % self.xmpp.msg_broadcast(' '.join(args))
-
-    # noinspection PyUnusedLocal
-    @command
-    def uptime(self, msg):
-        """
-        Show Ludolph uptime.
-
-        Usage: uptime
-        """
-        # noinspection PyProtectedMember
-        u = time.time() - self.xmpp._start_time
-        m, s = divmod(u, 60)
-        h, m = divmod(m, 60)
-        d, h = divmod(h, 24)
-
-        return 'up %d days, %d hours, %d minutes, %d seconds' % (d, h, m, s)
-
-    @admin_required
-    @command
-    def muc_invite(self, msg, user=None):
-        """
-        Invite user or yourself to multi-user chat room (admin only).
-
-        Usage: muc-invite [JID]
-        """
-        if not self.xmpp.room:
-            raise CommandError('MUC room disabled')
-
-        if not user:
-            user = self.xmpp.get_jid(msg)
-
-        self.xmpp.muc.invite(self.xmpp.room, user)
-
-        return 'Inviting **%s** to MUC room %s' % (user, self.xmpp.room)
-
-    def _at_list(self):
+    def _at_list(self, msg):
         """List all scheduled jobs"""
         crontab = self.xmpp.cron.crontab
+        user = self.xmpp.get_jid(msg)
+
+        if self.xmpp.is_jid_admin(user):
+            display_job = lambda job: job.onetime
+        else:
+            display_job = lambda job: job.onetime and user == job.owner
+
         out = ['**%s** [%s] (%s) __%s__' % (name, job.schedule, job.owner, job.command)
-               for name, job in crontab.items() if job.onetime]
+               for name, job in crontab.items() if display_job(job)]
         count = len(out)
         out.append('\n**%d** %s scheduled' % (count, pluralize(count, 'job is', 'jobs are')))
 
@@ -356,10 +345,9 @@ class Base(LudolphPlugin):
         job = crontab.get(job_id, None)
 
         if job and job.onetime:
-            admins = self.xmpp.admins
             user = self.xmpp.get_jid(msg)
 
-            if job.owner == user or (not admins or user in admins):
+            if job.owner == user or self.xmpp.is_jid_admin(user):
                 crontab.delete(job_id)
                 logger.info('Deleted one-time cron jobs: %s', job.display())
 
@@ -393,14 +381,13 @@ class Base(LudolphPlugin):
             raise CommandError('Invalid command')
 
         # Check user permission
-        admins = self.xmpp.admins
         user = self.xmpp.get_jid(msg)
 
-        if cmd.fun.admin_required and admins and user not in admins:
+        if not cmd.is_jid_permitted_to_run(self.xmpp, user):
             raise CommandError('Permission denied')
 
         # Create message (the only argument needed for command) with body representing the whole command
-        body = ' '.join([cmd.cmd] + ["%s" % i for i in args])
+        body = ' '.join([cmd.name] + ["%s" % i for i in args])
         msg = self.xmpp.msg_copy(msg, body=body)
         job = self.xmpp.cron.crontab.add_at(cmd.get_fun(self.xmpp), dt, msg, user)
         logger.info('Registered one-time cron job: %s', job.display())
@@ -431,7 +418,7 @@ class Base(LudolphPlugin):
             elif action == 'del':
                 return self._at_del(msg, args[1])
 
-        return self._at_list()
+        return self._at_list(msg)
 
     @webhook('/')
     def index(self):
@@ -476,22 +463,3 @@ class Base(LudolphPlugin):
             abort(400, 'Missing msg parameter')
 
         return 'Message sent (%dx)' % self.xmpp.msg_broadcast(msg)
-
-    @webhook('/room', methods=('POST',))
-    def roomtalk(self):
-        """
-        Send message to chat room.
-        """
-        if not self.xmpp.room:
-            logger.warning('Multi-user chat support is disabled (room request)')
-            abort(400, 'MUC disabled')
-
-        msg = request.forms.get('msg', None)
-
-        if not msg:
-            logger.warning('Missing msg parameter in room request')
-            abort(400, 'Missing msg parameter')
-
-        self.xmpp.msg_send(self.xmpp.room, msg, mtype='groupchat')
-
-        return 'Message sent'

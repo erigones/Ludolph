@@ -10,22 +10,53 @@ from functools import wraps
 from collections import namedtuple
 import shlex
 
+from ludolph.utils import AttrDict
+
 __all__ = ('command', 'parameter_required', 'admin_required')
 
 logger = getLogger(__name__)
 
 
 class CommandError(Exception):
+    """
+    Internal command error.
+    """
     pass
 
 
-class Command(namedtuple('Command', ('cmd', 'fun', 'name', 'module', 'doc'))):
+class CommandPermissions(AttrDict):
+    """
+    Holds individual command permissions.
+    """
+    pass  # FIXME: Change to namedtuple after removing @admin_required decorator
+
+
+class Command(namedtuple('Command', ('name', 'fun_name', 'module', 'doc', 'perms'))):
     """
     Ludolph command wrapper.
     """
+    def __str__(self):
+        return '%s.%s' % (self.module, self.fun_name)
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, self)
+
     def get_fun(self, bot):
         """Get command bound method from plugin"""
-        return getattr(bot.plugins[self.module], self.name)
+        return getattr(bot.plugins[self.module], self.fun_name)
+
+    def is_jid_permitted_to_run(self, xmpp, jid):
+        """Return True if user is allowed to run the command"""
+        perms = self.perms
+
+        for perm, check in ((perms.user_required, xmpp.is_jid_user),
+                            (perms.admin_required, xmpp.is_jid_admin),
+                            (perms.room_user_required, xmpp.is_jid_room_user),
+                            (perms.room_admin_required, xmpp.is_jid_room_admin)):
+            if perm and not check(jid):
+                return False
+
+        return True
 
 
 class Commands(dict):
@@ -48,7 +79,7 @@ class Commands(dict):
 
     def display(self):
         """Return list of available commands suitable for logging output"""
-        return ['%s [%s]' % (name, cmd.module.split('.')[-1]) for name, cmd in self.items()]
+        return ['%s [%s]' % (name, cmd.module) for name, cmd in self.items()]
 
     def get_command(self, cmdstr):
         """Find text in available commands and return command tuple"""
@@ -68,28 +99,34 @@ class Commands(dict):
         return cmd
 
 
-COMMANDS = Commands()  # command : (cmd, fun, name, module, doc)
-USERS = set()  # List of users
-ADMINS = set()  # List of admins
+COMMANDS = Commands()  # command : (name, fun_name, module, doc, perms)
 
 
-def command(func=None, stream_output=False, reply_output=True):
+# noinspection PyShadowingNames
+def command(func=None, stream_output=False, reply_output=True, user_required=True, admin_required=False,
+            room_user_required=False, room_admin_required=False):
     """
     Decorator for registering available commands.
     """
-    global COMMANDS
-    global USERS
-
     def command_decorator(fun):
+        name = fun.__name__.replace('_', '-')
+
+        # Check if command exists
+        if name in COMMANDS:
+            logger.critical('Command "%s" from plugin "%s" overlaps with existing command from module "%s"',
+                            name, fun.__module__, COMMANDS[name].module)
+            return None
+
         @wraps(fun)
         def wrap(obj, msg, *args, **kwargs):
-            cmd = '%s.%s' % (fun.__module__, fun.__name__)
-            user = obj.xmpp.get_jid(msg)
+            cmd = COMMANDS[name]
+            xmpp = obj.xmpp
+            user = xmpp.get_jid(msg)
             success = False
             reply = msg.get_reply_output(default=reply_output, set_default=True)  # Used for scheduled "at" jobs
             stream = msg.get_stream_output(default=stream_output, set_default=True)  # Not used
 
-            if not USERS or user in USERS:
+            if cmd.is_jid_permitted_to_run(xmpp, user):
                 logger.info('User "%s" requested command "%s" (%s) [stream=%s] [reply=%s]',
                             user, msg['body'], cmd, stream, reply)
 
@@ -109,7 +146,7 @@ def command(func=None, stream_output=False, reply_output=True):
                             _out = []
                             for line in response:
                                 _out.append(line)
-                                obj.xmpp.msg_reply(msg, line, preserve_msg=True)
+                                xmpp.msg_reply(msg, line, preserve_msg=True)
                         else:
                             _out = response
 
@@ -133,7 +170,7 @@ def command(func=None, stream_output=False, reply_output=True):
                 if stream and success:
                     return out
 
-                obj.xmpp.msg_reply(msg, out)
+                xmpp.msg_reply(msg, out)
 
             return out
 
@@ -141,14 +178,6 @@ def command(func=None, stream_output=False, reply_output=True):
         if fun.__name__.startswith('_'):
             # Not a public command, but we will execute the method (private helper)
             return wrap
-        else:
-            name = fun.__name__.replace('_', '-')
-
-        # Check if command exists
-        if name in COMMANDS:
-            logger.critical('Command "%s" from plugin "%s" overlaps with existing command from module "%s"',
-                            name, fun.__module__, COMMANDS[name].module)
-            return None
 
         # Save documentation
         if fun.__doc__:
@@ -159,8 +188,9 @@ def command(func=None, stream_output=False, reply_output=True):
 
         # Save module and method name
         logger.debug('Registering command "%s" from plugin "%s"', name, fun.__module__)
-        fun.admin_required = False
-        COMMANDS[name] = Command(name, fun, fun.__name__, fun.__module__, doc)
+        perms = CommandPermissions(user_required=user_required, admin_required=admin_required,
+                                   room_user_required=room_user_required, room_admin_required=room_admin_required)
+        COMMANDS[name] = Command(name, fun.__name__, fun.__module__, doc, perms)
 
         return wrap
 
@@ -211,21 +241,20 @@ def parameter_required(count, internal=False):
 
 def admin_required(fun):
     """
-    Decorator for admin only commands.
+    Decorator for admin only commands. [DEPRECATED]
     """
-    global ADMINS
+    name = fun.__name__.replace('_', '-')
+    logger.warning('The @admin_required decorator on command "%s" in plugin %s is due to be deprecated. '
+                   'Use the admin_required parameter in the @command decorator instead.', name, fun.__module__)
 
-    fun.admin_required = True
+    try:
+        COMMANDS[name].perms.admin_required = True
+    except KeyError:
+        logger.critical('Command "%s" from plugin "%s" is not registered. Wrong decorator order?', name, fun.__module__)
+        return None
 
     @wraps(fun)
     def wrap(obj, msg, *args, **kwargs):
-        user = obj.xmpp.get_jid(msg)
-
-        if not ADMINS or user in ADMINS:
-            return fun(obj, msg, *args, **kwargs)
-        else:
-            logger.warning('Unauthorized command "%s" from user "%s"', msg['body'], user)
-            obj.xmpp.msg_reply(msg, 'ERROR: Permission denied')
-            return None
+        return fun(obj, msg, *args, **kwargs)
 
     return wrap
