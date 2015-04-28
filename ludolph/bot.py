@@ -26,6 +26,7 @@ from ludolph.command import COMMANDS, USERS, ADMINS
 from ludolph.db import LudolphDB, LudolphDBMixin
 from ludolph.web import WebServer
 from ludolph.cron import Cron
+from ludolph.utils import catch_exception
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
     maxhistory = '4096'
     webserver = None
     cron = None
+    persistent_attrs = ('room_users_invited', 'room_users_last_seen')
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
@@ -108,17 +110,57 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # Save start time
         self._start_time = time.time()
 
+    def __getstate__(self):
+        """Return internal data suitable for saving into persistent DB file"""
+        # FIXME: Switch to dict comprehension after dropping support for Python 2.6
+        return dict((i, self.__dict__[i]) for i in self.persistent_attrs if i in self.__dict__)
+
+    def __setstate__(self, state):
+        """Set saved internal data from persistent DB"""
+        for i in state:
+            if i in self.persistent_attrs:
+                self.__dict__[i].update(state[i])
+
+    @catch_exception
+    def _db_set_item(self, name, obj):
+        """Save object data into persistent DB"""
+        if obj.persistent_attrs:
+            logger.info('Syncing runtime data with persistent DB file for object: %s', name)
+            self.db[name] = obj.__getstate__()
+        else:
+            logger.debug('Object %s has no persistent attributes', name)
+
+    @catch_exception
+    def _db_load_item(self, name, obj):
+        """Load saved object data from persistent DB"""
+        if obj.persistent_attrs:
+            logger.info('Loading runtime data from persistent DB file for object: %s', name)
+            data = self.db.get(name, None)
+
+            if data:
+                obj.__setstate__(data)
+            else:
+                logger.debug('Object %s has no saved data', name)
+        else:
+            logger.debug('Object %s has no persistent attributes', name)
+
     def _db_set_items(self):
-        """Save data to persistent DB"""
-        logger.info('Syncing runtime data with persistent DB file')
-        self.db['room_users_invited'] = self.room_users_invited
-        self.db['room_users_last_seen'] = self.room_users_last_seen
+        """Save internal data to persistent DB"""
+        self._db_set_item(__name__, self)
 
     def _db_load_items(self):
-        """Load saved data from persistent DB"""
-        logger.info('Loading LudolphBot data from persistent DB file')
-        self.room_users_invited.update(self.db.get('room_users_invited', ()))
-        self.room_users_last_seen.update(self.db.get('room_users_last_seen', {}))
+        """Load saved internal data from persistent DB"""
+        self._db_load_item(__name__, self)
+
+    def _db_set_items_all(self):
+        """Save all internal+plugin data to persistent DB for every initialized plugin"""
+        for modname, plugin in self.plugins.items():  # ludolph.bot is part of plugins
+            self._db_set_item(modname, plugin)
+
+    def _db_load_items_all(self):
+        """Load all internal+plugin data from persistent DB for every initialized plugin"""
+        for modname, plugin in self.plugins.items():  # ludolph.bot is part of plugins
+            self._db_load_item(modname, plugin)
 
     def _load_config(self, config, init=False):
         """
@@ -276,6 +318,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
                     logger.exception(ex)
                 else:
                     self.plugins[modname] = obj
+                    self._db_load_item(modname, obj)
 
         # Update commands cache
         if self.commands.all(reset=True):
@@ -354,15 +397,29 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             logger.error('Could not configure MUC room member list. Error was: %s (condition=%s, etype=%s)',
                          e.text, e.condition, e.etype)
 
-    def _is_jid_in_room(self, jid):
-        """Determine if jid is present in chat room"""
+    def get_room_nick(self, jid):
+        """
+        Helper method for retrieving MUC room nick according to jid.
+        """
         for nick in self.muc.rooms[self.room]:
             entry = self.muc.rooms[self.room][nick]
 
             if entry is not None and entry['jid'].bare == jid:
-                return True
+                return nick
 
-        return False
+        return None
+
+    def is_jid_in_room(self, jid):
+        """
+        Determine if jid is present in chat room.
+        """
+        return bool(self.get_room_nick(jid))
+
+    def is_nick_in_room(self, nick):
+        """
+        Determine if user with specified nick is present in chat room.
+        """
+        return nick in self.muc.rooms[self.room]
 
     def _update_room_users_last_seen(self, jid):
         """Update last seen timestamp of user in chat room"""
@@ -454,7 +511,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             #           roster_users != room_users
             # Save last seen info and send invitation to all users; unless an invitation was sent in the past
             for user in self.room_users:
-                if self._is_jid_in_room(user):
+                if self.is_jid_in_room(user):
                     logger.info('User "%s" already in MUC room', user)
                     self._update_room_users_last_seen(user)
                 elif user != self.room:
@@ -552,21 +609,24 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             if self.webserver:
                 self.webserver.stop()
         except Exception as e:
-            logger.error('Webserver shutdown failed: %s', e)
+            logger.exception(e)
+            logger.error('Webserver shutdown failed')
 
         try:
             if self.cron:
                 self.cron.stop()
         except Exception as e:
-            logger.error('Cron shutdown failed: %s', e)
+            logger.exception(e)
+            logger.error('Cron shutdown failed')
 
         try:
             if self.db is not None:
-                self._db_set_items()
+                self._db_set_items_all()  # all plugins (including ludolph.bot)
                 self.db.close()
                 self.db_disable()
         except Exception as e:
-            logger.critical('Persistent DB file could not be properly closed: %s', e)
+            logger.exception(e)
+            logger.critical('Persistent DB file could not be properly closed')
 
         try:
             self.abort()
@@ -591,7 +651,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             self.cron.reset()
 
         if self.db is not None:
-            self._db_set_items()
+            self._db_set_items_all()  # all plugins (including ludolph.bot)
             self.db.close()
             self.db_disable()
 
