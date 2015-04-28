@@ -1,7 +1,7 @@
 Ludolph
 #######
 
-Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support.
+Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support, completely written in Python.
 
 .. image:: https://badge.fury.io/py/ludolph.png
     :target: http://badge.fury.io/py/ludolph
