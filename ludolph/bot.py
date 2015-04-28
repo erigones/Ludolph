@@ -46,7 +46,7 @@ class Plugins(OrderedDict):
         self.shorthands[key.split('.')[-1]] = key
 
     def __delitem__(self, key, **kwargs):
-        super(Plugins, self).__setitem__(key, **kwargs)
+        super(Plugins, self).__delitem__(key, **kwargs)
         try:
             self.shorthands[key.split('.')[-1]]
         except KeyError:
