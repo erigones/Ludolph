@@ -30,6 +30,7 @@ class Base(LudolphPlugin):
     Ludolph jabber bot base commands.
     """
     _avatar_allowed_extensions = ('.png', '.jpg', '.jpeg', '.gif')
+    ver = VERSION
 
     def __init__(self, xmpp, config, **kwargs):
         super(Base, self).__init__(xmpp, config, **kwargs)
@@ -98,13 +99,21 @@ class Base(LudolphPlugin):
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
-    def version(self, msg):
+    def version(self, msg, plugin=None):
         """
-        Display Ludolph version.
+        Display version of Ludolph or registered plugin.
 
+        Display Ludolph version.
         Usage: version
+
+        Display Ludolph's registered plugin version.
+        Usage: version [plugin]
         """
-        return 'Version: %s' % VERSION
+        if plugin:
+            if plugin in self.xmpp.plugins:
+                return '**%s** version: %s' % (plugin, self.xmpp.plugins[plugin].get_version())
+            return '**%s** isnt Ludolph plugin. Check help for available plugins.' % plugin
+        return '**Ludolph** version: **%s**' % VERSION
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
