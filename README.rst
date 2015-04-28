@@ -18,7 +18,7 @@ Features
 * Webhooks and cron jobs
 * Plugins and commands::
 
-    * ludolph.plugins.zabbix *
+    * ludolph.plugins.zabbix
         * ack - acknowledge event with optional note
         * alerts - show a list of current zabbix alerts
         * duty - show a list of users in duty user group
@@ -27,16 +27,20 @@ Features
         * outage - show, create or delete maintenance periods
         * zabbix-version - show version of Zabbix API
 
-    * ludolph.plugins.base *
+    * ludolph.plugins.base
         * about - details about this project
         * avatar - list available avatars or set an avatar for Ludolph (admin only)
         * broadcast - sent private message to every user in roster (admin only)
         * help - show this help
         * message - send new XMPP message to user/room
-        * muc-invite - invite user to multi-user chat room (admin only)
         * roster - list and manage users on Ludolph's roster (admin only)
         * uptime - show Ludolph uptime
-        * version - display Ludolph version
+        * version - display version of Ludolph or registered plugin
+
+    * ludolph.plugins.muc
+        * invite - invite user or yourself to multi-user chat room (room admin only)
+        * kick - kick user from multi-user chat room (room admin only)
+        * motd - show, set or remove message of the day
 
     * ludolph.plugins.commands
         * os-uptime - display system uptime
