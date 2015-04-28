@@ -33,8 +33,10 @@ class LudolphPlugin(object):
             if i in self.persistent_attrs:
                 self.__dict__[i] = state[i]
 
-    def get_version(self):
-        if self.__version__ is None:
+    @classmethod
+    def get_version(cls):
+        """Used by the version command"""
+        if cls.__version__ is None:
             return '**Not implemented** by plugin author...'
         else:
-            return '**%s**' % self.__version__
+            return '**%s**' % cls.__version__
