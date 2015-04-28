@@ -177,7 +177,7 @@ class Base(LudolphPlugin):
     @command
     def broadcast(self, msg, *args):
         """
-        Send private message to every user in roster.
+        Send private message to every user in roster (admin only).
 
         Usage: broadcast <message>
         """
