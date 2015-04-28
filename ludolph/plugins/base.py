@@ -101,7 +101,7 @@ class Base(LudolphPlugin):
 
         return self._help_all()
 
-    # noinspection PyMethodMayBeStatic,PyUnusedLocal
+    # noinspection PyUnusedLocal
     @command
     def version(self, msg, plugin=None):
         """

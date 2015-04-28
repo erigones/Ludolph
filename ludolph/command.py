@@ -12,14 +12,14 @@ import shlex
 
 from ludolph.utils import AttrDict
 
-__all__ = ('command', 'parameter_required', 'admin_required')
+__all__ = ('CommandError', 'command', 'parameter_required')
 
 logger = getLogger(__name__)
 
 
 class CommandError(Exception):
     """
-    Internal command error.
+    Send a standard error message to user.
     """
     pass
 

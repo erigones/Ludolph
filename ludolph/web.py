@@ -12,7 +12,7 @@ from collections import namedtuple
 # noinspection PyUnresolvedReferences
 from bottle import Bottle, ServerAdapter, abort, request
 
-__all__ = ('WebServer', 'webhook')
+__all__ = ('webhook',)
 
 logger = logging.getLogger(__name__)
 
