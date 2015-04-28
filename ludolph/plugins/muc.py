@@ -1,6 +1,7 @@
 import logging
 from sleekxmpp.exceptions import IqError
 
+from ludolph import __version__
 from ludolph.command import CommandError, command, parameter_required
 from ludolph.web import webhook, request, abort
 from ludolph.plugins.plugin import LudolphPlugin
@@ -12,6 +13,7 @@ class Muc(LudolphPlugin):
     """
     Multi-user chat room commands.
     """
+    __version__ = __version__
     room_motd = None
     persistent_attrs = ('room_motd',)
 

@@ -3,6 +3,7 @@ import shlex
 from types import MethodType
 from subprocess import Popen, PIPE, STDOUT
 
+from ludolph import __version__
 from ludolph.command import CommandError, command, parameter_required, admin_required
 from ludolph.plugins.plugin import LudolphPlugin
 
@@ -52,6 +53,8 @@ class Commands(LudolphPlugin):
     """
     Create dynamic Ludolph commands associated with real OS commands and scripts.
     """
+    __version__ = __version__
+
     def __init__(self, xmpp, config, **kwargs):
         super(Commands, self).__init__(xmpp, config, **kwargs)
         self.init()

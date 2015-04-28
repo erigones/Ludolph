@@ -11,6 +11,7 @@ class LudolphPlugin(object):
     """
     Ludolph plugin base class.
     """
+    __version__ = None
     xmpp = None  # Reference to LudolphBot object
     config = None  # Plugin configuration as list of (name, value) tuples
     persistent_attrs = ()  # Set of object's attributes that will be saved/loaded during bot's shutdown/start events.
@@ -31,3 +32,9 @@ class LudolphPlugin(object):
         for i in state:
             if i in self.persistent_attrs:
                 self.__dict__[i] = state[i]
+
+    def get_version(self):
+        if self.__version__ is None:
+            return '**Not implemented** by plugin author...'
+        else:
+            return '**%s**' % self.__version__

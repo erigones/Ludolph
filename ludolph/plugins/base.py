@@ -15,8 +15,7 @@ from glob import iglob
 
 # noinspection PyPep8Naming
 from ludolph import __doc__ as ABOUT
-# noinspection PyPep8Naming
-from ludolph import __version__ as VERSION
+from ludolph import __version__
 from ludolph.command import CommandError, command, parameter_required, admin_required
 from ludolph.web import webhook, request, abort
 from ludolph.utils import pluralize
@@ -29,6 +28,7 @@ class Base(LudolphPlugin):
     """
     Ludolph jabber bot base commands.
     """
+    __version__ = __version__
     _avatar_allowed_extensions = ('.png', '.jpg', '.jpeg', '.gif')
 
     def __init__(self, xmpp, config, **kwargs):
@@ -51,14 +51,19 @@ class Base(LudolphPlugin):
 
             out = ['List of available Ludolph commands:']
 
-            for mod_name in self.xmpp.plugins:  # The plugins dict knows the plugin order
+            for mod_name, plugin in self.xmpp.plugins.items():  # The plugins dict knows the plugin order
                 try:
                     commands = cmd_map[mod_name]
                 except KeyError:
                     continue
 
                 # Item: module name
-                out.append('\n* %s\n' % mod_name)
+                if plugin.__version__:
+                    version = '^^%s^^' % plugin.__version__
+                else:
+                    version = ''
+
+                out.append('\n* %s %s\n' % (mod_name, version))
 
                 for cmd in commands:
                     try:
@@ -98,13 +103,21 @@ class Base(LudolphPlugin):
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
-    def version(self, msg):
+    def version(self, msg, plugin=None):
         """
-        Display Ludolph version.
+        Display version of Ludolph or registered plugin.
 
-        Usage: version
+        Usage: version [plugin]
         """
-        return 'Version: %s' % VERSION
+        if plugin:
+            mod, obj = self.xmpp.plugins.get_plugin(plugin)
+
+            if mod:
+                return '**%s** version: %s' % (mod, obj.get_version())
+            else:
+                raise CommandError('**%s** isn\'t a Ludolph plugin. Check help for available plugins.' % plugin)
+
+        return '**Ludolph** version: %s' % self.get_version()
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command

@@ -32,7 +32,53 @@ logger = logging.getLogger(__name__)
 
 __all__ = ('LudolphBot',)
 
-PLUGINS = OrderedDict()  # {modname : instance}
+
+class Plugins(OrderedDict):
+    """
+    Plugin module names to plugin instance mapping.
+    """
+    def __init__(self, *args, **kwargs):
+        super(Plugins, self).__init__(*args, **kwargs)
+        self.shorthands = {}
+
+    def __setitem__(self, key, value, **kwargs):
+        super(Plugins, self).__setitem__(key, value, **kwargs)
+        self.shorthands[key.split('.')[-1]] = key
+
+    def __delitem__(self, key, **kwargs):
+        super(Plugins, self).__setitem__(key, **kwargs)
+        try:
+            self.shorthands[key.split('.')[-1]]
+        except KeyError:
+            pass
+
+    def clear(self):
+        super(Plugins, self).clear()
+        self.shorthands = {}  # clear does not work
+
+    def reset(self, init=True):
+        """Used during bot initialization"""
+        if init:
+            logger.info('Initializing plugins')
+            self.clear()
+        else:
+            logger.info('Reinitializing plugins')
+
+    def get_plugin(self, name):
+        """Find plugin by module name or shorthand"""
+        try:
+            return name, self[name]
+        except KeyError:
+            try:
+                modname = self.shorthands[name]
+                return modname, self[modname]
+            except KeyError:
+                pass
+
+        return None, None
+
+
+PLUGINS = Plugins()  # {modname : instance}
 
 
 def get_xmpp():
@@ -283,10 +329,11 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         Initialize plugins.
         The init parameter indicates whether this is a first-time initialization or a reload.
         """
+        self.plugins.reset(init=init)
+
         if init:
             # First-time plugin initialization -> include ourself to plugins dict
             self.xmpp = self
-            self.plugins.clear()
             self.plugins[__name__] = self
         else:
             # Bot reload - remove disabled plugins
