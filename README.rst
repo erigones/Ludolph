@@ -9,14 +9,14 @@ Monitoring Jabber Bot with `Zabbix <http://www.zabbix.com>`_ support, completely
 Features
 --------
 
-* Simple and modular design
-* Alerts from Zabbix
+* `Simple and modular design <https://github.com/erigones/Ludolph/wiki/How-to-create-a-plugin>`_
+* `Alerts from Zabbix <https://github.com/erigones/Ludolph/wiki/How-to-configure-Zabbix-to-work-with-Ludolph>`_
 * Multi-User Chat (XEP-0045)
 * Colorful messages (XEP-0071)
 * Avatars (XEP-0084)
 * Roster management and ACL configuration
-* Webhooks and cron jobs
-* Plugins and commands::
+* `Webhooks and cron jobs <https://github.com/erigones/Ludolph/wiki/Webhooks-and-cron-jobs>`_
+* `Plugins and commands <https://github.com/erigones/Ludolph/wiki/Plugins>`_::
 
     * ludolph.plugins.zabbix
         * ack - acknowledge event with optional note
@@ -62,6 +62,8 @@ Installation
 - The ``ludolph`` command should be installed somewhere in your ``PATH``.
 
 - Init scripts for Debian and RHEL based distributions are also available: https://github.com/erigones/Ludolph/tree/master/init.d
+
+See `the complete install guide <https://github.com/erigones/Ludolph/wiki/How-to-configure-Zabbix-to-work-with-Ludolph>`_ for more info.
 
 
 **Dependencies:**
