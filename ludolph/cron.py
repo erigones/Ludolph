@@ -207,7 +207,8 @@ class CronTab(OrderedDict):
             if self.db is not None:
                 self.db['crontab'] = self.__class__((name, job) for name, job in self.items() if job.onetime)
         except Exception as ex:
-            logger.critical('Could not sync crontab with persistent DB file: %s', ex)
+            logger.exception(ex)
+            logger.critical('Could not sync crontab with persistent DB file')
 
     def load(self):
         """Load cronjobs from external source"""
@@ -219,7 +220,8 @@ class CronTab(OrderedDict):
                     logger.info('Loading %d cron job(s) from persistent DB file', len(cronjobs))
                     self.update(cronjobs)
         except Exception as ex:
-            logger.critical('Could not load crontab from persistent DB file: %s', ex)
+            logger.exception(ex)
+            logger.critical('Could not load crontab from persistent DB file')
 
     def add(self, name, fun, **kwargs):
         """Add named crontab entry, which will run fun at specified date/time"""
@@ -318,8 +320,8 @@ class Cron(LudolphDBMixin):
                     try:
                         res = job.run()
                     except Exception as ex:
-                        logger.critical('Error while running cron job "%s" (%s)', name, job.fqfn)
                         logger.exception(ex)
+                        logger.critical('Error while running cron job "%s" (%s)', name, job.fqfn)
                         continue
                     finally:
                         if job.onetime:

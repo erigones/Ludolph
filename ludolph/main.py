@@ -217,8 +217,8 @@ The example file is located in: %s\n\n""" % (
 
                 plugins.append(Plugin(config_section, modname, imported_class))
             except Exception as ex:
-                logger.critical('Could not load plugin: %s', modname)
                 logger.exception(ex)
+                logger.critical('Could not load plugin: %s', modname)
 
         return plugins
     plugins = load_plugins(config)
