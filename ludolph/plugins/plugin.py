@@ -13,7 +13,7 @@ class LudolphPlugin(object):
     """
     xmpp = None  # Reference to LudolphBot object
     config = None  # Plugin configuration as list of (name, value) tuples
-    ver = None
+    __version__ = None
 
     # noinspection PyUnusedLocal
     def __init__(self, xmpp, config, reinit=False, **kwargs):
@@ -21,7 +21,7 @@ class LudolphPlugin(object):
         self.config = dict(config)
 
     def get_version(self):
-        if self.ver is not None:
-            return '**%s**' % self.ver
+        if self.__version__ is not None:
+            return '**%s**' % self.__version__
         else:
             return '**Not implemented** by plugin author...'

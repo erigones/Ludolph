@@ -16,7 +16,7 @@ from glob import iglob
 # noinspection PyPep8Naming
 from ludolph import __doc__ as ABOUT
 # noinspection PyPep8Naming
-from ludolph import __version__ as VERSION
+from ludolph import __version__
 from ludolph.command import CommandError, command, parameter_required, admin_required
 from ludolph.web import webhook, request, abort
 from ludolph.utils import pluralize
@@ -30,7 +30,7 @@ class Base(LudolphPlugin):
     Ludolph jabber bot base commands.
     """
     _avatar_allowed_extensions = ('.png', '.jpg', '.jpeg', '.gif')
-    ver = VERSION
+    __version__ = __version__
 
     def __init__(self, xmpp, config, **kwargs):
         super(Base, self).__init__(xmpp, config, **kwargs)
@@ -113,7 +113,7 @@ class Base(LudolphPlugin):
             if plugin in self.xmpp.plugins:
                 return '**%s** version: %s' % (plugin, self.xmpp.plugins[plugin].get_version())
             return '**%s** isnt Ludolph plugin. Check help for available plugins.' % plugin
-        return '**Ludolph** version: **%s**' % VERSION
+        return '**Ludolph** version: %s' % self.get_version()
 
     # noinspection PyMethodMayBeStatic,PyUnusedLocal
     @command
