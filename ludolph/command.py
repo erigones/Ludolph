@@ -109,6 +109,12 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
     Decorator for registering available commands.
     """
     def command_decorator(fun):
+        # Create command name - skip methods which start with underscore
+        if fun.__name__.startswith('_'):
+            logger.error('Ignoring command "%s" from plugin "%s" because it starts with underscore',
+                         fun.__name__, fun.__module__)
+            return None
+
         name = fun.__name__.replace('_', '-')
 
         # Check if command exists
@@ -117,9 +123,22 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
                             name, fun.__module__, COMMANDS[name].module)
             return None
 
+        # Save documentation
+        if fun.__doc__:
+            doc = fun.__doc__.strip()
+        else:
+            logger.warning('Missing documentation for command "%s"', name)
+            doc = ''
+
+        # Save module and method name
+        logger.debug('Registering command "%s" from plugin "%s"', name, fun.__module__)
+        perms = CommandPermissions(user_required=user_required, admin_required=admin_required,
+                                   room_user_required=room_user_required, room_admin_required=room_admin_required)
+        cmd = Command(name, fun.__name__, fun.__module__, doc, perms)
+        COMMANDS[name] = cmd
+
         @wraps(fun)
         def wrap(obj, msg, *args, **kwargs):
-            cmd = COMMANDS[name]
             xmpp = obj.xmpp
             user = xmpp.get_jid(msg)
             success = False
@@ -173,24 +192,6 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
                 xmpp.msg_reply(msg, out)
 
             return out
-
-        # Create command name - skip methods which start with underscore
-        if fun.__name__.startswith('_'):
-            # Not a public command, but we will execute the method (private helper)
-            return wrap
-
-        # Save documentation
-        if fun.__doc__:
-            doc = fun.__doc__.strip()
-        else:
-            logger.warning('Missing documentation for command "%s"', name)
-            doc = ''
-
-        # Save module and method name
-        logger.debug('Registering command "%s" from plugin "%s"', name, fun.__module__)
-        perms = CommandPermissions(user_required=user_required, admin_required=admin_required,
-                                   room_user_required=room_user_required, room_admin_required=room_admin_required)
-        COMMANDS[name] = Command(name, fun.__name__, fun.__module__, doc, perms)
 
         return wrap
 
