@@ -4,10 +4,21 @@ from types import MethodType
 from subprocess import Popen, PIPE, STDOUT
 
 from ludolph import __version__
-from ludolph.command import CommandError, command, parameter_required, admin_required
+from ludolph.command import CommandError, command, parameter_required
 from ludolph.plugins.plugin import LudolphPlugin
 
 logger = logging.getLogger(__name__)
+
+COMMAND_FLAGS = {
+    'stream_output': ('stream_output', True),
+    'reply_output': ('reply_output', True),
+    'ignore_output': ('reply_output', False),
+    'user_not_required': ('user_required', False),
+    'user_required': ('user_required', True),
+    'admin_required': ('admin_required', True),
+    'room_user_required': ('room_user_required', True),
+    'room_admin_required': ('room_admin_required', True),
+}
 
 
 class Process(Popen):
@@ -73,12 +84,9 @@ class Commands(LudolphPlugin):
 
             if opt == 'command':
                 continue
-            elif opt == 'stream_output':
-                command_kwargs['stream_output'] = True
-            elif opt == 'ignore_output':
-                command_kwargs['reply_output'] = False
-            elif opt == 'admin_required':
-                decorators.append(admin_required)
+            elif opt in COMMAND_FLAGS:
+                cmd_flag = COMMAND_FLAGS[opt]
+                command_kwargs[cmd_flag[0]] = cmd_flag[1]
             elif opt.startswith('parameter_required('):
                 try:
                     n = int(opt.split('(')[-1][:-1])
