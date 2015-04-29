@@ -77,6 +77,8 @@ class IncomingLudolphMessage(Message):
     """
     SleekXMPP Message object wrapper.
     """
+    _ludolph_attrs = ('reply_output', 'stream_output')
+
     @classmethod
     def wrap_msg(cls, msg):
         """Inject our properties into original Message object"""
@@ -99,6 +101,10 @@ class IncomingLudolphMessage(Message):
             if v is not None:
                 data[k] = v
 
+        # Add our custom attributes
+        for i in self._ludolph_attrs:
+            data[i] = getattr(self, i)
+
         return data
 
     @classmethod
@@ -107,6 +113,14 @@ class IncomingLudolphMessage(Message):
 
         obj = cls(stream=get_xmpp())
 
+        # First set our custom attributes
+        for i in cls._ludolph_attrs:
+            try:
+                setattr(obj, i, data.pop(i))
+            except KeyError:
+                continue
+
+        # The all other ElementBase items
         for k, v in data.items():
             obj[k] = v
 
