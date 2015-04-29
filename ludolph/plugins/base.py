@@ -16,7 +16,7 @@ from glob import iglob
 # noinspection PyPep8Naming
 from ludolph import __doc__ as ABOUT
 from ludolph import __version__
-from ludolph.command import CommandError, command, parameter_required, admin_required
+from ludolph.command import CommandError, command, parameter_required
 from ludolph.web import webhook, request, abort
 from ludolph.utils import pluralize
 from ludolph.plugins.plugin import LudolphPlugin
@@ -172,9 +172,8 @@ class Base(LudolphPlugin):
         return self._message_send(jid, ' '.join(args))
 
     # noinspection PyUnusedLocal
-    @admin_required
     @parameter_required(1)
-    @command
+    @command(admin_required=True)
     def broadcast(self, msg, *args):
         """
         Send private message to every user in roster (admin only).
@@ -201,8 +200,7 @@ class Base(LudolphPlugin):
         else:
             return 'User **%s** cannot be removed from roster' % user
 
-    @admin_required
-    @command
+    @command(admin_required=True)
     def roster(self, msg, action=None, user=None):
         """
         List and manage users on Ludolph's roster (admin only).
@@ -312,8 +310,7 @@ class Base(LudolphPlugin):
 
         return 'Avatar has been changed :)'
 
-    @admin_required
-    @command
+    @command(admin_required=True)
     def avatar(self, msg, action=None, avatar_name=None):
         """
         List available avatars or set an avatar for Ludolph (admin only).
@@ -371,7 +368,7 @@ class Base(LudolphPlugin):
         raise CommandError('Non-existent job ID')
 
     @parameter_required(2, internal=True)
-    def _at_add(self, msg, schedule, cmd_name, *args):
+    def _at_add(self, msg, schedule, cmd_name, *cmd_args):
         """Schedule command execution at specific time and date"""
         # Validate schedule
         schedule = str(schedule)
@@ -400,7 +397,7 @@ class Base(LudolphPlugin):
             raise CommandError('Permission denied')
 
         # Create message (the only argument needed for command) with body representing the whole command
-        body = ' '.join([cmd.name] + ["%s" % i for i in args])
+        body = ' '.join([cmd.name] + ["%s" % i for i in cmd_args])
         msg = self.xmpp.msg_copy(msg, body=body)
         job = self.xmpp.cron.crontab.add_at(cmd.get_fun(self.xmpp), dt, msg, user)
         logger.info('Registered one-time cron job: %s', job.display())
