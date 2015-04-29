@@ -36,8 +36,12 @@ def at_fun(job, fun):
     def wrap(msg, *args, **kwargs):
         msg.reply_output = False  # Do not send command output to job owner
         ret = fun(msg, *args, **kwargs)
+
         out = 'Scheduled job **%s** run at %s finished with output:\n%s' % (job.name, datetime.now().isoformat(), ret)
-        fun.__self__.xmpp.msg_reply(msg, out)  # We will inform the owner here
+
+        if job.at_reply_output:
+            fun.__self__.xmpp.msg_reply(msg, out)  # We will inform the owner here
+
         return out
     return wrap
 
@@ -58,7 +62,7 @@ class CronJob(object):
     Crontab entry.
     """
     def __init__(self, name, fun, args=(), kwargs=(), minute=None, hour=None, day=None, month=None, dow=None,
-                 onetime=False, owner=None, at=False):
+                 onetime=False, owner=None, at=False, at_reply_output=False):
         if not isinstance(fun, CronJobFun):
             raise TypeError('fun must be a instance of CronJobFun')
 
@@ -74,6 +78,7 @@ class CronJob(object):
         self.onetime = self.clean_datetime(onetime)
         self.owner = owner
         self.at = at
+        self.at_reply_output = at_reply_output
 
     def __repr__(self):
         return '%s(%s)' % (self.__class__.__name__, self.name)
@@ -263,9 +268,9 @@ class CronTab(OrderedDict):
 
         return self.add(self.generate_id(), fun, **kwargs)
 
-    def add_at(self, fun, onetime, msg, owner):
+    def add_at(self, fun, onetime, msg, owner, at_reply_output=True):
         """Add "at" onetime job into crontab"""
-        return self.add_onetime(fun, onetime, args=(msg.dump(),), owner=owner, at=True)
+        return self.add_onetime(fun, onetime, args=(msg.dump(),), owner=owner, at=True, at_reply_output=at_reply_output)
 
     def clear_cron_jobs(self):
         """Remove all cron jobs, but keep onetime jobs"""

@@ -368,7 +368,7 @@ class Base(LudolphPlugin):
         raise CommandError('Non-existent job ID')
 
     @parameter_required(2, internal=True)
-    def _at_add(self, msg, schedule, cmd_name, *cmd_args):
+    def _at_add(self, msg, schedule, cmd_name, *cmd_args, **job_kwargs):
         """Schedule command execution at specific time and date"""
         # Validate schedule
         schedule = str(schedule)
@@ -399,7 +399,7 @@ class Base(LudolphPlugin):
         # Create message (the only argument needed for command) with body representing the whole command
         body = ' '.join([cmd.name] + ["%s" % i for i in cmd_args])
         msg = self.xmpp.msg_copy(msg, body=body)
-        job = self.xmpp.cron.crontab.add_at(cmd.get_fun(self.xmpp), dt, msg, user)
+        job = self.xmpp.cron.crontab.add_at(cmd.get_fun(self.xmpp), dt, msg, user, **job_kwargs)
         logger.info('Registered one-time cron job: %s', job.display())
 
         return 'Scheduled job ID **%s** scheduled at %s' % (job.name, job.schedule)
