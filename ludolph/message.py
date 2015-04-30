@@ -155,15 +155,12 @@ class OutgoingLudolphMessage(object):
     """
     Creating and sending bots messages (replies).
     """
-    mbody = None
-    mhtml = None
-    mtype = None
-
-    def __init__(self, mbody, mhtml=None, mtype=None):
+    def __init__(self, mbody, mhtml=None, mtype=None, msubject=None):
         """
         Construct message body in plain text and html.
         """
         self.mtype = mtype
+        self.msubject = msubject
 
         if mbody is not None:
             self.mbody = self._text2body(str(mbody))
@@ -219,11 +216,12 @@ class OutgoingLudolphMessage(object):
 
         return cls(mbody, **kwargs)
 
-    def send(self, xmpp, mto):
+    def send(self, xmpp, mto, mfrom=None, mnick=None):
         """
         Send a new message.
         """
-        msg = xmpp.make_message(mto, self.mbody, mtype=self.mtype, mhtml=self.mhtml)
+        msg = xmpp.make_message(mto, self.mbody, msubject=self.msubject, mtype=self.mtype, mhtml=self.mhtml,
+                                mfrom=mfrom, mnick=mnick)
 
         return msg.send()
 
