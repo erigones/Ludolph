@@ -24,6 +24,25 @@ class Muc(LudolphPlugin):
 
         super(Muc, self).__init__(xmpp, config, reinit=reinit, **kwargs)
 
+    def __post_init__(self):
+        # Register event handler for entering MUC room
+        self.xmpp.add_event_handler('muc::%s::got_online' % self.xmpp.room, self._room_joined, threaded=True)
+
+    def __destroy__(self):
+        # Un-register event handler for entering MUC room
+        self.xmpp.del_event_handler('muc::%s::got_online' % self.xmpp.room, self._room_joined)
+
+    def _room_joined(self, msg):
+        """Process an online event stanza from a chat room"""
+        if msg['from'] != self.xmpp.room_jid:  # Ignore Ludolph bot stanzas
+            if self.room_motd is not None:
+                # Send motd to new user
+                self._send_private_msg(msg['from'], self.room_motd, msubject='Message of the day')
+
+    def _get_room_jid(self, nick):
+        """Return room JID"""
+        return '%s/%s' % (self.xmpp.room, nick)
+
     def _get_nick(self, user):
         """Get nick from JID or nick and check if user is in chat room"""
         nick = None
@@ -34,6 +53,10 @@ class Muc(LudolphPlugin):
             nick = user
 
         return nick
+
+    def _send_private_msg(self, mto, mbody, msubject=None):
+        """Send private message"""
+        return self.xmpp.msg_send(mto, mbody, mfrom=self.xmpp.boundjid.full, mtype='chat', msubject=msubject)
 
     @command(user_required=False, room_user_required=True, room_admin_required=True)
     def invite(self, msg, user=None):
@@ -74,7 +97,7 @@ class Muc(LudolphPlugin):
         return 'User **%s** kicked from MUC room' % user
 
     @command(user_required=False, room_user_required=True)
-    def motd(self, msg, action=None):
+    def motd(self, msg, action=None, text=None):
         """
         Show, set or remove message of the day.
 
@@ -95,15 +118,13 @@ class Muc(LudolphPlugin):
                 self.room_motd = None
                 return 'MOTD successfully deleted'
             elif action == 'set':
-                try:
-                    text = msg['body'].split(' ', 2)[2].strip()
-                    if not text:
-                        raise IndexError
-                except IndexError:
+                if not text:
                     raise CommandError('Missing text')
-                else:
-                    self.room_motd = text
-                    return 'MOTD successfully updated'
+
+                self.room_motd = text
+                # Announce new motd into room
+                self.xmpp.msg_send(self.xmpp.room, self.room_motd, mtype='groupchat', msubject='Message of the day')
+                return 'MOTD successfully updated'
             else:
                 raise CommandError('Invalid action')
 
