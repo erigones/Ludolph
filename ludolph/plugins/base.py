@@ -16,7 +16,7 @@ from glob import iglob
 # noinspection PyPep8Naming
 from ludolph import __doc__ as ABOUT
 from ludolph import __version__
-from ludolph.command import CommandError, command, parameter_required
+from ludolph.command import CommandError, MissingParameter, command
 from ludolph.web import webhook, request, abort
 from ludolph.utils import pluralize
 from ludolph.plugins.plugin import LudolphPlugin
@@ -162,25 +162,23 @@ class Base(LudolphPlugin):
 
     # noinspection PyUnusedLocal
     @command
-    @parameter_required(2)
-    def message(self, msg, jid, *args):
+    def message(self, msg, jid, text):
         """
         Send new XMPP message to user/room.
 
         Usage: message <JID> <text>
         """
-        return self._message_send(jid, ' '.join(args))
+        return self._message_send(jid, text)
 
     # noinspection PyUnusedLocal
-    @parameter_required(1)
     @command(admin_required=True)
-    def broadcast(self, msg, *args):
+    def broadcast(self, msg, text):
         """
         Send private message to every user in roster (admin only).
 
         Usage: broadcast <message>
         """
-        return 'Message broadcasted to %dx users.' % self.xmpp.msg_broadcast(' '.join(args))
+        return 'Message broadcasted to %dx users.' % self.xmpp.msg_broadcast(text)
 
     def _roster_list(self):
         """List users on Ludolph's roster (admin only)"""
@@ -188,11 +186,9 @@ class Base(LudolphPlugin):
 
         return '\n'.join(['%s\t%s' % (i, roster[i]['subscription']) for i in roster])
 
-    # noinspection PyUnusedLocal
-    @parameter_required(1, internal=True)
-    def _roster_del(self, msg, user):
+    def _roster_del(self, user):
         """Remove user from Ludolph's roster (admin only)"""
-        if user and user in self.xmpp.client_roster:
+        if user in self.xmpp.client_roster:
             self.xmpp.send_presence(pto=user, ptype='unsubscribe')
             self.xmpp.del_roster_item(user)
 
@@ -200,6 +196,7 @@ class Base(LudolphPlugin):
         else:
             return 'User **%s** cannot be removed from roster' % user
 
+    # noinspection PyUnusedLocal
     @command(admin_required=True)
     def roster(self, msg, action=None, user=None):
         """
@@ -212,7 +209,10 @@ class Base(LudolphPlugin):
         Usage: roster del <JID>
         """
         if action == 'del':
-            return self._roster_del(msg, user)
+            if user:
+                return self._roster_del(user)
+            else:
+                raise MissingParameter
 
         return self._roster_list()
 
@@ -244,7 +244,6 @@ class Base(LudolphPlugin):
         else:
             return 'No avatars were found... :('
 
-    @parameter_required(1, internal=True)
     def _avatar_set(self, msg, avatar_name):
         """Set avatar for Ludolph (admin only)"""
         if os.path.splitext(avatar_name)[-1] not in self._avatar_allowed_extensions:
@@ -273,10 +272,9 @@ class Base(LudolphPlugin):
         if not avatar:
             raise CommandError('Avatar "%s" has not been found.\n'
                                'You can list available avatars with the command: **avatar-list**' % avatar_name)
-        else:
-            self.xmpp.msg_reply(msg, 'I have found the selected avatar, changing it might take few seconds...',
-                                preserve_msg=True)
 
+        self.xmpp.msg_reply(msg, 'I have found the selected avatar, changing it might take few seconds...',
+                            preserve_msg=True)
         avatar_type = 'image/%s' % imghdr.what('', avatar)
         avatar_id = self.xmpp.plugin['xep_0084'].generate_id(avatar)
         avatar_bytes = len(avatar)
@@ -322,7 +320,10 @@ class Base(LudolphPlugin):
         Usage: avatar set <avatar>
         """
         if action == 'set':
-            return self._avatar_set(msg, avatar_name)
+            if avatar_name:
+                return self._avatar_set(msg, avatar_name)
+            else:
+                raise MissingParameter
 
         return self._avatar_list()
 
@@ -332,9 +333,9 @@ class Base(LudolphPlugin):
         user = self.xmpp.get_jid(msg)
 
         if self.xmpp.is_jid_admin(user):
-            display_job = lambda job: job.onetime
+            display_job = lambda cronjob: cronjob.onetime
         else:
-            display_job = lambda job: job.onetime and user == job.owner
+            display_job = lambda cronjob: cronjob.onetime and user == cronjob.owner
 
         out = ['**%s** [%s] (%s) __%s__' % (name, job.schedule, job.owner, job.command)
                for name, job in crontab.items() if display_job(job)]
@@ -343,12 +344,11 @@ class Base(LudolphPlugin):
 
         return '\n'.join(out)
 
-    @parameter_required(1, internal=True)
     def _at_del(self, msg, name):
         """Remove scheduled job"""
         try:
             job_id = int(name)
-        except ValueError:
+        except (ValueError, TypeError):
             raise CommandError('Invalid job ID')
 
         crontab = self.xmpp.cron.crontab
@@ -367,7 +367,6 @@ class Base(LudolphPlugin):
 
         raise CommandError('Non-existent job ID')
 
-    @parameter_required(2, internal=True)
     def _at_add(self, msg, schedule, cmd_name, *cmd_args, **job_kwargs):
         """Schedule command execution at specific time and date"""
         # Validate schedule
@@ -404,7 +403,6 @@ class Base(LudolphPlugin):
 
         return 'Scheduled job ID **%s** scheduled at %s' % (job.name, job.schedule)
 
-    @parameter_required(0)
     @command
     def at(self, msg, *args):
         """
@@ -420,13 +418,23 @@ class Base(LudolphPlugin):
         Remove command from queue of scheduled jobs.
         Usage: at del <job ID>
         """
-        if len(args) > 1:
+        args_count = len(args)
+
+        if args_count > 0:
             action = args[0]
 
             if action == 'add':
-                return self._at_add(msg, *args[1:])
+                if args_count < 3:
+                    raise MissingParameter
+                else:
+                    return self._at_add(msg, *args[1:])
             elif action == 'del':
-                return self._at_del(msg, args[1])
+                if args_count < 2:
+                    raise MissingParameter
+                else:
+                    return self._at_del(msg, args[1])
+            else:
+                raise CommandError('Invalid action')
 
         return self._at_list(msg)
 

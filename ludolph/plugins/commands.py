@@ -4,7 +4,7 @@ from types import MethodType
 from subprocess import Popen, PIPE, STDOUT
 
 from ludolph import __version__
-from ludolph.command import CommandError, command, parameter_required
+from ludolph.command import CommandError, command
 from ludolph.plugins.plugin import LudolphPlugin
 
 logger = logging.getLogger(__name__)
@@ -31,8 +31,9 @@ class Process(Popen):
     @property
     def output(self):
         """Stdout generator"""
-        while self.poll() is None:
-            yield self.stdout.readline().decode('utf-8').rstrip('\n')
+        with self.stdout:
+            while self.poll() is None:
+                yield self.stdout.readline().decode('utf-8').rstrip('\n')
 
     # noinspection PyUnusedLocal
     def _get_output(self, name):
@@ -71,11 +72,10 @@ class Commands(LudolphPlugin):
         self.init()
 
     @staticmethod
-    def _parse_config_line(name, value):
+    def _parse_config_line(value):
         """Parse one config value"""
         value = value.strip().split(',')
         cmd = value.pop(0).strip()
-        decorators = []
         command_kwargs = {}
         doc = ''
 
@@ -87,35 +87,21 @@ class Commands(LudolphPlugin):
             elif opt in COMMAND_FLAGS:
                 cmd_flag = COMMAND_FLAGS[opt]
                 command_kwargs[cmd_flag[0]] = cmd_flag[1]
-            elif opt.startswith('parameter_required('):
-                try:
-                    n = int(opt.split('(')[-1][:-1])
-                except ValueError:
-                    logger.error('Could not parse dynamic command "%s" value "%s"', name, opt)
-                    continue
-                else:
-                    decorators.append(parameter_required(n))
             else:
                 doc = ','.join(value[i:]).strip()
                 break
 
-        # The @command decorator must be always first
-        decorators.insert(0, command(**command_kwargs))
-
-        return cmd, decorators, doc
+        return cmd, command(**command_kwargs), doc
 
     @staticmethod
-    def _get_fun(name, cmd, decorators, doc):
+    def _get_fun(name, cmd, command_decorator, doc):
         """Return dynamic function"""
         # noinspection PyProtectedMember
         fun = lambda obj, msg, *args: obj._execute(msg, name, cmd, *args)
         fun.__name__ = name
         fun.__doc__ = doc
 
-        for decorator in decorators:
-            fun = decorator(fun)
-
-        return fun
+        return command_decorator(fun)
 
     def init(self):
         """Initialize commands from config file"""
@@ -124,7 +110,7 @@ class Commands(LudolphPlugin):
         for name, value in self.config.items():
             try:
                 fun_name = name.strip().replace('-', '_')
-                fun = self._get_fun(fun_name, *self._parse_config_line(name, value))
+                fun = self._get_fun(fun_name, *self._parse_config_line(value))
 
                 if fun:
                     logger.info('Registering dynamic command: %s', name)
@@ -134,8 +120,8 @@ class Commands(LudolphPlugin):
             except Exception as e:
                 logger.error('Dynamic command "%s" could not be registered (%s)', name, e)
 
-    # noinspection PyMethodMayBeStatic,PyUnusedLocal
-    def _execute(self, msg, name, cmd, *args, **kwargs):
+    # noinspection PyMethodMayBeStatic
+    def _execute(self, msg, name, cmd, *args):
         """Execute a command and return stdout or raise CommandError"""
         try:
             cmd = shlex.split(cmd)
@@ -147,5 +133,7 @@ class Commands(LudolphPlugin):
 
         try:
             return Process(cmd).cmd_output(name, stream=msg.stream_output)
+        except CommandError:
+            raise
         except Exception as e:
             raise CommandError('Could not run command (%s)' % e)

@@ -9,10 +9,11 @@ from logging import getLogger
 from functools import wraps
 from collections import namedtuple
 import shlex
+import inspect
 
 from ludolph.utils import AttrDict
 
-__all__ = ('CommandError', 'command', 'parameter_required')
+__all__ = ('CommandError', 'PermissionDenied', 'MissingParameter', 'command')
 
 logger = getLogger(__name__)
 
@@ -21,7 +22,21 @@ class CommandError(Exception):
     """
     Send a standard error message to user.
     """
-    pass
+    error_message = ''
+
+    def __init__(self, msg=None):
+        self.error_message = msg or self.error_message
+
+    def __str__(self):
+        return self.error_message
+
+
+class PermissionDenied(CommandError):
+    error_message = 'Permission denied'
+
+
+class MissingParameter(CommandError):
+    error_message = 'Missing parameter'
 
 
 class CommandPermissions(AttrDict):
@@ -31,7 +46,10 @@ class CommandPermissions(AttrDict):
     pass  # FIXME: Change to namedtuple after removing @admin_required decorator
 
 
-class Command(namedtuple('Command', ('name', 'fun_name', 'module', 'doc', 'perms'))):
+CommandParameters = namedtuple('CommandParameters', ('args_count', 'kwargs_count', 'star_args'))
+
+
+class Command(namedtuple('Command', ('name', 'fun_name', 'module', 'doc', 'perms', 'fun_spec'))):
     """
     Ludolph command wrapper.
     """
@@ -57,6 +75,26 @@ class Command(namedtuple('Command', ('name', 'fun_name', 'module', 'doc', 'perms
                 return False
 
         return True
+
+    def get_args_from_msg_body(self, body):
+        """Parse message body and return a list which can be used as *args parameter for this command"""
+        fun_spec = self.fun_spec
+        last_pos = fun_spec.args_count + fun_spec.kwargs_count - 1
+
+        if last_pos < 0 and not fun_spec.star_args:  # Function has no custom arguments
+            return []
+
+        params = shlex.split(body)[1:]  # Try to get command parameters (with command name removed)
+        params_count = len(params)
+
+        if fun_spec.args_count:  # Check if required arguments are set and not empty
+            if params_count < fun_spec.args_count or not all(params[:fun_spec.args_count]):
+                raise MissingParameter
+
+        if fun_spec.star_args or last_pos > params_count:
+            return params
+        else:
+            return params[:last_pos] + [' '.join(params[last_pos:])]
 
 
 class Commands(dict):
@@ -104,7 +142,7 @@ COMMANDS = Commands()  # command : (name, fun_name, module, doc, perms)
 
 # noinspection PyShadowingNames
 def command(func=None, stream_output=False, reply_output=True, user_required=True, admin_required=False,
-            room_user_required=False, room_admin_required=False):
+            room_user_required=False, room_admin_required=False, parse_parameters=True):
     """
     Decorator for registering available commands.
     """
@@ -123,6 +161,20 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
                             name, fun.__module__, COMMANDS[name].module)
             return None
 
+        # Fetch command parameters (the method must accept at least two positional arguments - self and msg)
+        arg_spec = inspect.getargspec(fun)
+
+        if len(arg_spec.args) < 2:
+            logger.critical('Command "%s" from plugin "%s" is missing required arguments', name, fun.__module__)
+            return None
+        else:
+            if arg_spec.defaults:
+                kwargs_count = len(arg_spec.defaults)
+            else:
+                kwargs_count = 0
+
+            fun_spec = CommandParameters(len(arg_spec.args[2:]) - kwargs_count, kwargs_count, bool(arg_spec.varargs))
+
         # Save documentation
         if fun.__doc__:
             doc = fun.__doc__.strip()
@@ -130,59 +182,57 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
             logger.warning('Missing documentation for command "%s"', name)
             doc = ''
 
-        # Save module and method name
+        # Save module, method name and other command metadata
         logger.debug('Registering command "%s" from plugin "%s"', name, fun.__module__)
         perms = CommandPermissions(user_required=user_required, admin_required=admin_required,
                                    room_user_required=room_user_required, room_admin_required=room_admin_required)
-        cmd = Command(name, fun.__name__, fun.__module__, doc, perms)
+        cmd = Command(name, fun.__name__, fun.__module__, doc, perms, fun_spec)
         COMMANDS[name] = cmd
+        logger.debug('Registered command "%s" (%s) ::\n perms=%s\n fun_spec=%s', name, cmd, perms, fun_spec)
 
         @wraps(fun)
         def wrap(obj, msg, *args, **kwargs):
             xmpp = obj.xmpp
             user = xmpp.get_jid(msg)
+            body = msg['body'].strip()
             success = False
             reply = msg.get_reply_output(default=reply_output, set_default=True)  # Used for scheduled "at" jobs
             stream = msg.get_stream_output(default=stream_output, set_default=True)  # Not used
 
-            if cmd.is_jid_permitted_to_run(xmpp, user):
-                logger.info('User "%s" requested command "%s" (%s) [stream=%s] [reply=%s]',
-                            user, msg['body'], cmd, stream, reply)
+            try:
+                if cmd.is_jid_permitted_to_run(xmpp, user):
+                    logger.info('User "%s" requested command "%s" (%s) [stream=%s] [reply=%s]',
+                                user, body, cmd, stream, reply)
+                else:
+                    logger.warning('Unauthorized command "%s" (%s) from "%s"', body, cmd, user)
+                    raise PermissionDenied
 
-                # Parse optional parameters
-                if fun.__defaults__:
-                    required_pos = len(args) + 1
-                    optional_end = required_pos + len(fun.__defaults__)
-                    optional_args = shlex.split(msg['body'].strip())[required_pos:optional_end]
-                    args += tuple(optional_args)
+                if parse_parameters:  # Parse command parameters
+                    args = cmd.get_args_from_msg_body(body)
 
                 # Reply with function output
-                try:
-                    response = fun(obj, msg, *args, **kwargs)
+                response = fun(obj, msg, *args, **kwargs)
 
-                    if stream:
-                        if reply:
-                            _out = []
-                            for line in response:
-                                _out.append(line)
-                                xmpp.msg_reply(msg, line, preserve_msg=True)
-                        else:
-                            _out = response
-
-                        out = '\n'.join(_out)
+                if stream:
+                    if reply:
+                        _out = []
+                        for line in response:
+                            _out.append(line)
+                            xmpp.msg_reply(msg, line, preserve_msg=True)
                     else:
-                        out = response
-                except CommandError as e:
-                    out = 'ERROR: %s' % e
-                except Exception as e:
-                    logger.exception(e)
-                    out = 'ERROR: Command failed due to internal programming error: %s' % e
+                        _out = response
+
+                    out = '\n'.join(_out)
                 else:
-                    success = True
-                    logger.debug('Command output: "%s"', out)
+                    out = response
+            except CommandError as e:
+                out = 'ERROR: %s' % e
+            except Exception as e:
+                logger.exception(e)
+                out = 'ERROR: Command failed due to internal programming error: %s' % e
             else:
-                logger.warning('Unauthorized command "%s" (%s) from "%s"', msg['body'], cmd, user)
-                out = 'ERROR: Permission denied'
+                success = True
+                logger.debug('Command output: "%s"', out)
 
             if reply:
                 # No need to send a reply, everything was send during stream_output command processing
@@ -201,9 +251,9 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
         return command_decorator
 
 
-def parameter_required(count, internal=False):
+def parameter_required(count):
     """
-    Decorator for checking required command parameters.
+    Decorator for checking required command parameters. [DEPRECATED]
     """
     if hasattr(count, '__call__'):  # fun is count and count is 1 :)
         func = count
@@ -212,14 +262,14 @@ def parameter_required(count, internal=False):
         func = None
 
     def parameter_required_decorator(fun):
+        logger.warning('The @parameter_required decorator on command "%s" in plugin %s is due to be deprecated. '
+                       'The required parameters are now determined by the function signature and checked automatically',
+                       fun.__name__.replace('_', '-'), fun.__module__)
+
         @wraps(fun)
         def wrap(obj, msg, *args, **kwargs):
-            if internal:
-                # Command parameters are args
-                params = args
-            else:
-                # Try to get command parameters
-                params = shlex.split(msg['body'].strip())[1:]
+            # Try to get command parameters
+            params = shlex.split(msg['body'].strip())[1:]
 
             # Check if required parameters are set and not empty
             if len(params) < count or (count and not all(params[:count])):
@@ -228,8 +278,7 @@ def parameter_required(count, internal=False):
                 obj.xmpp.msg_reply(msg, 'ERROR: Missing parameter')
                 return None
             else:
-                if not internal:
-                    params.extend(args)
+                params.extend(args)
                 return fun(obj, msg, *params, **kwargs)
 
         return wrap

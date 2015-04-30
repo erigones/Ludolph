@@ -626,10 +626,11 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         if msg['type'] not in types:
             return
 
+        msg_body = msg.get('body', '')
         # Wrap around the Message object
         msg = IncomingLudolphMessage.wrap_msg(msg)
         # Seek received text in available commands and get command
-        cmd = self.commands.get_command(msg['body'].split()[0].strip())
+        cmd = self.commands.get_command(msg_body.split()[0].strip())
 
         if cmd:
             start_time = time.time()
@@ -644,7 +645,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         else:
             # Send message that command was not understood and what to do
             return msg.reply('Sorry, I don\'t understand "%s"\n'
-                             'Please type "help" for more info' % msg['body']).send()
+                             'Please type "help" for more info' % msg_body).send()
 
     def muc_message(self, msg):
         """

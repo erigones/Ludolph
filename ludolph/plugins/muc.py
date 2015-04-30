@@ -2,7 +2,7 @@ import logging
 from sleekxmpp.exceptions import IqError
 
 from ludolph import __version__
-from ludolph.command import CommandError, command, parameter_required
+from ludolph.command import CommandError, PermissionDenied, command
 from ludolph.web import webhook, request, abort
 from ludolph.plugins.plugin import LudolphPlugin
 
@@ -46,14 +46,13 @@ class Muc(LudolphPlugin):
             user = self.xmpp.get_jid(msg)
 
         if not self.xmpp.is_jid_room_user(user):
-            raise CommandError('User **%s** is not allowed to access the MUC room', user)
+            raise CommandError('User **%s** is not allowed to access the MUC room' % user)
 
         self.xmpp.muc.invite(self.xmpp.room, user)
 
         return 'Inviting **%s** to MUC room %s' % (user, self.xmpp.room)
 
     # noinspection PyUnusedLocal
-    @parameter_required(1)
     @command(user_required=False, room_user_required=True, room_admin_required=True)
     def kick(self, msg, user):
         """
@@ -90,7 +89,7 @@ class Muc(LudolphPlugin):
         """
         if action:
             if not self.xmpp.is_jid_room_admin(self.xmpp.get_jid(msg)):
-                raise CommandError('Permission denied')
+                raise PermissionDenied
 
             if action == 'del':
                 self.room_motd = None
