@@ -67,8 +67,8 @@ class Commands(LudolphPlugin):
     """
     __version__ = __version__
 
-    def __init__(self, xmpp, config, **kwargs):
-        super(Commands, self).__init__(xmpp, config, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(Commands, self).__init__(*args, **kwargs)
         self.init()
 
     @staticmethod
