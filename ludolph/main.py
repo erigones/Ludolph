@@ -13,13 +13,9 @@ import signal
 import logging
 from collections import namedtuple
 
-PY3 = sys.version_info[0] > 2
-
-if PY3:
-    # noinspection PyUnresolvedReferences
+try:
     from configparser import RawConfigParser
-else:
-    # noinspection PyUnresolvedReferences
+except ImportError:
     from ConfigParser import RawConfigParser
 
 try:
@@ -32,8 +28,7 @@ except ImportError:
 from ludolph.utils import parse_loglevel
 from ludolph.bot import LudolphBot
 from ludolph.plugins.plugin import LudolphPlugin
-# noinspection PyPep8Naming
-from ludolph import __version__ as VERSION
+from ludolph import __version__
 
 LOGFORMAT = '%(asctime)s %(levelname)-8s %(name)s: %(message)s'
 
@@ -118,8 +113,8 @@ def start():
 
     if not cfg_fp:
         sys.stderr.write("""\nLudolph can't start!\n
-You need to create a config file in one this locations: \n%s\n
-You can rename ludolph.cfg.example and update the required variables.
+You need to create a config file in one these locations: \n%s\n
+You can rename ludolph.cfg.example and update the required options.
 The example file is located in: %s\n\n""" % (
             '\n'.join([os.path.join(*i) for i in cfg_lo]),
             os.path.dirname(os.path.abspath(__file__))))
@@ -175,7 +170,7 @@ The example file is located in: %s\n\n""" % (
     address = []
 
     # Starting
-    logger.info('Starting Ludolph %s', VERSION)
+    logger.info('Starting Ludolph %s', __version__)
     logger.info('Loaded configuration from %s', cfg_fp.name)
 
     # Load plugins
