@@ -100,7 +100,7 @@ admins =
 # name      - name of the Ludolph's command
 # command   - command or script to be executed in OS
 # flags     - comma-separated flags: user_not_required, admin_required, room_user_required, room_admin_required
-                                     stream_output, ignore_output
+#                                    stream_output, ignore_output
 # comment   - help message displayed in Ludolph
 #
 os-uptime = uptime, Display system uptime
