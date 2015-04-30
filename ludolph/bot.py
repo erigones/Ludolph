@@ -147,6 +147,9 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             self.add_event_handler('muc::%s::got_online' % self.room, self.muc_online, threaded=True)
             self.add_event_handler('muc::%s::got_offline' % self.room, self.muc_offline, threaded=True)
 
+        # Run post initialization methods for all plugins
+        self._post_init_plugins()
+
         # Start the web server thread for processing HTTP requests
         if self.webserver:
             self._start_thread('webserver', self.webserver.start, track=False)
@@ -157,9 +160,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         # Save start time
         self._start_time = time.time()
-
-        # Run post initialization methods for all plugins
-        self._post_init_plugins()
 
     # noinspection PyMethodMayBeStatic
     def __post_init__(self):
