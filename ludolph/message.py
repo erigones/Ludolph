@@ -99,7 +99,7 @@ class IncomingLudolphMessage(Message):
             v = self.get(k, None)
 
             if v is not None:
-                data[k] = v
+                data[k] = str(v)
 
         # Add our custom attributes
         for i in self._ludolph_attrs:
