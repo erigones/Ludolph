@@ -30,9 +30,9 @@ class Base(LudolphPlugin):
     """
     __version__ = __version__
     _avatar_allowed_extensions = ('.png', '.jpg', '.jpeg', '.gif')
+    _help_cache = None
 
-    def __init__(self, xmpp, config, **kwargs):
-        super(Base, self).__init__(xmpp, config, **kwargs)
+    def __post_init__(self):
         self._help_cache = None
 
     def _help_all(self):
