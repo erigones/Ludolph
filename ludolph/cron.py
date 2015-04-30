@@ -274,7 +274,7 @@ class CronTab(OrderedDict):
 
     def clear_cron_jobs(self):
         """Remove all cron jobs, but keep onetime jobs"""
-        for name, job in self.items():
+        for name, job in tuple(self.items()):  # Copy for python 3
             if not job.onetime:
                 del self[name]
 
@@ -314,7 +314,7 @@ class Cron(LudolphDBMixin):
         self.running = self._running = True
 
         while self._running:
-            for name, job in self.crontab.items():
+            for name, job in tuple(self.crontab.items()):  # Copy for python 3
                 if not self._running:
                     break
 
@@ -355,7 +355,7 @@ class Cron(LudolphDBMixin):
         if module:
             logger.info('Deregistering cron jobs from plugin: %s', module)
 
-            for name, job in self.crontab.items():
+            for name, job in tuple(self.crontab.items()):  # Copy for python 3
                 if job.module == module:
                     logger.debug('Deregistering cron job "%s" from plugin "%s"', name, job.module)
                     self.crontab.delete(name)

@@ -108,7 +108,7 @@ class Commands(dict):
         if module:
             logger.info('Deregistering commands from plugin: %s', module)
 
-            for name, cmd in self.items():
+            for name, cmd in tuple(self.items()):  # Copy for python 3
                 if cmd.module == module:
                     logger.debug('Deregistering command "%s" from plugin "%s"', name, cmd.module)
                     del self[name]
@@ -211,7 +211,7 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
             body = msg['body'].strip()
             success = False
             reply = msg.get_reply_output(default=reply_output, set_default=True)  # Used for scheduled "at" jobs
-            stream = msg.get_stream_output(default=stream_output, set_default=True)  # Not used
+            stream = msg.get_stream_output(default=stream_output, set_default=True)  # Used by the commands plugin
 
             try:
                 if cmd.is_jid_permitted_to_run(xmpp, user):

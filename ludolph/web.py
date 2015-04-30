@@ -82,7 +82,7 @@ class WebServer(ServerAdapter):
             logger.info('Deregistering webhooks from plugin: %s', module)
             global WEBAPP
 
-            for name, hook in self.webhooks.items():
+            for name, hook in tuple(self.webhooks.items()):  # Copy for python 3
                 if hook.module == module:
                     logger.debug('Deregistering webhook "%s" from plugin "%s" mapped to URL "%s"',
                                  name, hook.module, hook.path)
