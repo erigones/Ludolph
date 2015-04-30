@@ -98,6 +98,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
     commands = COMMANDS
     plugins = PLUGINS
     room = None
+    room_jid = None
     room_config = None
     room_invites = True
     muc = None
@@ -140,6 +141,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         self.add_event_handler('message', self.message, threaded=True)
 
         if self.room:
+            self.room_jid = '%s/%s' % (self.room, self.nick)
             self.muc = self.plugin['xep_0045']
             self.add_event_handler('groupchat_message', self.muc_message, threaded=True)
             self.add_event_handler('muc::%s::got_online' % self.room, self.muc_online, threaded=True)
@@ -155,6 +157,19 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         # Save start time
         self._start_time = time.time()
+
+        # Run post initialization methods for all plugins
+        self._post_init_plugins()
+
+    # noinspection PyMethodMayBeStatic
+    def __post_init__(self):
+        """Run after ludolph bot instance is up and running"""
+        pass
+
+    # noinspection PyMethodMayBeStatic
+    def __destroy__(self):
+        """Run before ludolph bot shutdown"""
+        pass
 
     def __getstate__(self):
         """Return internal data suitable for saving into persistent DB file"""
@@ -324,6 +339,19 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             if self.cron and self.db is None:  # DB support was disabled during reload
                 self.cron.db_disable()
 
+    # noinspection PyMethodMayBeStatic
+    @catch_exception
+    def _post_init_plugin(self, name, plugin_obj):
+        logger.info('Post-initializing plugin: %s', name)
+        plugin_obj.__post_init__()
+
+    # noinspection PyMethodMayBeStatic
+    @catch_exception
+    def _destroy_plugin(self, name, plugin_obj):
+        logger.info('Destroying plugin: %s', name)
+        plugin_obj.__destroy__()
+        del plugin_obj
+
     def _load_plugins(self, config, plugins, init=False):
         """
         Initialize plugins.
@@ -343,7 +371,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
                 if enabled_plugin not in plugins:
                     logger.info('Disabling plugin: %s', enabled_plugin)
-                    del self.plugins[enabled_plugin]
+                    self._destroy_plugin(enabled_plugin, self.plugins.pop(enabled_plugin))
 
         if plugins:
             for plugin in plugins:
@@ -354,7 +382,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
                     reinit = False
                 else:
                     logger.info('Reloading plugin: %s', modname)
-                    del self.plugins[modname]
+                    self._destroy_plugin(modname, self.plugins.pop(modname))
                     reinit = True
 
                 try:
@@ -388,6 +416,20 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
                 logger.warning('NO cron jobs registered')
         else:
             logger.warning('Cron support disabled - cron jobs will not work')
+
+    def _post_init_plugins(self):
+        """
+        Run __post_init__() method for each initialized plugin.
+        """
+        for modname, plugin in self.plugins.items():  # ludolph.bot is part of plugins
+            self._post_init_plugin(modname, plugin)
+
+    def _destroy_plugins(self):
+        """
+        Run __destroy__() method for each initialized plugin.
+        """
+        for modname, plugin in self.plugins.items():  # ludolph.bot is part of plugins
+            self._destroy_plugin(modname, plugin)
 
     def _room_members(self):
         """
@@ -570,7 +612,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         Process an online presence stanza from a chat room.
         """
         # Configure room and say hello from jabber bot if this is a presence stanza
-        if presence['from'] == '%s/%s' % (self.room, self.nick):
+        if presence['from'] == self.room_jid:
             self._room_config()
             self.msg_send(self.room, '%s is here!' % self.nick, mtype='groupchat')
             self._muc_ready = True
@@ -701,6 +743,11 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             logger.critical('Persistent DB file could not be properly closed')
 
         try:
+            self._destroy_plugins()
+        except Exception as e:
+            logger.exception(e)
+
+        try:
             self.abort()
         except Exception as e:
             # Unhandled exception in SleekXMPP when socket is not connected and shutdown is requested
@@ -742,6 +789,8 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             logger.info('Reinitializing multi-user chat room %s', self.room)
             self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory)
 
+        self._post_init_plugins()
+
     @staticmethod
     def msg_copy(msg, **kwargs):
         """
@@ -754,11 +803,11 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         return msg
 
-    def msg_send(self, mto, mbody, **kwargs):
+    def msg_send(self, mto, mbody, mfrom=None, mnick=None, **kwargs):
         """
         Create message and send it.
         """
-        return OutgoingLudolphMessage.create(mbody, **kwargs).send(self, mto)
+        return OutgoingLudolphMessage.create(mbody, **kwargs).send(self, mto, mfrom=mfrom, mnick=mnick)
 
     # noinspection PyMethodMayBeStatic
     def msg_reply(self, msg, mbody, preserve_msg=False, **kwargs):
