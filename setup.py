@@ -19,7 +19,7 @@ from ludolph import __version__ as VERSION
 
 read = lambda fname: open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-DEPS = ['ludolph-zabbix', 'sleekxmpp>=1.1.11', 'bottle']
+DEPS = ['ludolph-zabbix>=1.1', 'sleekxmpp>=1.1.11', 'bottle']
 
 if sys.version_info[0] < 3:
     DEPS.append('dnspython')
