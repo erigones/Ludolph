@@ -141,7 +141,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         self.add_event_handler('message', self.message, threaded=True)
 
         if self.room:
-            self.room_jid = '%s/%s' % (self.room, self.nick)
             self.muc = self.plugin['xep_0045']
             self.add_event_handler('groupchat_message', self.muc_message, threaded=True)
             self.add_event_handler('muc::%s::got_online' % self.room, self.muc_online, threaded=True)
@@ -291,6 +290,8 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # MUC room
         if config.has_option('xmpp', 'room'):
             self.room = config.get('xmpp', 'room').strip()
+            if self.room:
+                self.room_jid = '%s/%s' % (self.room, self.nick)
         else:
             self.room = None
 
@@ -391,6 +392,14 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
                 except Exception as ex:
                     logger.critical('Could not load plugin: %s', modname)
                     logger.exception(ex)
+                    # Remove registered commands from Commands dict for this module
+                    self.commands.reset(module=modname)
+
+                    if self.webserver:  # Remove registered webhooks for this module
+                        self.webserver.reset_webhooks(module=modname)
+
+                    if self.cron:  # Remove registered cronjobs for this module
+                        self.cron.reset(module=modname)
                 else:
                     self.plugins[modname] = obj
                     self._db_load_item(modname, obj)

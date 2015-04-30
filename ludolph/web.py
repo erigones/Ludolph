@@ -77,9 +77,19 @@ class WebServer(ServerAdapter):
         global WEBAPP
         WEBAPP.run(server=self)
 
-    def reset_webhooks(self):
-        logger.info('Reinitializing webhooks')
-        self.webhooks.clear()
+    def reset_webhooks(self, module=None):
+        if module:
+            logger.info('Deregistering webhooks from plugin: %s', module)
+            global WEBAPP
+
+            for name, hook in self.webhooks.items():
+                if hook.module == module:
+                    logger.debug('Deregistering webhook "%s" from plugin "%s" mapped to URL "%s"',
+                                 name, hook.module, hook.path)
+                    del self.webhooks[name]
+        else:
+            logger.info('Reinitializing webhooks')
+            self.webhooks.clear()
 
     def reset_webapp(self):
         if self.server:
@@ -124,8 +134,8 @@ def webhook(path, methods=('GET',)):
                             fun.__name__, fun.__module__, WEBHOOKS[fun.__name__].module)
             return None
 
-        logging.debug('Registering web hook "%s" from plugin "%s" to URL "%s"', fun.__name__, fun.__module__, path)
-        WEBAPP.route(path, methods, _webview(fun))
+        logger.debug('Registering webhook "%s" from plugin "%s" to URL "%s"', fun.__name__, fun.__module__, path)
+        WEBAPP.route(path, methods, _webview(fun), name=fun.__name__)
         WEBHOOKS[fun.__name__] = Webhook(fun.__name__, fun.__module__, path)
 
         return fun

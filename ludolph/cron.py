@@ -93,7 +93,7 @@ class CronJob(object):
         return '%s %s %s %s %s' % (j(self.minutes), j(self.hours), j(self.days), j(self.months), j(self.dow))
 
     @property
-    def plugin(self):
+    def module(self):
         """Return plugin name"""
         return self._fun.module
 
@@ -143,7 +143,7 @@ class CronJob(object):
 
     def display(self):
         """Return string representation of this cron job suitable for logging"""
-        return '%s: %s [%s]: %s' % (self.name, self.command, self.plugin, self.schedule)
+        return '%s: %s [%s]: %s' % (self.name, self.command, self.module, self.schedule)
 
     # noinspection PyMethodMayBeStatic
     def validate_value(self, value, min_value, max_value):
@@ -351,9 +351,17 @@ class Cron(LudolphDBMixin):
         self.db_disable()
         logger.debug('Cron stopped')
 
-    def reset(self):
-        logger.info('Reinitializing crontab')
-        self.crontab.clear_cron_jobs()
+    def reset(self, module=None):
+        if module:
+            logger.info('Deregistering cron jobs from plugin: %s', module)
+
+            for name, job in self.crontab.items():
+                if job.module == module:
+                    logger.debug('Deregistering cron job "%s" from plugin "%s"', name, job.module)
+                    self.crontab.delete(name)
+        else:
+            logger.info('Reinitializing crontab')
+            self.crontab.clear_cron_jobs()
 
     def display_cronjobs(self):
         return self.crontab.display_cron_jobs()
@@ -369,8 +377,8 @@ def cronjob(minute='*', hour='*', day='*', month='*', dow='*'):
                             fun.__name__, fun.__module__, CRONJOBS[fun.__name__].fun.__module__)
             return None
 
-        logging.debug('Registering cron job "%s" from plugin "%s" to run at "%s %s %s %s %s"',
-                      fun.__name__, fun.__module__, minute, hour, day, month, dow)
+        logger.debug('Registering cron job "%s" from plugin "%s" to run at "%s %s %s %s %s"',
+                     fun.__name__, fun.__module__, minute, hour, day, month, dow)
         CRONJOBS.add(fun.__name__, fun, minute=minute, hour=hour, day=day, month=month, dow=dow)
 
         return fun

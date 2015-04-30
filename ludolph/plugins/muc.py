@@ -29,7 +29,7 @@ class Muc(LudolphPlugin):
         self.xmpp.add_event_handler('muc::%s::got_online' % self.xmpp.room, self._room_joined, threaded=True)
 
     def __destroy__(self):
-        # Un-register event handler for entering MUC room
+        # Deregister event handler for entering MUC room
         self.xmpp.del_event_handler('muc::%s::got_online' % self.xmpp.room, self._room_joined)
 
     def _room_joined(self, msg):

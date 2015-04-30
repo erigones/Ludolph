@@ -103,10 +103,24 @@ class Commands(dict):
     """
     _cache = None  # Cached sorted list of commands
 
-    def reset(self):
+    def reset(self, module=None):
         """Used before bot reload"""
-        logger.info('Reinitializing commands')
-        self.clear()
+        if module:
+            logger.info('Deregistering commands from plugin: %s', module)
+
+            for name, cmd in self.items():
+                if cmd.module == module:
+                    logger.debug('Deregistering command "%s" from plugin "%s"', name, cmd.module)
+                    del self[name]
+
+                    if self._cache:
+                        try:
+                            self._cache.remove(name)
+                        except ValueError:
+                            pass
+        else:
+            logger.info('Reinitializing commands')
+            self.clear()
 
     def all(self, reset=False):
         """List of all available bot commands"""
