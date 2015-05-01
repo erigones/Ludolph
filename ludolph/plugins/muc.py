@@ -120,8 +120,8 @@ class Muc(LudolphPlugin):
             elif action == 'set':
                 if not text:
                     raise CommandError('Missing text')
-
-                self.room_motd = text
+                # Get original version from message body (strip command and sub-command)
+                self.room_motd = msg['body'].lstrip().split(None, 2)[-1]
                 # Announce new motd into room
                 self.xmpp.msg_send(self.xmpp.room, self.room_motd, mtype='groupchat', msubject='Message of the day')
                 return 'MOTD successfully updated'
