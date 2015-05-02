@@ -119,7 +119,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         self.room_users_last_seen = {}
 
         self._load_config(config, init=True)
-        logger.info('Initializing *%s* jabber bot', self.nick)
+        logger.info('Initializing jabber bot *%s*', self.nick)
         self._load_plugins(config, plugins, init=True)
 
         # Initialize the SleekXMPP client
@@ -159,6 +159,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         # Save start time
         self._start_time = time.time()
+        logger.info('Jabber bot *%s* is up and running', self.nick)
 
     # noinspection PyMethodMayBeStatic
     def __post_init__(self):
@@ -533,10 +534,14 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     def get_jid(self, msg, bare=True):
         """
-        Helper method for retrieving jid from message.
+        Helper method for retrieving Jabber ID from message.
         """
         if msg['type'] == 'groupchat' and self.room:
-            jid = self.muc.getJidProperty(msg['mucroom'], msg['mucnick'], 'jid')
+            # Room MUC message
+            jid = self.muc.getJidProperty(self.room, msg['mucnick'], 'jid')
+        elif msg['type'] == 'chat' and self.room and msg['from'].bare == self.room:
+            # Private MUC message
+            jid = self.muc.getJidProperty(self.room, msg['from'].resource, 'jid')
         else:
             jid = msg['from']
 
@@ -677,11 +682,15 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         if msg['type'] not in types:
             return
 
-        msg_body = msg.get('body', '')
+        try:
+            cmd_name = msg.get('body', '').split()[0].strip()
+        except IndexError:
+            cmd_name = ''
+
         # Wrap around the Message object
         msg = IncomingLudolphMessage.wrap_msg(msg)
         # Seek received text in available commands and get command
-        cmd = self.commands.get_command(msg_body.split()[0].strip())
+        cmd = self.commands.get_command(cmd_name)
 
         if cmd:
             start_time = time.time()
@@ -696,7 +705,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         else:
             # Send message that command was not understood and what to do
             return msg.reply('Sorry, I don\'t understand "%s"\n'
-                             'Please type "help" for more info' % msg_body).send()
+                             'Please type "help" for more info' % cmd_name).send()
 
     def muc_message(self, msg):
         """
@@ -712,7 +721,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # And only if we can get user's JID
         nick = self.nick + ':'
         if msg['body'].startswith(nick) and self.get_jid(msg):
-            msg['body'] = msg['body'].lstrip(nick).lstrip()
+            msg['body'] = msg['body'][len(nick):].lstrip()
             return self.message(msg, types=('groupchat',))
 
     # noinspection PyUnusedLocal
