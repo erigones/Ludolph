@@ -37,6 +37,7 @@ class Muc(LudolphPlugin):
         if msg['from'] != self.xmpp.room_jid:  # Ignore Ludolph bot stanzas
             if self.room_motd is not None:
                 # Send motd to new user
+                logger.info('Sending motd to incoming MUC room user "%s" via private MUC message', msg['muc']['jid'])
                 self._send_private_msg(msg['from'], self.room_motd, msubject='Message of the day')
 
     def _get_room_jid(self, nick):
