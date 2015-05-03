@@ -34,6 +34,7 @@ Features
         * help - show this help
         * message - send new XMPP message to user/room
         * roster - list and manage users on Ludolph's roster (admin only)
+        * status - set Ludolph's status (admin only)
         * uptime - show Ludolph uptime
         * version - display version of Ludolph or registered plugin
 
@@ -41,6 +42,7 @@ Features
         * invite - invite user or yourself to multi-user chat room (room admin only)
         * kick - kick user from multi-user chat room (room admin only)
         * motd - show, set or remove message of the day
+        * topic - set room subject (room admin only)
 
     * ludolph.plugins.commands
         * os-uptime - display system uptime
