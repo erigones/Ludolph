@@ -59,6 +59,20 @@ class Muc(LudolphPlugin):
         """Send private message"""
         return self.xmpp.msg_send(mto, mbody, mfrom=self.xmpp.boundjid.full, mtype='chat', msubject=msubject)
 
+    def _set_room_subject(self, text, mfrom=None):
+        """Set room subject"""
+        msg = self.xmpp.Message()
+        msg['to'] = self.xmpp.room
+        msg['from'] = mfrom
+        msg['type'] = 'groupchat'
+        # noinspection PyProtectedMember
+        msg._set_sub_text('subject', text or '', keep=True)
+
+        try:
+            msg.send()
+        except IqError as e:
+            raise CommandError('Room topic update failed: __%s__' % getattr(e, 'condition', str(e)))
+
     @command(user_required=False, room_user_required=True, room_admin_required=True)
     def invite(self, msg, user=None):
         """
@@ -133,6 +147,18 @@ class Muc(LudolphPlugin):
             return '(MOTD disabled)'
         else:
             return self.room_motd
+
+    # noinspection PyUnusedLocal
+    @command(user_required=False, room_admin_required=True)
+    def topic(self, msg, text=''):
+        """
+        Set room subject (room admin only).
+
+        Usage: topic [text]
+        """
+        self._set_room_subject(text)
+
+        return 'Room topic updated'
 
     @webhook('/room', methods=('POST',))
     def roomtalk(self):
