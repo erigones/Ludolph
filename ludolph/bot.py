@@ -102,7 +102,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
     room_config = None
     room_invites = True
     muc = None
-    nick = 'Ludolph'
+    nick = 'Ludolph'  # Warning: do not change the nick during runtime
     xmpp = None
     maxhistory = '4096'
     webserver = None
@@ -240,7 +240,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         if config.has_option('xmpp', 'nick'):
             nick = config.get('xmpp', 'nick').strip()
             if nick:
-                self.nick = nick
+                self.nick = nick  # Warning: do not change the nick during runtime after this
 
         # If you are working with an OpenFire server, you will
         # need to use a different SSL version:
@@ -496,17 +496,37 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             logger.error('Could not configure MUC room member list. Error was: %s (condition=%s, etype=%s)',
                          e.text, e.condition, e.etype)
 
-    def get_room_nick(self, jid):
+    def _get_room_member(self, jid):
         """
-        Helper method for retrieving MUC room nick according to jid.
+        Return MUC room member object according to user's bare Jabber ID.
         """
         for nick in self.muc.rooms[self.room]:
             entry = self.muc.rooms[self.room][nick]
 
             if entry is not None and entry['jid'].bare == jid:
-                return nick
+                return entry
 
-        return None
+        raise KeyError('User with jabber ID "%s" is not listed on the room member list' % jid)
+
+    def get_room_jid(self, jid):
+        """
+        Helper method for retrieving room occupant's Jabber ID (full) from to user's non-room jabber ID (bare).
+        """
+        try:
+            room_user = self._get_room_member(jid)
+        except KeyError:
+            return None
+        else:
+            return '%(room)s/%(nick)s' % room_user
+
+    def get_room_nick(self, jid):
+        """
+        Helper method for retrieving MUC room nick according to jid.
+        """
+        try:
+            return self._get_room_member(jid)['nick']
+        except KeyError:
+            return None
 
     def is_jid_in_room(self, jid):
         """
@@ -628,9 +648,9 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # Configure room and say hello from jabber bot if this is a presence stanza
         if presence['from'] == self.room_jid:
             self._room_config()
+            self.send_presence(pto=presence['from'], pnick=self.nick)
             self.msg_send(self.room, '%s is here!' % self.nick, mtype='groupchat')
             self._muc_ready = True
-            self.send_presence(pto=presence['from'])
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
             # Reminder: We cannot use presence stanzas here because they are asynchronous
