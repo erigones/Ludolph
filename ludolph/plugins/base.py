@@ -10,7 +10,7 @@ import logging
 import os
 import imghdr
 from datetime import datetime, timedelta
-from sleekxmpp.exceptions import XMPPError
+from sleekxmpp.exceptions import XMPPError, IqError
 from glob import iglob
 
 # noinspection PyPep8Naming
@@ -29,7 +29,8 @@ class Base(LudolphPlugin):
     Ludolph jabber bot base commands.
     """
     __version__ = __version__
-    _avatar_allowed_extensions = ('.png', '.jpg', '.jpeg', '.gif')
+    _avatar_allowed_extensions = frozenset(['.png', '.jpg', '.jpeg', '.gif'])
+    _status_show_types = frozenset(['online', 'away', 'chat', 'dnd', 'xa'])  # online is a fake type translated to None
     _help_cache = None
 
     def __post_init__(self):
@@ -179,6 +180,31 @@ class Base(LudolphPlugin):
         Usage: broadcast <message>
         """
         return 'Message broadcasted to %dx users.' % self.xmpp.msg_broadcast(text)
+
+    def _set_status(self, show, status=None):
+        """Send presence status"""
+        if show not in self._status_show_types:
+            raise CommandError('Invalid status type')
+
+        if show == 'online':
+            show = None
+
+        try:
+            self.xmpp.send_presence(pstatus=status, pshow=show)
+        except IqError as e:
+            raise CommandError('Status update failed: __%s__' % getattr(e, 'condition', str(e)))
+
+    # noinspection PyUnusedLocal
+    @command(admin_required=True)
+    def status(self, msg, show, status=None):
+        """
+        Set Ludolph's status (admin only).
+
+        Usage: status {online|away|chat|dnd|xa} [status message]
+        """
+        self._set_status(show, status=status)
+
+        return 'Status updated'
 
     def _roster_list(self):
         """List users on Ludolph's roster (admin only)"""
