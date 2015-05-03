@@ -91,7 +91,7 @@ class Command(namedtuple('Command', ('name', 'fun_name', 'module', 'doc', 'perms
             if params_count < fun_spec.args_count or not all(params[:fun_spec.args_count]):
                 raise MissingParameter
 
-        if fun_spec.star_args or last_pos > params_count:
+        if fun_spec.star_args or last_pos >= params_count:
             return params
         else:
             return params[:last_pos] + [' '.join(params[last_pos:])]
