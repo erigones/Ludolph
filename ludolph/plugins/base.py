@@ -40,9 +40,11 @@ class Base(LudolphPlugin):
         """Return list of all commands organized by plugins"""
         if self._help_cache is None:
             # Create dict with module name as key and list of commands as value
+            xmpp = self.xmpp
             cmd_map = {}
-            for cmd_name in self.xmpp.commands.all():
-                cmd = self.xmpp.commands[cmd_name]
+
+            for cmd_name in xmpp.commands.all():
+                cmd = xmpp.commands[cmd_name]
                 mod_name = cmd.module
 
                 if mod_name not in cmd_map:
@@ -50,9 +52,9 @@ class Base(LudolphPlugin):
 
                 cmd_map[mod_name].append(cmd)
 
-            out = ['List of available Ludolph commands:']
+            out = ['List of available **%s** commands:' % xmpp.nick]
 
-            for mod_name, plugin in self.xmpp.plugins.items():  # The plugins dict knows the plugin order
+            for mod_name, plugin in xmpp.plugins.items():  # The plugins dict knows the plugin order
                 try:
                     commands = cmd_map[mod_name]
                 except KeyError:
@@ -69,7 +71,7 @@ class Base(LudolphPlugin):
                 for cmd in commands:
                     try:
                         # First line of __doc__
-                        desc = cmd.doc.split('\n')[0]
+                        desc = cmd.doc.split('\n')[0].replace(xmpp.__class__.nick, xmpp.nick)
                         # Lowercase first char and remove trailing dot
                         desc = ' - ' + desc[0].lower() + desc[1:].rstrip('.')
                     except IndexError:
@@ -93,12 +95,14 @@ class Base(LudolphPlugin):
         """
         # Global help or command help?
         if cmdstr:
-            cmd = self.xmpp.commands.get_command(cmdstr)
+            xmpp = self.xmpp
+            cmd = xmpp.commands.get_command(cmdstr)
+
             if cmd:
                 # Remove whitespaces from __doc__ lines
                 desc = '\n'.join(map(str.strip, cmd.doc.split('\n')))
                 # **Command name** (module) + desc
-                return '**%s** (%s)\n\n%s' % (cmd.name, cmd.module, desc)
+                return '**%s** (%s)\n\n%s' % (cmd.name, cmd.module, desc.replace(xmpp.__class__.nick, xmpp.nick))
 
         return self._help_all()
 
