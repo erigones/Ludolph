@@ -28,7 +28,7 @@ class CommandError(Exception):
         self.error_message = msg or self.error_message
 
     def __str__(self):
-        return self.error_message
+        return 'ERROR: %s' % self.error_message
 
 
 class PermissionDenied(CommandError):
@@ -103,21 +103,33 @@ class Commands(dict):
     """
     _cache = None  # Cached sorted list of commands
 
+    def _cache_remove(self, key):
+        if self._cache:
+            try:
+                self._cache.remove(key)
+            except ValueError:
+                pass
+
+    def __delitem__(self, key):
+        """Properly remove command from dict and cache"""
+        super(Commands, self).__delitem__(key)
+        self._cache_remove(key)
+
+    def pop(self, key, **kwargs):
+        """Properly remove command from dict and cache"""
+        ret = super(Commands, self).pop(key, **kwargs)
+        self._cache_remove(key)
+
+        return ret
+
     def reset(self, module=None):
         """Used before bot reload"""
         if module:
             logger.info('Deregistering commands from plugin: %s', module)
-
             for name, cmd in tuple(self.items()):  # Copy for python 3
                 if cmd.module == module:
                     logger.debug('Deregistering command "%s" from plugin "%s"', name, cmd.module)
                     del self[name]
-
-                    if self._cache:
-                        try:
-                            self._cache.remove(name)
-                        except ValueError:
-                            pass
         else:
             logger.info('Reinitializing commands')
             self.clear()
@@ -240,7 +252,7 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
                 else:
                     out = response
             except CommandError as e:
-                out = 'ERROR: %s' % e
+                out = str(e)
             except Exception as e:
                 logger.exception(e)
                 out = 'ERROR: Command failed due to internal programming error: %s' % e

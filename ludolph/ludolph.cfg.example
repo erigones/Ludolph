@@ -23,7 +23,7 @@ host = 127.0.0.1
 port = 8922
 
 [cron]
-# Enable cron scheduler process. Needed for cronjob functionality.
+# Enable cron scheduler process. Needed for cronjob functionality and the at command.
 enabled = False
 
 [xmpp]
