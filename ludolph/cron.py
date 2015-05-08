@@ -309,39 +309,43 @@ class Cron(LudolphDBMixin):
         super(Cron, self).db_disable()
 
     def run(self):
+        assert not self.running, 'Cron is already running?'
         logger.info('Starting cron')
         dt = CronJob.clean_datetime(datetime.now())
         self.running = self._running = True
 
-        while self._running:
-            for name, job in tuple(self.crontab.items()):  # Copy for python 3
-                if not self._running:
-                    break
+        try:
+            while self._running:
+                for name, job in tuple(self.crontab.items()):  # Copy for python 3
+                    if not self._running:
+                        break
 
-                if job.match_time(dt):
-                    logger.info('Running cron job "%s" (%s) with schedule "%s" as user "%s"',
-                                name, job.fqfn, job.schedule, job.owner)
+                    if job.match_time(dt):
+                        logger.info('Running cron job "%s" (%s) with schedule "%s" as user "%s"',
+                                    name, job.fqfn, job.schedule, job.owner)
 
-                    try:
-                        res = job.run()
-                    except Exception as ex:
-                        logger.exception(ex)
-                        logger.critical('Error while running cron job "%s" (%s)', name, job.fqfn)
-                        continue
-                    finally:
-                        if job.onetime:
-                            self.crontab.delete(name)
+                        try:
+                            res = job.run()
+                        except Exception as ex:
+                            logger.exception(ex)
+                            logger.critical('Error while running cron job "%s" (%s)', name, job.fqfn)
+                            continue
+                        finally:
+                            if job.onetime:
+                                self.crontab.delete(name)
 
-                    logger.info('Cron job "%s" (%s) output: "%s"', name, job.fqfn, res)
+                        logger.info('Cron job "%s" (%s) output: "%s"', name, job.fqfn, res)
 
-            dt += timedelta(minutes=1)
+                dt += timedelta(minutes=1)
 
-            while self._running and datetime.now() < dt:
-                time.sleep(1)
+                while self._running and datetime.now() < dt:
+                    time.sleep(1)
 
-        self.running = False
+        finally:
+            self.running = False
 
     def stop(self):
+        assert self.running, 'Cron was not started?'
         logger.info('Stopping cron')
         self._running = False
 
