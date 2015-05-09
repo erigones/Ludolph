@@ -38,10 +38,7 @@ class Base(LudolphPlugin):
         # Disable at command if cron is disabled
         if not self.xmpp.cron:
             for i in self._cron_required:
-                cmd = self.xmpp.commands.pop(i)
-                if cmd:
-                    logger.info('Deregistering command "%s" from plugin "%s", because cron support is disabled',
-                                cmd.name, cmd.module)
+                self.xmpp.commands.pop(i)
 
         # Reset help command cache
         self._help_cache = None

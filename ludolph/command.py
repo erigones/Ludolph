@@ -103,24 +103,32 @@ class Commands(dict):
     """
     _cache = None  # Cached sorted list of commands
 
-    def _cache_remove(self, key):
-        if self._cache:
-            try:
-                self._cache.remove(key)
-            except ValueError:
-                pass
+    def pop(self, key, **kwargs):
+        """Properly remove command from dict and cache"""
+        cmd = super(Commands, self).pop(key, **kwargs)
+
+        if cmd:
+            logger.info('Deregistering command "%s" from plugin "%s"', cmd.name, cmd.module)
+            if self._cache:
+                try:
+                    self._cache.remove(key)
+                except ValueError:
+                    pass
+
+        return cmd
+
+    def __setitem__(self, key, cmd):
+        assert isinstance(cmd, Command), 'value must be an instance of %s' % Command.__class__.__name__
+        assert key == cmd.name
+        logger.debug('Registering command "%s" from plugin "%s"', cmd.name, cmd.module)
+        super(Commands, self).__setitem__(key, cmd)
 
     def __delitem__(self, key):
         """Properly remove command from dict and cache"""
-        super(Commands, self).__delitem__(key)
-        self._cache_remove(key)
-
-    def pop(self, key, **kwargs):
-        """Properly remove command from dict and cache"""
-        ret = super(Commands, self).pop(key, **kwargs)
-        self._cache_remove(key)
-
-        return ret
+        if key in self:
+            self.pop(key, None)
+        else:
+            raise KeyError(key)
 
     def reset(self, module=None):
         """Used before bot reload"""
@@ -209,7 +217,6 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
             doc = ''
 
         # Save module, method name and other command metadata
-        logger.debug('Registering command "%s" from plugin "%s"', name, fun.__module__)
         perms = CommandPermissions(user_required=user_required, admin_required=admin_required,
                                    room_user_required=room_user_required, room_admin_required=room_admin_required)
         cmd = Command(name, fun.__name__, fun.__module__, doc, perms, fun_spec)
