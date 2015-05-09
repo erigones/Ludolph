@@ -13,8 +13,8 @@ Features
 * `Alerts from Zabbix <https://github.com/erigones/Ludolph/wiki/How-to-configure-Zabbix-to-work-with-Ludolph>`_
 * Multi-User Chat (XEP-0045)
 * Colorful messages (XEP-0071)
-* Avatars (XEP-0084)
-* Roster management and ACL configuration
+* `Avatars (XEP-0084) <https://github.com/erigones/Ludolph/wiki/F.A.Q.#how-to-set-an-avatar>`_
+* `Roster management and ACL configuration <https://github.com/erigones/Ludolph/wiki/User-subscription-management>`_
 * `Webhooks and cron jobs <https://github.com/erigones/Ludolph/wiki/Webhooks-and-cron-jobs>`_
 * `Plugins and commands <https://github.com/erigones/Ludolph/wiki/Plugins>`_::
 
@@ -29,10 +29,12 @@ Features
 
     * ludolph.plugins.base
         * about - details about this project
+        * at - list, add, or delete jobs for later execution
         * avatar - list available avatars or set an avatar for Ludolph (admin only)
         * broadcast - sent private message to every user in roster (admin only)
         * help - show this help
         * message - send new XMPP message to user/room
+        * remind - list, add, or delete reminders
         * roster - list and manage users on Ludolph's roster (admin only)
         * status - set Ludolph's status (admin only)
         * uptime - show Ludolph uptime
