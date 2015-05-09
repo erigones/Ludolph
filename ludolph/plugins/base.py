@@ -357,18 +357,27 @@ class Base(LudolphPlugin):
 
         return self._avatar_list()
 
-    def _at_list(self, msg):
+    def _at_list(self, msg, reminder=False):
         """List all scheduled jobs"""
         crontab = self.xmpp.cron.crontab
         user = self.xmpp.get_jid(msg)
 
-        if self.xmpp.is_jid_admin(user):
-            display_job = lambda cronjob: cronjob.onetime
-        else:
-            display_job = lambda cronjob: cronjob.onetime and user == cronjob.owner
+        if reminder:
+            display_job = lambda cronjob: cronjob.onetime and user == cronjob.owner \
+                                      and cronjob.command.split(' ')[0] == 'message'
 
-        out = ['**%s** [%s] (%s) __%s__' % (name, job.schedule, job.owner, job.command)
-               for name, job in crontab.items() if display_job(job)]
+            out = ['**%s** [%s] __%s__' % (name, job.schedule, ' '.join(job.command.split(' ')[2:]))
+                   for name, job in crontab.items() if display_job(job)]
+        else:
+
+            if self.xmpp.is_jid_admin(user):
+                display_job = lambda cronjob: cronjob.onetime
+            else:
+                display_job = lambda cronjob: cronjob.onetime and user == cronjob.owner
+
+            out = ['**%s** [%s] (%s) __%s__' % (name, job.schedule, job.owner, job.command)
+                   for name, job in crontab.items() if display_job(job)]
+
         count = len(out)
         out.append('\n**%d** %s scheduled' % (count, pluralize(count, 'job is', 'jobs are')))
 
@@ -467,6 +476,41 @@ class Base(LudolphPlugin):
                 raise CommandError('Invalid action')
 
         return self._at_list(msg)
+
+    @command
+    def remind(self, msg, *args):
+        """
+        List, add, or delete reminders.
+
+        List all scheduled reminders.
+        Usage: remind
+
+        Schedule reminder at specific time and date.
+        Usage: remind add +minutes <command> [command parameters...]
+        Usage: remind add Y-m-d-H-M <command> [command parameters...]
+
+        Remove reminder from queue of scheduled reminders.
+        Usage: remind del <reminder ID>
+        """
+        args_count = len(args)
+
+        if args_count > 0:
+            action = args[0]
+
+            if action == 'add':
+                if args_count < 2:
+                    raise MissingParameter
+                else:
+                    return self._at_add(msg, args[1], 'message', self.xmpp.get_jid(msg), *args[2:])
+            elif action == 'del':
+                if args_count < 2:
+                    raise MissingParameter
+                else:
+                    return self._at_del(msg, args[1])
+            else:
+                raise CommandError('Invalid action')
+
+        return self._at_list(msg, reminder=True)
 
     @webhook('/')
     def index(self):
