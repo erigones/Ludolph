@@ -34,6 +34,14 @@ class Base(LudolphPlugin):
     _help_cache = None
 
     def __post_init__(self):
+        # Disable at command if cron is disabled
+        if not self.xmpp.cron:
+            cmd = self.xmpp.commands.pop('at')
+            if cmd:
+                logger.info('Deregistering command "%s" from plugin "%s", because cron support is disabled',
+                            cmd.name, cmd.module)
+
+        # Reset help command cache
         self._help_cache = None
 
     def _help_all(self):
@@ -457,6 +465,9 @@ class Base(LudolphPlugin):
         Remove command from queue of scheduled jobs.
         Usage: at del <job ID>
         """
+        if not self.xmpp.cron:
+            raise CommandError('Cron support is disabled in Ludolph configuration file')
+
         args_count = len(args)
 
         if args_count > 0:

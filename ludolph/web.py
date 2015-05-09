@@ -69,11 +69,14 @@ class WebServer(ServerAdapter):
         self.server.serve_forever()
 
     def stop(self):
+        assert self.server, 'Web server was not started?'
         logger.info('Stopping web server')
+
         if self.server:
             self.server.shutdown()
 
     def start(self):
+        assert self.server is None, 'Web server is already running?'
         global WEBAPP
         WEBAPP.run(server=self)
 

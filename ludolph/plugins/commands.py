@@ -31,12 +31,9 @@ class Process(Popen):
     @property
     def output(self):
         """Stdout generator"""
-        # Known bug: This may fail to fetch the whole stdout
-        # TODO FIXME: Find a better way to read the whole stdout
-        #             without waiting for forked child processes to terminate
         with self.stdout:
-            while self.poll() is None:
-                yield self.stdout.readline().decode('utf-8').rstrip('\n')
+            for line in iter(self.stdout.readline, b''):
+                yield line.decode('utf-8').rstrip('\n')
 
     # noinspection PyUnusedLocal
     def _get_output(self, name):
