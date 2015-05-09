@@ -499,8 +499,8 @@ class Base(LudolphPlugin):
         Usage: remind
 
         Schedule reminder at specific time and date.
-        Usage: remind add +minutes <command> [command parameters...]
-        Usage: remind add Y-m-d-H-M <command> [command parameters...]
+        Usage: remind add +minutes <message>
+        Usage: remind add Y-m-d-H-M <message>
 
         Remove reminder from queue of scheduled reminders.
         Usage: remind del <reminder ID>
