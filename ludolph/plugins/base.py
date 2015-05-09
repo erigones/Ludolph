@@ -32,14 +32,16 @@ class Base(LudolphPlugin):
     _avatar_allowed_extensions = frozenset(['.png', '.jpg', '.jpeg', '.gif'])
     _status_show_types = frozenset(['online', 'away', 'chat', 'dnd', 'xa'])  # online is a fake type translated to None
     _help_cache = None
+    _cron_required = ('at', 'remind')
 
     def __post_init__(self):
         # Disable at command if cron is disabled
         if not self.xmpp.cron:
-            cmd = self.xmpp.commands.pop('at')
-            if cmd:
-                logger.info('Deregistering command "%s" from plugin "%s", because cron support is disabled',
-                            cmd.name, cmd.module)
+            for i in self._cron_required:
+                cmd = self.xmpp.commands.pop(i)
+                if cmd:
+                    logger.info('Deregistering command "%s" from plugin "%s", because cron support is disabled',
+                                cmd.name, cmd.module)
 
         # Reset help command cache
         self._help_cache = None
