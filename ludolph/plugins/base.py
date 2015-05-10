@@ -371,7 +371,8 @@ class Base(LudolphPlugin):
 
         if reminder:
             display_job = lambda cronjob: cronjob.onetime and user == cronjob.owner \
-                                      and cronjob.command.split(' ')[0] == 'message'
+                                          and cronjob.command.split(' ')[0] == 'message' \
+                                          and cronjob.command.split(' ')[1] == user
 
             out = ['**%s** [%s] __%s__' % (name, job.schedule, ' '.join(job.command.split(' ')[2:]))
                    for name, job in crontab.items() if display_job(job)]
