@@ -512,7 +512,8 @@ class Base(LudolphPlugin):
                 if args_count < 2:
                     raise MissingParameter
                 else:
-                    return self._at_add(msg, args[1], 'message', self.xmpp.get_jid(msg), *args[2:])
+                    return self._at_add(msg, args[1], 'message', self.xmpp.get_jid(msg), *args[2:],
+                                        at_reply_output=False)
             elif action == 'del':
                 if args_count < 2:
                     raise MissingParameter
