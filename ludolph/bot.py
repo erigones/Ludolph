@@ -634,7 +634,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         # Remove users with none subscription from roster
         # Also remove users that are not in users setting (if set)
-        for i in roster.keys():
+        for i in tuple(roster.keys()):  # Copy for python 3
             if roster[i]['subscription'] == 'none' or (self.users and i not in self.users):
                 logger.warning('Roster item: %s (%s) - removing!', i, roster[i]['subscription'])
                 self.send_presence(pto=i, ptype='unsubscribe')

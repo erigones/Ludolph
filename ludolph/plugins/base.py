@@ -371,7 +371,8 @@ class Base(LudolphPlugin):
 
         if reminder:
             display_job = lambda cronjob: cronjob.onetime and user == cronjob.owner \
-                                      and cronjob.command.split(' ')[0] == 'message'
+                                          and cronjob.command.split(' ')[0] == 'message' \
+                                          and cronjob.command.split(' ')[1] == user
 
             out = ['**%s** [%s] __%s__' % (name, job.schedule, ' '.join(job.command.split(' ')[2:]))
                    for name, job in crontab.items() if display_job(job)]
@@ -511,7 +512,8 @@ class Base(LudolphPlugin):
                 if args_count < 2:
                     raise MissingParameter
                 else:
-                    return self._at_add(msg, args[1], 'message', self.xmpp.get_jid(msg), *args[2:])
+                    return self._at_add(msg, args[1], 'message', self.xmpp.get_jid(msg), *args[2:],
+                                        at_reply_output=False)
             elif action == 'del':
                 if args_count < 2:
                     raise MissingParameter
