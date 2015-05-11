@@ -42,6 +42,18 @@ class LudolphPlugin(object):
             if i in self.persistent_attrs:
                 self.__dict__[i] = state[i]
 
+    def _db_save(self):
+        """Save persistent attributes now"""
+        if self.xmpp.db is not None:
+            # noinspection PyProtectedMember
+            self.xmpp._db_set_item(self.__class__.__module__, self)
+
+    def _db_load(self):
+        """Load persistent attributes from DB"""
+        if self.xmpp.db is not None:
+            # noinspection PyProtectedMember
+            self.xmpp._db_load_item(self.__class__.__module__, self)
+
     @classmethod
     def get_version(cls):
         """Used by the version command"""
