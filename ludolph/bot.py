@@ -223,12 +223,39 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         for modname, plugin in self.plugins.items():  # ludolph.bot is part of plugins
             self._db_load_item(modname, plugin)
 
+    @staticmethod
+    def read_jid_array(config, option, **keywords):
+        """Read comma-separated config option and return a list of JIDs"""
+        jids = set()
+
+        if option in config:
+            for jid in config[option].strip().split(','):
+                jid = jid.strip()
+
+                if not jid:
+                    continue
+
+                if '@' in jid:
+                    if jid.startswith('@'):
+                        kwd = jid[1:]
+                        if kwd in keywords:
+                            jids.update(keywords[kwd])
+                        else:
+                            logger.warn('Skipping invalid keyword "%s" from setting "%s"', jid, option)
+                    else:
+                        jids.add(jid)
+                else:
+                    logger.warn('Skipping invalid JID "%s" from setting "%s"', jid, option)
+
+        return jids
+
     def _load_config(self, config, init=False):
         """
         Load bot settings from config object.
         The init parameter indicates whether this is a first-time initialization or a reload.
         """
         logger.info('Configuring jabber bot')
+        xmpp_config = dict(config.items('xmpp'))
 
         # Get DB file
         if config.has_option('global', 'dbfile'):
@@ -237,49 +264,23 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
                 self.db_enable(LudolphDB(dbfile), init=True)
 
         # Get nick name
-        if config.has_option('xmpp', 'nick'):
-            nick = config.get('xmpp', 'nick').strip()
-            if nick:
-                self.nick = nick  # Warning: do not change the nick during runtime after this
+        nick = xmpp_config.get('nick', '').strip()
+        if nick:
+            self.nick = nick  # Warning: do not change the nick during runtime after this
 
         # If you are working with an OpenFire server, you will
         # need to use a different SSL version:
         if config.has_option('xmpp', 'sslv3') and config.getboolean('xmpp', 'sslv3'):
             self.ssl_version = ssl.PROTOCOL_SSLv3
 
-        # Read comma-separated option and return a list of JIDs
-        def read_jid_array(section, option, keywords=()):
-            jids = set()
-
-            if config.has_option(section, option):
-                for jid in config.get(section, option).strip().split(','):
-                    jid = jid.strip()
-
-                    if not jid:
-                        continue
-
-                    if '@' in jid:
-                        if jid.startswith('@'):
-                            kwd = jid[1:]
-                            if kwd in keywords:
-                                jids.update(getattr(self, kwd))
-                            else:
-                                logger.warn('Skipping invalid keyword "%s" from setting "%s"', jid, option)
-                        else:
-                            jids.add(jid)
-                    else:
-                        logger.warn('Skipping invalid JID "%s" from setting "%s"', jid, option)
-
-            return jids
-
         # Users
         self.users.clear()
-        self.users.update(read_jid_array('xmpp', 'users'))
+        self.users.update(self.read_jid_array(xmpp_config, 'users'))
         logger.info('Current users: %s', ', '.join(self.users))
 
         # Admins
         self.admins.clear()
-        self.admins.update(read_jid_array('xmpp', 'admins', keywords=('users',)))
+        self.admins.update(self.read_jid_array(xmpp_config, 'admins', users=self.users))
         logger.info('Current admins: %s', ', '.join(self.admins))
 
         # Admins vs. users
@@ -289,10 +290,10 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
                              'This may lead to unexpected behaviour.', i)
 
         # MUC room
-        if config.has_option('xmpp', 'room'):
-            self.room = config.get('xmpp', 'room').strip()
-            if self.room:
-                self.room_jid = '%s/%s' % (self.room, self.nick)
+        room = xmpp_config.get('room', '').strip()
+        if room:
+            self.room = room
+            self.room_jid = '%s/%s' % (self.room, self.nick)
         else:
             self.room = None
 
@@ -304,13 +305,14 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # MUC room users
         self.room_users.clear()
         if self.room:
-            self.room_users.update(read_jid_array('xmpp', 'room_users', keywords=('users', 'admins')))
+            self.room_users.update(self.read_jid_array(xmpp_config, 'room_users', users=self.users, admins=self.admins))
             logger.info('Current room users: %s', ', '.join(self.room_users))
 
         # MUC room admins
         self.room_admins.clear()
         if self.room:
-            self.room_admins.update(read_jid_array('xmpp', 'room_admins', keywords=('users', 'admins', 'room_users')))
+            self.room_admins.update(self.read_jid_array(xmpp_config, 'room_admins', users=self.users,
+                                                        admins=self.admins, room_users=self.room_users))
             logger.info('Current room admins: %s', ', '.join(self.room_admins))
 
         # Room admins vs. users
