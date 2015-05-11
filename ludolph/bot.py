@@ -405,7 +405,9 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
                         self.cron.reset(module=modname)
                 else:
                     self.plugins[modname] = obj
-                    self._db_load_item(modname, obj)
+
+                    if self.db is not None:
+                        self._db_load_item(modname, obj)
 
         # Update commands cache
         if self.commands.all(reset=True):
