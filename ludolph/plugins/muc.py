@@ -138,7 +138,7 @@ class Muc(LudolphPlugin):
                 # Get original version from message body (strip command and sub-command)
                 self.room_motd = msg['body'].lstrip().split(None, 2)[-1]
                 # Announce new motd into room
-                self.xmpp.msg_send(self.xmpp.room, self.room_motd, mtype='groupchat', msubject='Message of the day')
+                self.xmpp.msg_send(self.xmpp.room, self.room_motd, mtype='groupchat')
                 return 'MOTD successfully updated'
             else:
                 raise CommandError('Invalid action')
