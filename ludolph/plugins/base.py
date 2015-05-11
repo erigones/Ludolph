@@ -42,6 +42,17 @@ class Base(LudolphPlugin):
 
         # Reset help command cache
         self._help_cache = None
+        # Override fallback message handler
+        self.xmpp.fallback_message = self._fallback_message
+
+    def __destroy__(self):
+        # Recover original fallback message handler
+        self.xmpp.fallback_message = self.xmpp.original_fallback_message
+
+    def _fallback_message(self, msg, cmd_name):
+        """Fallback message handler called in case the command does not exist"""
+        self.xmpp.msg_reply(msg, 'Sorry, I don\'t understand __"%s"__\n'
+                                 'Please type **help** for more info' % cmd_name)
 
     def _help_all(self):
         """Return list of all commands organized by plugins"""
