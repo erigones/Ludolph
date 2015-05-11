@@ -34,6 +34,7 @@ class Process(Popen):
         with self.stdout:
             for line in iter(self.stdout.readline, b''):
                 yield line.decode('utf-8').rstrip('\n')
+        self.wait()
 
     # noinspection PyUnusedLocal
     def _get_output(self, name):
