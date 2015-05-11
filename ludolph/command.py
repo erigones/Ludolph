@@ -84,7 +84,12 @@ class Command(namedtuple('Command', ('name', 'fun_name', 'module', 'doc', 'perms
         if last_pos < 0 and not fun_spec.star_args:  # Function has no custom arguments
             return []
 
-        params = shlex.split(body)[1:]  # Try to get command parameters (with command name removed)
+        # Try to get command parameters (with command name removed)
+        try:
+            params = shlex.split(body)[1:]
+        except ValueError:
+            params = body.split()[1:]
+
         params_count = len(params)
 
         if fun_spec.args_count:  # Check if required arguments are set and not empty
