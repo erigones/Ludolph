@@ -131,7 +131,7 @@ class Commands(dict):
     def __delitem__(self, key):
         """Properly remove command from dict and cache"""
         if key in self:
-            self.pop(key, None)
+            self.pop(key)
         else:
             raise KeyError(key)
 
