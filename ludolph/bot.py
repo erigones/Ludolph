@@ -699,6 +699,13 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         self._jid_left_room(muc['jid'].bare)
         self.msg_send(presence['from'].bare, 'Bye bye %s' % muc['nick'], mtype='groupchat')
 
+    def original_fallback_message(self, msg, cmd_name):
+        """
+        Fallback message handler called in case the command does not exist and no other fallback handler was registered.
+        """
+        self.msg_reply(msg, 'ERROR: **%s**: command not found' % cmd_name)
+    fallback_message = original_fallback_message
+
     def message(self, msg, types=('chat', 'normal')):
         """
         Incoming message handler.
@@ -727,9 +734,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
             return out
         else:
-            # Send message that command was not understood and what to do
-            return msg.reply('Sorry, I don\'t understand "%s"\n'
-                             'Please type "help" for more info' % cmd_name).send()
+            return self.fallback_message(msg, cmd_name)
 
     def muc_message(self, msg):
         """
