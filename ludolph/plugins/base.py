@@ -33,6 +33,7 @@ class Base(LudolphPlugin):
     _status_show_types = frozenset(['online', 'away', 'chat', 'dnd', 'xa'])  # online is a fake type translated to None
     _help_cache = None
     _cron_required = ('at', 'remind')
+    _reminder = u'__You have asked me to remind you:__ '
 
     def __post_init__(self):
         # Disable at command if cron is disabled
@@ -382,10 +383,10 @@ class Base(LudolphPlugin):
 
         if reminder:
             display_job = lambda cronjob: cronjob.onetime and user == cronjob.owner \
-                                          and cronjob.command.split(' ')[0] == 'message' \
-                                          and cronjob.command.split(' ')[1] == user
+                                          and cronjob.command.split(' ')[:2] == ['message', user]
 
-            out = ['**%s** [%s] __%s__' % (name, job.schedule, ' '.join(job.command.split(' ')[2:]))
+            out = ['**%s** [%s] __%s__' % (name, job.schedule,
+                                           ' '.join(job.command.split(' ')[2:]).replace(self._reminder + ' ' ,''))
                    for name, job in crontab.items() if display_job(job)]
         else:
 
@@ -523,7 +524,7 @@ class Base(LudolphPlugin):
                 if args_count < 2:
                     raise MissingParameter
                 else:
-                    return self._at_add(msg, args[1], 'message', self.xmpp.get_jid(msg), *args[2:],
+                    return self._at_add(msg, *(args[1], 'message', self.xmpp.get_jid(msg), self._reminder) + args[2:],
                                         at_reply_output=False)
             elif action == 'del':
                 if args_count < 2:
