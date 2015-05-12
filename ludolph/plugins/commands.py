@@ -1,5 +1,6 @@
 import logging
 import shlex
+import os
 from types import MethodType
 from subprocess import Popen, PIPE, STDOUT
 
@@ -26,7 +27,8 @@ class Process(Popen):
     Command wrapper.
     """
     def __init__(self, args):
-        super(Process, self).__init__(args, stdout=PIPE, stderr=STDOUT, close_fds=True, bufsize=0)
+        super(Process, self).__init__(args, stdout=PIPE, stderr=STDOUT, stdin=open(os.devnull, 'wb'),
+                                      close_fds=True, bufsize=0)
 
     @property
     def output(self):
@@ -73,11 +75,10 @@ class Commands(LudolphPlugin):
         self.init()
 
     @staticmethod
-    def _parse_config_line(value):
+    def _parse_config_line(value, **command_kwargs):
         """Parse one config value"""
         value = value.strip().split(',')
         cmd = value.pop(0).strip()
-        command_kwargs = {}
         doc = ''
 
         for i, opt in enumerate(value):
@@ -111,7 +112,12 @@ class Commands(LudolphPlugin):
         for name, value in self.config.items():
             try:
                 fun_name = name.strip().replace('-', '_')
-                fun = self._get_fun(fun_name, *self._parse_config_line(value))
+
+                if fun_name == 'pass_through':
+                    _, cmd_decorator, doc = self._parse_config_line(value, parse_parameters=False)
+                    fun = self._get_fun(fun_name, None, cmd_decorator, doc)
+                else:
+                    fun = self._get_fun(fun_name, *self._parse_config_line(value))
 
                 if fun:
                     logger.info('Registering dynamic command: %s', name)
@@ -121,12 +127,34 @@ class Commands(LudolphPlugin):
             except Exception as e:
                 logger.error('Dynamic command "%s" could not be registered (%s)', name, e)
 
+    @property
+    def _pass_through_mode(self):
+        return bool(getattr(self, 'pass_through', False))
+
+    def __post_init__(self):
+        if self._pass_through_mode:
+            logger.warning('You have enabled pass-through mode in the commands plugin. '
+                           '_ALL_ bot commands will be passed to the operating system!')
+            # Override fallback message handler
+            # noinspection PyUnresolvedReferences
+            self.xmpp.fallback_message = self.pass_through
+            # No need for a "pass-through" command
+            del self.xmpp.commands['pass-through']
+
+    def __destroy__(self):
+        if self._pass_through_mode:
+            # Recover original fallback message handler
+            self.xmpp.fallback_message = self.xmpp.original_fallback_message
+
     # noinspection PyMethodMayBeStatic
     def _execute(self, msg, name, cmd, *args):
         """Execute a command and return stdout or raise CommandError"""
         try:
-            cmd = shlex.split(cmd)
-            cmd.extend(map(str, args))
+            if cmd is None:  # pass-through mode
+                cmd = shlex.split(msg['body'])
+            else:
+                cmd = shlex.split(cmd)
+                cmd.extend(map(str, args))
         except Exception:
             raise CommandError('Could not parse command parameters')
 
