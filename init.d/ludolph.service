@@ -1,10 +1,10 @@
 # Ludolph systemd service file
 #
 # INSTALL:
-#   - copy ludolph.conf tmpfiles configuration into /usr/lib/tmpfiles.d
-#   - copy ludolph.service into /usr/lib/systemd/system
+#   - copy ludolph.conf tmpfiles configuration into /etc/tmpfiles.d/
+#   - copy ludolph.service into /etc/systemd/system/
 #   - do not enable daemon mode in ludolph.cfg
-#   - run: systemd-tmpfiles --create /usr/lib/tmpfiles.d/ludolph.conf 
+#   - run: systemd-tmpfiles --create /etc/tmpfiles.d/ludolph.conf
 #   - run: systemctl enable ludolph.service && systemctl start ludolph.service
 
 [Unit]
