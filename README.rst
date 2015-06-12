@@ -67,7 +67,7 @@ Installation
 
 - Init scripts for Debian and RHEL based distributions are also available: https://github.com/erigones/Ludolph/tree/master/init.d
 
-See `the complete install guide <https://github.com/erigones/Ludolph/wiki/How-to-configure-Zabbix-to-work-with-Ludolph>`_ for more info.
+See `the complete install guide <https://github.com/erigones/Ludolph/wiki/How-to-install-and-configure-Ludolph>`_ and `Zabbix integration guide <https://github.com/erigones/Ludolph/wiki/How-to-configure-Zabbix-to-work-with-Ludolph>`_ for more info.
 
 
 **Dependencies:**
@@ -83,6 +83,7 @@ Links
 
 - Wiki: https://github.com/erigones/Ludolph/wiki
 - Bug Tracker: https://github.com/erigones/Ludolph/issues
+- Contribution guide: https://github.com/erigones/Ludolph/wiki/Contribution-guide
 - Google+ Community: https://plus.google.com/u/0/communities/112192048027134229675
 - Twitter: https://twitter.com/erigones
 
