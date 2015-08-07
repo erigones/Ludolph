@@ -11,8 +11,6 @@ from collections import namedtuple
 import shlex
 import inspect
 
-from ludolph.utils import AttrDict
-
 __all__ = ('CommandError', 'PermissionDenied', 'MissingParameter', 'command')
 
 logger = getLogger(__name__)
@@ -39,12 +37,8 @@ class MissingParameter(CommandError):
     error_message = 'Missing parameter'
 
 
-class CommandPermissions(AttrDict):
-    """
-    Holds individual command permissions.
-    """
-    pass  # FIXME: Change to namedtuple after removing @admin_required decorator
-
+CommandPermissions = namedtuple('CommandPermissions', ('user_required', 'admin_required', 'room_user_required',
+                                                       'room_admin_required'))
 
 CommandParameters = namedtuple('CommandParameters', ('args_count', 'kwargs_count', 'star_args'))
 
@@ -289,62 +283,3 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
         return command_decorator(func)
     else:
         return command_decorator
-
-
-def parameter_required(count):
-    """
-    Decorator for checking required command parameters. [DEPRECATED]
-    """
-    if hasattr(count, '__call__'):  # fun is count and count is 1 :)
-        func = count
-        count = 1
-    else:
-        func = None
-
-    def parameter_required_decorator(fun):
-        logger.warning('The @parameter_required decorator on command "%s" in plugin %s is due to be deprecated. '
-                       'The required parameters are now determined by the function signature and checked automatically',
-                       fun.__name__.replace('_', '-'), fun.__module__)
-
-        @wraps(fun)
-        def wrap(obj, msg, *args, **kwargs):
-            # Try to get command parameters
-            params = shlex.split(msg['body'].strip())[1:]
-
-            # Check if required parameters are set and not empty
-            if len(params) < count or (count and not all(params[:count])):
-                user = obj.xmpp.get_jid(msg)
-                logger.warning('Missing parameter in command "%s" from user "%s"', msg['body'], user)
-                obj.xmpp.msg_reply(msg, 'ERROR: Missing parameter')
-                return None
-            else:
-                params.extend(args)
-                return fun(obj, msg, *params, **kwargs)
-
-        return wrap
-
-    if func:
-        return parameter_required_decorator(func)
-    else:
-        return parameter_required_decorator
-
-
-def admin_required(fun):
-    """
-    Decorator for admin only commands. [DEPRECATED]
-    """
-    name = fun.__name__.replace('_', '-')
-    logger.warning('The @admin_required decorator on command "%s" in plugin %s is due to be deprecated. '
-                   'Use the admin_required parameter in the @command decorator instead.', name, fun.__module__)
-
-    try:
-        COMMANDS[name].perms.admin_required = True
-    except KeyError:
-        logger.critical('Command "%s" from plugin "%s" is not registered. Wrong decorator order?', name, fun.__module__)
-        return None
-
-    @wraps(fun)
-    def wrap(obj, msg, *args, **kwargs):
-        return fun(obj, msg, *args, **kwargs)
-
-    return wrap
