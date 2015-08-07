@@ -13,15 +13,6 @@ LOG_LEVELS = frozenset(['DEBUG', 'INFO', 'WARN', 'WARNING', 'ERROR', 'FATAL', 'C
 logger = logging.getLogger(__name__)
 
 
-class AttrDict(dict):
-    """
-    Dict with object style attribute access.
-    """
-    __getattr__ = dict.__getitem__
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-
 def parse_loglevel(name):
     """Parse log level name and return log level integer value"""
     name = name.upper()

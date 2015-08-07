@@ -14,8 +14,10 @@ import logging
 from collections import namedtuple
 
 try:
+    # noinspection PyCompatibility
     from configparser import RawConfigParser
 except ImportError:
+    # noinspection PyCompatibility
     from ConfigParser import RawConfigParser
 
 try:
@@ -236,26 +238,28 @@ The example file is located in: %s\n\n""" % (
     # Here we go
     xmpp = LudolphBot(config, plugins=plugins)
 
-    # noinspection PyUnusedLocal,PyShadowingNames
-    def sighup(signalnum, handler):
-        if xmpp.reloading:
-            logger.warn('Reload already in progress')
-        else:
-            xmpp.reloading = True
-
-            try:
-                config = load_config(cfg_fp, reopen=True)
-                logger.info('Reloaded configuration from %s', cfg_fp.name)
-                xmpp.prereload()
-                plugins = load_plugins(config, reinit=True)
-                xmpp.reload(config, plugins=plugins)
-            finally:
-                xmpp.reloading = False
-
     signal.signal(signal.SIGINT, xmpp.shutdown)
     signal.signal(signal.SIGTERM, xmpp.shutdown)
-    signal.signal(signal.SIGHUP, sighup)
-    # signal.siginterrupt(signal.SIGHUP, false)  # http://stackoverflow.com/a/4302037
+
+    if hasattr(signal, 'SIGHUP'):  # Windows does not support SIGHUP - bug #41
+        # noinspection PyUnusedLocal,PyShadowingNames
+        def sighup(signalnum, handler):
+            if xmpp.reloading:
+                logger.warn('Reload already in progress')
+            else:
+                xmpp.reloading = True
+
+                try:
+                    config = load_config(cfg_fp, reopen=True)
+                    logger.info('Reloaded configuration from %s', cfg_fp.name)
+                    xmpp.prereload()
+                    plugins = load_plugins(config, reinit=True)
+                    xmpp.reload(config, plugins=plugins)
+                finally:
+                    xmpp.reloading = False
+
+        signal.signal(signal.SIGHUP, sighup)
+        # signal.siginterrupt(signal.SIGHUP, false)  # http://stackoverflow.com/a/4302037
 
     if xmpp.connect(tuple(address), use_tls=use_tls, use_ssl=use_ssl):
         xmpp.process(block=True)
