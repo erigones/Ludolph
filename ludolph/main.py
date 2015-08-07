@@ -14,8 +14,10 @@ import logging
 from collections import namedtuple
 
 try:
+    # noinspection PyCompatibility
     from configparser import RawConfigParser
 except ImportError:
+    # noinspection PyCompatibility
     from ConfigParser import RawConfigParser
 
 try:
