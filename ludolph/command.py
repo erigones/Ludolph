@@ -163,6 +163,8 @@ class Commands(dict):
         if not cmdstr:
             return None
 
+        cmdstr = cmdstr.lower()
+
         if cmdstr in self.all():
             cmd = self[cmdstr]
         else:
