@@ -57,6 +57,10 @@ Installation
 
     pip install ludolph
 
+ - Or install the latest development version::
+
+    pip install https://github.com/erigones/ludolph/zipball/master
+
 - Make sure all dependencies (listed below) are installed (done automatically when installing via pip)
 
 - Create and edit the configuration file::
