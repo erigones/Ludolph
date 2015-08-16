@@ -25,6 +25,7 @@ TEXT2BODY = (
     (r(r'\^\^(.+?)\^\^'), r'\1'),
     (r(r'~~(.+?)~~'), r'\1'),
     (r(r'%{(.+?)}(.+)%'), r'\2'),
+    (r(r'\[\[(.+?)\|(.+?)\]\]'), r'\1'),
 )
 
 TEXT2HTML = (
@@ -37,6 +38,7 @@ TEXT2HTML = (
     (r(r'__(.+?)__'), r'<i>\1</i>'),
     (r(r'\^\^(.+?)\^\^'), r'<sup>\1</sup>'),
     (r(r'~~(.+?)~~'), r'<sub>\1</sub>'),
+    (r(r'\[\[(.+?)\|(.+?)\]\]'), r'<a href="\1">\2</a>'),
     (r(r'%{(.+?)}(.+)%'), r'<span style="\1">\2</span>'),
     (r(r'(ERROR)'), r'<span style="color:#FF0000;">\1</span>'),
     (r(r'(PROBLEM|OFF)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
@@ -178,7 +180,10 @@ class OutgoingLudolphMessage(object):
         for rx, te in replist:
             # noinspection PyProtectedMember
             if isinstance(rx, re._pattern_type):
-                text = rx.sub(te, text)
+                try:
+                    text = rx.sub(te, text)
+                except re.error as exc:
+                    logger.error('Regexp error during message text replacement: %s', exc)
             else:
                 text = text.replace(rx, te)
 
