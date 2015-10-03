@@ -132,7 +132,9 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # Register XMPP plugins
         self.register_plugin('xep_0030')  # Service Discovery
         self.register_plugin('xep_0045')  # Multi-User Chat
+        self.register_plugin('xep_0198')  # Stream Management
         self.register_plugin('xep_0199')  # XMPP Ping
+        self.register_plugin('xep_0203')  # Delayed Delivery
         self.register_plugin('xep_0084')  # User Avatar
         self.register_plugin('xep_0153')  # User Avatar vCard
 
@@ -271,6 +273,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # If you are working with an OpenFire server, you will
         # need to use a different SSL version:
         if config.has_option('xmpp', 'sslv3') and config.getboolean('xmpp', 'sslv3'):
+            # noinspection PyUnresolvedReferences
             self.ssl_version = ssl.PROTOCOL_SSLv3
 
         # Users
@@ -710,7 +713,16 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         """
         Incoming message handler.
         """
-        if msg['type'] not in types:
+        msg_type = msg['type']
+
+        if msg_type == 'error':
+            error = msg['error']
+            logger.error('Received error message from=%s to=%s: type="%s", condition="%s"',
+                         msg['from'], msg['to'], error['type'], error['condition'])
+
+        if msg_type not in types:
+            if msg_type != 'groupchat':  # Groupchat is handled by muc_message()
+                logger.warning('Unhandled %s message from %s: %s', msg_type, msg['from'], msg)
             return
 
         try:
@@ -868,6 +880,15 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             msg = self.msg_copy(msg)
 
         return OutgoingLudolphMessage.create(mbody, **kwargs).reply(msg)
+
+    def msg_resend(self, msg, **kwargs):
+        """
+        Re-send message to original recipient with optional delay.
+        """
+        defaults = {'mtype': msg.get('mtype', None), 'msubject': msg.get('subject', None)}
+        defaults.update(kwargs)
+
+        return OutgoingLudolphMessage.create(msg['body'], **kwargs).send(self, msg['from'], mfrom=msg['to'])
 
     def msg_broadcast(self, mbody, **kwargs):
         """

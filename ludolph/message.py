@@ -7,6 +7,7 @@ See the file LICENSE for copying permission.
 """
 import logging
 import re
+from datetime import datetime, timedelta
 from sleekxmpp.xmlstream import ET
 from sleekxmpp.stanza import Message
 try:
@@ -157,7 +158,7 @@ class OutgoingLudolphMessage(object):
     """
     Creating and sending bots messages (replies).
     """
-    def __init__(self, mbody, mhtml=None, mtype=None, msubject=None):
+    def __init__(self, mbody, mhtml=None, mtype=None, msubject=None, delay=None, timestamp=None):
         """
         Construct message body in plain text and html.
         """
@@ -171,6 +172,11 @@ class OutgoingLudolphMessage(object):
             self.mhtml = self._text2html(str(mbody))
         else:
             self.mhtml = str(mhtml)
+
+        if delay:
+            timestamp = datetime.utcnow() + timedelta(seconds=delay)
+
+        self.timestamp = timestamp
 
     @staticmethod
     def _replace(replist, text):
@@ -228,6 +234,9 @@ class OutgoingLudolphMessage(object):
         msg = xmpp.make_message(mto, self.mbody, msubject=self.msubject, mtype=self.mtype, mhtml=self.mhtml,
                                 mfrom=mfrom, mnick=mnick)
 
+        if self.timestamp:
+            msg['delay'].set_stamp(self.timestamp)
+
         return msg.send()
 
     def reply(self, msg, clear=True):
@@ -236,6 +245,9 @@ class OutgoingLudolphMessage(object):
         """
         msg.reply(self.mbody, clear=clear)
         msg['html']['body'] = self.mhtml
+
+        if self.timestamp:
+            msg['delay'].set_stamp(self.timestamp)
 
         return msg.send()
 
