@@ -39,7 +39,7 @@ TEXT2HTML = (
     (r(r'\^\^(.+?)\^\^'), r'<sup>\1</sup>'),
     (r(r'~~(.+?)~~'), r'<sub>\1</sub>'),
     (r(r'\[\[(.+?)\|(.+?)\]\]'), r'<a href="\1">\2</a>'),
-    (r(r'%{(.+?)}(.+)%'), r'<span style="\1">\2</span>'),
+    (r(r'%{(.+?)}(.+?)%'), r'<span style="\1">\2</span>'),
     (r(r'(ERROR)'), r'<span style="color:#FF0000;">\1</span>'),
     (r(r'(PROBLEM|OFF)'), r'<span style="color:#FF0000;"><strong>\1</strong></span>'),
     (r(r'(OK|ON)'), r'<span style="color:#00FF00;"><strong>\1</strong></span>'),
