@@ -250,9 +250,13 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
                 if stream:
                     if reply:
                         _out = []
-                        for line in response:
-                            _out.append(line)
-                            xmpp.msg_reply(msg, line, preserve_msg=True)
+
+                        if response:
+                            for line in response:
+                                _out.append(line)
+                                xmpp.msg_reply(msg, line, preserve_msg=True)
+                        else:
+                            xmpp.msg_reply(msg, '(no response)', preserve_msg=True)
                     else:
                         _out = response
 

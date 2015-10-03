@@ -33,7 +33,7 @@ class Base(LudolphPlugin):
     _status_show_types = frozenset(['online', 'away', 'chat', 'dnd', 'xa'])  # online is a fake type translated to None
     _help_cache = None
     _cron_required = ('at', 'remind')
-    _reminder = u'__You have asked me to remind you:__ '
+    _reminder = '__You have asked me to remind you:__ '
 
     def __post_init__(self):
         # Disable at command if cron is disabled
