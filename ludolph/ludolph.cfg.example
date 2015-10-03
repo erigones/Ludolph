@@ -24,7 +24,7 @@ port = 8922
 
 [cron]
 # Enable cron scheduler process. Needed for cronjob functionality and the at and remind command.
-enabled = False
+enabled = false
 
 [xmpp]
 # Jabber bot nick name
