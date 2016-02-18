@@ -144,19 +144,20 @@ The example file is located in: %s\n\n""" % (
         if logfile:
             logconfig['filename'] = logfile
 
+    # Save pid file
+    try:
+        with open(config.get('global', 'pidfile'), 'w') as fp:
+            fp.write('%s' % os.getpid())
+    except Exception as ex:
+        # Setup logging just to show this error
+        logging.basicConfig(**logconfig)
+        logger.critical('Could not write to pidfile (%s)\n', ex)
+        sys.exit(1)
+
     # Daemonize
     if config.has_option('global', 'daemon'):
         if config.getboolean('global', 'daemon'):
             ret = daemonize()
-            # Save pid file
-            try:
-                with open(config.get('global', 'pidfile'), 'w') as fp:
-                    fp.write('%s' % os.getpid())
-            except Exception as ex:
-                # Setup logging just to show this error
-                logging.basicConfig(**logconfig)
-                logger.critical('Could not write to pidfile (%s)\n', ex)
-                sys.exit(1)
 
     # Setup logging
     logging.basicConfig(**logconfig)
