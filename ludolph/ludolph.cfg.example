@@ -14,7 +14,7 @@ loglevel = INFO
 
 # DB file used for storing operational user data (optional)
 # Currently only used to achieve persistence of scheduled "at" commands across reboots.
-#dbfile = /var/lib/ludolph/ludolph.db
+#dbfile = /var/lib/ludolph/ludolph.shelf
 
 [webserver]
 # Start web server listening on host:port. Needed for webhooks functionality.

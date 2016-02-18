@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2015 Erigones, s. r. o.
+Copyright (C) 2015-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -26,7 +26,6 @@ class LudolphDB(Shelf):
         self.filename = filename
         logger.info('Opening persistent DB file %s', filename)
         Shelf.__init__(self, dbm.open(filename, flag, mode=0o600), protocol, writeback)
-        # logger.debug('Persistent DB file %s loaded following items: %s', filename, self)
 
     def __setitem__(self, key, value):
         logger.debug('Assigning item %r to persistent DB key "%s"', value, key)
@@ -39,12 +38,10 @@ class LudolphDB(Shelf):
     def sync(self):
         logger.info('Syncing persistent DB file %s', self.filename)
         Shelf.sync(self)
-        # logger.debug('Persistent DB file %s synced with following items: %s', self.filename, self)
 
     def close(self):
         logger.info('Closing persistent DB file %s', self.filename)
         Shelf.close(self)
-        # logger.debug('Persistent DB file %s closed with following items: %s', self.filename, self)
 
 
 class LudolphDBMixin(object):

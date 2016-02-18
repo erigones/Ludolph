@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2014-2015 Erigones, s. r. o.
+Copyright (C) 2014-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -12,7 +12,7 @@ from collections import namedtuple
 # noinspection PyUnresolvedReferences
 from bottle import Bottle, ServerAdapter, abort, request
 
-__all__ = ('webhook',)
+__all__ = ('webhook', 'request', 'abort')
 
 logger = logging.getLogger(__name__)
 
