@@ -20,7 +20,7 @@ Features
 
     * ludolph.plugins.zabbix
         * ack - acknowledge event with optional note
-        * alerts - show a list of current zabbix alerts
+        * alerts - show a list of current or previous zabbix alerts
         * duty - show a list of users in duty user group
         * groups - show a list of host groups
         * hosts - show a list of hosts
