@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2015 Erigones, s. r. o.
+Copyright (C) 2012-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -101,6 +101,12 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
     room_jid = None
     room_config = None
     room_invites = True
+    room_bot_affiliation = 'owner'
+    room_user_affiliation = 'member'
+    room_admin_affiliation = 'admin'
+    room_bot_role = ''
+    room_user_role = ''
+    room_admin_role = ''
     muc = None
     nick = 'Ludolph'  # Warning: do not change the nick during runtime
     xmpp = None
@@ -300,10 +306,33 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         else:
             self.room = None
 
+        # MUC room invites sending
         if config.has_option('xmpp', 'room_invites'):
             self.room_invites = config.getboolean('xmpp', 'room_invites')
         else:
-            self.room_invites = True
+            self.room_invites = LudolphBot.room_invites
+
+        # MUC room affiliations and roles
+        valid_affiliations = ('owner', 'admin', 'member', 'outcast', 'none')
+        valid_roles = ('moderator', 'participant', 'visitor', 'none')
+
+        for setting, valid_values in (('room_bot_affiliation', valid_affiliations),
+                                      ('room_user_affiliation', valid_affiliations),
+                                      ('room_admin_affiliation', valid_affiliations),
+                                      ('room_bot_role', valid_roles),
+                                      ('room_user_role', valid_roles),
+                                      ('room_admin_role', valid_roles)):
+            config_value = xmpp_config.get(setting, getattr(LudolphBot, setting)).strip()
+
+            if config_value:
+                if config_value not in valid_values:
+                    logger.error('Invalid value "%s" for "%s" setting. Must be one of: %s.',
+                                 config_value, setting, ','.join(valid_values))
+                    config_value = None
+            else:
+                config_value = None
+
+            setattr(self, setting, config_value)
 
         # MUC room users
         self.room_users.clear()
@@ -454,20 +483,38 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         """
         query = ET.Element('{http://jabber.org/protocol/muc#admin}query')
         qitem = '{http://jabber.org/protocol/muc#admin}item'
-        query.append(ET.Element(qitem, {'affiliation': 'owner', 'jid': self.boundjid.bare}))
+        bot_member = {'jid': self.boundjid.bare}
+
+        if self.room_bot_affiliation:
+            bot_member['affiliation'] = self.room_bot_affiliation
+
+        if self.room_bot_role:
+            bot_member['role'] = self.room_bot_role
+
+        query.append(ET.Element(qitem, bot_member))
 
         for jid in self.room_users:
-            if jid in self.room_admins:
-                affiliation = 'admin'
-            else:
-                affiliation = 'member'
+            room_member = {'jid': jid}
+            affiliation = self.room_user_affiliation
+            role = self.room_user_role
 
-            item = ET.Element(qitem, {'affiliation': affiliation, 'jid': jid})
-            query.append(item)
+            if jid in self.room_admins:
+                if self.room_admin_affiliation:
+                    affiliation = self.room_admin_affiliation
+                if self.room_admin_role:
+                    role = self.room_admin_role
+
+            if affiliation:
+                room_member['affiliation'] = affiliation
+
+            if role:
+                room_member['role'] = role
+
+            query.append(ET.Element(qitem, room_member))
 
         iq = self.make_iq_set(query)
         iq['to'] = self.room
-        iq['from'] = ''
+        iq['from'] = self.boundjid
         iq.send()
 
     def _room_config(self):

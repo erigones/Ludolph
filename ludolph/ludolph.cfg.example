@@ -77,6 +77,18 @@ admins =
 # You can use @users, @admins or @room_users keywords here.
 #room_admins =
 
+# Default MUC room affiliations set for Ludolph, room_users and room_admins.
+# Affiliations won't be set if left empty.
+#room_bot_affiliation = 'owner'
+#room_user_affiliation = 'member'
+#room_admin_affiliation = 'admin'
+
+# Default MUC room roles set for Ludolph, room_users and room_admins.
+# Roles won't be set if left empty (default).
+#room_bot_role =
+#room_user_role =
+#room_admin_role =
+
 # Whether to send invites to new users to join the MUC room.
 # room_invites = True
 
