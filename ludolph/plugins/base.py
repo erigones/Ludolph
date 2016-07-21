@@ -77,7 +77,7 @@ class Base(LudolphPlugin):
                 try:
                     commands = cmd_map[mod_name]
                 except KeyError:
-                    continue
+                    commands = ()
 
                 # Item: module name
                 if plugin.__version__:
