@@ -79,9 +79,14 @@ class Base(LudolphPlugin):
                 except KeyError:
                     commands = ()
 
-                # Item: module name
-                if plugin.__version__:
-                    version = '^^%s^^' % plugin.__version__
+                # Item: module name and version
+                try:
+                    version = plugin.__version__
+                except AttributeError:
+                    continue
+
+                if version:
+                    version = '^^%s^^' % version
                 else:
                     version = ''
 
