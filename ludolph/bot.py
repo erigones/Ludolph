@@ -536,6 +536,8 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             self.room_config['fields']['muc#roomconfig_membersonly']['value'] = False
             self.room_config['fields']['members_by_default']['value'] = True
 
+        self.room_config['fields']['muc#maxhistoryfetch'] = self.maxhistory
+
         logger.info('Setting new configuration for MUC room %s', self.room)
         try:
             self.muc.setRoomConfig(self.room, self.room_config)
