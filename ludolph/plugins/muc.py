@@ -73,10 +73,10 @@ class Muc(LudolphPlugin):
         except IqError as e:
             raise CommandError('Room topic update failed: __%s__' % getattr(e, 'condition', str(e)))
 
-    @command(user_required=False, room_user_required=True, room_admin_required=True)
+    @command(user_required=False, room_user_required=True)
     def invite(self, msg, user=None):
         """
-        Invite user or yourself to multi-user chat room (room admin only).
+        Invite user or yourself to multi-user chat room.
 
         Usage: invite [JID]
         """
