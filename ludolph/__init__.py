@@ -8,3 +8,5 @@ See the LICENSE file for copying permission.
 """
 
 __version__ = '0.9.0'
+__author__ = 'Erigones, s. r. o.'
+__copyright__ = 'Copyright 2012-2016, Erigones, s. r. o.'
