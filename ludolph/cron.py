@@ -1,7 +1,7 @@
 """
 Ludolph: Monitoring Jabber Bot
 Original Library: Copyright (C) 2011 JS Lee (https://github.com/jsleetw/crontab.py)
-Ludolph Modification: Copyright (C) 2014-2015 Erigones, s. r. o.
+Ludolph Modification: Copyright (C) 2014-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -89,7 +89,9 @@ class CronJob(object):
         if self.onetime:
             return self.onetime.isoformat()
 
-        j = lambda x: ','.join(map(str, x)) or '*'
+        def j(x):
+            return ','.join(map(str, x)) or '*'
+
         return '%s %s %s %s %s' % (j(self.minutes), j(self.hours), j(self.days), j(self.months), j(self.dow))
 
     @property

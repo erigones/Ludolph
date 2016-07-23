@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-2015 Erigones, s. r. o.
+Copyright (C) 2012-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -16,6 +16,11 @@ class LudolphPlugin(object):
 
     # noinspection PyUnusedLocal
     def __init__(self, xmpp, config, reinit=False, **kwargs):
+        """
+        :type xmpp: ludolph.bot.LudolphBot
+        :type config: dict
+        :type _reloaded: bool
+        """
         self.xmpp = xmpp  # Reference to LudolphBot object
         self.config = dict(config)  # Plugin configuration as list of (name, value) tuples
         self._reloaded = reinit

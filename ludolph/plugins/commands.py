@@ -1,3 +1,10 @@
+"""
+Ludolph: Monitoring Jabber bot
+Copyright (C) 2015-2016 Erigones, s. r. o.
+This file is part of Ludolph.
+
+See the file LICENSE for copying permission.
+"""
 import logging
 import shlex
 import os
@@ -98,8 +105,10 @@ class Commands(LudolphPlugin):
     @staticmethod
     def _get_fun(name, cmd, command_decorator, doc):
         """Return dynamic function"""
-        # noinspection PyProtectedMember
-        fun = lambda obj, msg, *args: obj._execute(msg, name, cmd, *args)
+        def fun(obj, msg, *args):
+            # noinspection PyProtectedMember
+            return obj._execute(msg, name, cmd, *args)
+
         fun.__name__ = name
         fun.__doc__ = doc
 
