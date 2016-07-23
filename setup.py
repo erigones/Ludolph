@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2012-2015 Erigones, s. r. o.
+# Copyright (C) 2012-2016 Erigones, s. r. o.
 # All Rights Reserved
 #
 # This software is licensed as described in the README.rst and LICENSE
@@ -9,6 +9,7 @@
 
 import os
 import sys
+
 try:
     from setuptools import setup
 except ImportError:
@@ -17,14 +18,21 @@ except ImportError:
 # noinspection PyPep8Naming
 from ludolph import __version__ as VERSION
 
-read = lambda fname: open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-DEPS = ['ludolph-zabbix>=1.1', 'sleekxmpp>=1.2.0', 'bottle']
+def read_file(name):
+    return open(os.path.join(os.path.dirname(__file__), name)).read()
+
+
+DEPS = [
+    'ludolph-zabbix>=1.1',
+    'sleekxmpp>=1.2.0',
+    'bottle',
+]
 
 if sys.version_info[0] < 3:
     DEPS.append('dnspython')
 
-    if sys.version_info[1] < 7:
+    if sys.version_info[0] == 2 and sys.version_info[1] < 7:
         DEPS.append('ordereddict')
 else:
     DEPS.append('dnspython3')
@@ -44,20 +52,16 @@ CLASSIFIERS = [
     'Topic :: Utilities'
 ]
 
-packages = [
-    'ludolph',
-]
-
 setup(
     name='ludolph',
     version=VERSION,
     description='Monitoring Jabber Bot',
-    long_description=read('README.rst'),
+    long_description=read_file('README.rst'),
     author='Erigones',
     author_email='erigones [at] erigones.com',
     url='https://github.com/erigones/Ludolph/',
     license='BSD',
-    packages=packages,
+    packages=['ludolph'],
     scripts=['bin/ludolph'],
     install_requires=DEPS,
     platforms='any',
