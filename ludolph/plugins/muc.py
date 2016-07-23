@@ -1,3 +1,10 @@
+"""
+Ludolph: Monitoring Jabber bot
+Copyright (C) 2015-2016 Erigones, s. r. o.
+This file is part of Ludolph.
+
+See the file LICENSE for copying permission.
+"""
 import logging
 from sleekxmpp.exceptions import IqError
 
@@ -15,6 +22,7 @@ class Muc(LudolphPlugin):
     """
     __version__ = __version__
     room_motd = None
+    salutations = True
     persistent_attrs = ('room_motd',)
 
     def __init__(self, xmpp, config, reinit=False, **kwargs):
@@ -25,20 +33,39 @@ class Muc(LudolphPlugin):
         super(Muc, self).__init__(xmpp, config, reinit=reinit, **kwargs)
 
     def __post_init__(self):
-        # Register event handler for entering MUC room
-        self.xmpp.add_event_handler('muc::%s::got_online' % self.xmpp.room, self._room_joined, threaded=True)
+        # Process config file
+        self.salutations = self.get_boolean_value(self.config.get('salutations', True))
+
+        if self.room_motd is None:
+            self.room_motd = self.config.get('motd', None)
+
+        # Register event handlers for entering and leaving the MUC room
+        self.xmpp.register_event_handler('muc_user_online', self._room_joined)
+        self.xmpp.register_event_handler('muc_user_offline', self._room_left)
 
     def __destroy__(self):
-        # Deregister event handler for entering MUC room
-        self.xmpp.del_event_handler('muc::%s::got_online' % self.xmpp.room, self._room_joined)
+        # Deregister event handlers for entering and leaving the MUC room
+        self.xmpp.deregister_event_handler('muc_user_online', self._room_joined)
+        self.xmpp.deregister_event_handler('muc_user_offline', self._room_left)
 
-    def _room_joined(self, msg):
+    def _room_joined(self, presence):
         """Process an online event stanza from a chat room"""
-        if msg['from'] != self.xmpp.room_jid:  # Ignore Ludolph bot stanzas
-            if self.room_motd is not None:
-                # Send motd to new user
-                logger.info('Sending motd to incoming MUC room user "%s" via private MUC message', msg['muc']['jid'])
-                self._send_private_msg(msg['from'], self.room_motd, msubject='Message of the day')
+        muc = presence['muc']
+
+        if self.salutations:
+            self.xmpp.msg_send(presence['from'].bare, 'Hello %s!' % muc['nick'], mtype='groupchat')
+
+        if self.room_motd is not None:
+            # Send motd to new user
+            logger.info('Sending motd to incoming MUC room user "%s" via private MUC message', muc['jid'])
+            self._send_private_msg(presence['from'], self.room_motd, msubject='Message of the day')
+
+    def _room_left(self, presence):
+        """Process an offline presence stanza from a chat room"""
+        muc = presence['muc']
+
+        if self.salutations:
+            self.xmpp.msg_send(presence['from'].bare, 'Bye bye %s' % muc['nick'], mtype='groupchat')
 
     def _get_room_jid(self, nick):
         """Return room JID"""
