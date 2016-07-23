@@ -12,6 +12,7 @@ class LudolphPlugin(object):
     Ludolph plugin base class.
     """
     __version__ = None
+    _boolean_false = frozenset([False, 'false', '0', 'no', 'off', 0, ''])
     persistent_attrs = ()  # Set of object's attributes that will be saved/loaded during bot's shutdown/start events.
 
     # noinspection PyUnusedLocal
@@ -58,6 +59,11 @@ class LudolphPlugin(object):
         if self.xmpp.db is not None:
             # noinspection PyProtectedMember
             self.xmpp._db_load_item(self.__class__.__module__, self)
+
+    @classmethod
+    def get_boolean_value(cls, value):
+        """Helper method for parsing boolean config values"""
+        return str(value).lower() not in cls._boolean_false
 
     @classmethod
     def get_version(cls):
