@@ -174,7 +174,7 @@ The example file is located in: %s\n\n""" % (
     address = []
 
     # Starting
-    logger.info('Starting Ludolph %s', __version__)
+    logger.info('Starting Ludolph %s (%s %s)', __version__, sys.executable, sys.version.split()[0])
     logger.info('Loaded configuration from %s', cfg_fp.name)
 
     # Load plugins
