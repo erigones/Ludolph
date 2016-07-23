@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2015 Erigones, s. r. o.
+Copyright (C) 2012-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -43,6 +43,7 @@ CommandPermissions = namedtuple('CommandPermissions', ('user_required', 'admin_r
 CommandParameters = namedtuple('CommandParameters', ('args_count', 'kwargs_count', 'star_args'))
 
 
+# noinspection PyClassHasNoInit
 class Command(namedtuple('Command', ('name', 'fun_name', 'module', 'doc', 'perms', 'fun_spec'))):
     """
     Ludolph command wrapper.
@@ -226,6 +227,10 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
 
         @wraps(fun)
         def wrap(obj, msg, *args, **kwargs):
+            """
+            :type obj: ludolph.bot.LudolphBot
+            :type msg: ludolph.message.IncomingLudolphMessage
+            """
             xmpp = obj.xmpp
             user = xmpp.get_jid(msg)
             body = msg['body'].strip()

@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-2015 Erigones, s. r. o.
+Copyright (C) 2012-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -12,10 +12,16 @@ class LudolphPlugin(object):
     Ludolph plugin base class.
     """
     __version__ = None
+    _boolean_false = frozenset([False, 'false', '0', 'no', 'off', 0, ''])
     persistent_attrs = ()  # Set of object's attributes that will be saved/loaded during bot's shutdown/start events.
 
     # noinspection PyUnusedLocal
     def __init__(self, xmpp, config, reinit=False, **kwargs):
+        """
+        :type xmpp: ludolph.bot.LudolphBot
+        :type config: dict
+        :type _reloaded: bool
+        """
         self.xmpp = xmpp  # Reference to LudolphBot object
         self.config = dict(config)  # Plugin configuration as list of (name, value) tuples
         self._reloaded = reinit
@@ -53,6 +59,11 @@ class LudolphPlugin(object):
         if self.xmpp.db is not None:
             # noinspection PyProtectedMember
             self.xmpp._db_load_item(self.__class__.__module__, self)
+
+    @classmethod
+    def get_boolean_value(cls, value):
+        """Helper method for parsing boolean config values"""
+        return str(value).lower() not in cls._boolean_false
 
     @classmethod
     def get_version(cls):

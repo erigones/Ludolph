@@ -104,6 +104,8 @@ admins =
 
 # Multi-User chat room commands (only useful when room option is enabled)
 #[muc]
+#salutations = true
+#motd =
 
 # Ludolph commands plugin
 [commands]

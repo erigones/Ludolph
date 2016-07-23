@@ -117,6 +117,13 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     # noinspection PyUnusedLocal
     def __init__(self, config, plugins=None, *args, **kwargs):
+        self._event_handlers = {
+            'bot_message': [self._run_command],
+            'bot_command_not_found': [self._command_not_found],
+            'muc_message': [],
+            'muc_user_online': [],
+            'muc_user_offline': [],
+        }
         self.users = set()
         self.admins = set()
         self.room_users = set()
@@ -146,13 +153,13 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         # Register event handlers
         self.add_event_handler('session_start', self.session_start, threaded=True)
-        self.add_event_handler('message', self.message, threaded=True)
+        self.add_event_handler('message', self.bot_message, threaded=True)
 
         if self.room:
             self.muc = self.plugin['xep_0045']
             self.add_event_handler('groupchat_message', self.muc_message, threaded=True)
-            self.add_event_handler('muc::%s::got_online' % self.room, self.muc_online, threaded=True)
-            self.add_event_handler('muc::%s::got_offline' % self.room, self.muc_offline, threaded=True)
+            self.add_event_handler('muc::%s::got_online' % self.room, self.muc_user_online, threaded=True)
+            self.add_event_handler('muc::%s::got_offline' % self.room, self.muc_user_offline, threaded=True)
 
         # Run post initialization methods for all plugins
         self._post_init_plugins()
@@ -474,8 +481,43 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         """
         Run __destroy__() method for each initialized plugin.
         """
-        for modname, plugin in self.plugins.items():  # ludolph.bot is part of plugins
+        for modname, plugin in reversed(self.plugins.items()):  # ludolph.bot is part of plugins
             self._destroy_plugin(modname, plugin)
+
+    def _run_event_handlers(self, event_name, *args):
+        """
+        Run all event handlers when an event happens.
+        """
+        for event_handler in self._event_handlers[event_name]:
+            event_handler(*(copy.copy(arg) for arg in args))
+
+    def register_event_handler(self, event_name, fun, clear=False):
+        """
+        Add a function into event handlers.
+        """
+        event_handlers = self._event_handlers[event_name]
+
+        if clear:
+            logger.info('Event [%s]: Removing all event handlers', event_name)
+            event_handlers.clear()
+
+        logger.info('Event [%s]: Adding event handler "%s"', event_name, fun)
+        event_handlers.append(fun)
+        logger.debug('Event [%s]: Current event handlers: %s', event_handlers)
+
+    def deregister_event_handler(self, event_name, fun):
+        """
+        Remove a specific function from even handlers.
+        """
+        event_handlers = self._event_handlers[event_name]
+
+        if fun not in event_handlers:
+            logger.warning('Event [%s]: Event handler "%s is not registered', event_name, fun)
+            return
+
+        logger.info('Event [%s]: Removing event handler "%s"', event_name, fun)
+        self._event_handlers[event_name] = [i for i in event_handlers if i != fun]
+        logger.debug('Event [%s]: Current event handlers: %s', event_handlers)
 
     def _room_members(self):
         """
@@ -600,14 +642,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         """Update last seen timestamp of user in chat room"""
         self.room_users_last_seen[jid] = datetime.now()
 
-    def _jid_entered_room(self, jid):
-        """User joined the chat room"""
-        self._update_room_users_last_seen(jid)
-
-    def _jid_left_room(self, jid):
-        """User left the chat room"""
-        self._update_room_users_last_seen(jid)
-
     def get_jid(self, msg, bare=True):
         """
         Helper method for retrieving Jabber ID from message.
@@ -697,7 +731,80 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             else:
                 logger.info('Roster item: %s (%s) - ok', i, roster[i]['subscription'])
 
-    def muc_online(self, presence):
+    def _command_not_found(self, msg, cmd_name):
+        """
+        Default bot_command_not_found event handler - called in case the command does not exist.
+        """
+        self.msg_reply(msg, 'ERROR: **%s**: command not found' % cmd_name)
+
+    def _run_command(self, msg):
+        """
+        Default bot_message event handler - parses the message, finds a command and runs it.
+        """
+        try:
+            cmd_name = msg.get('body', '').split()[0].strip()
+        except IndexError:
+            cmd_name = ''
+
+        # Seek received text in available commands and get command
+        cmd = self.commands.get_command(cmd_name)
+
+        if cmd:
+            start_time = time.time()
+            # Get and run command
+            out = cmd.get_fun(self)(msg)
+
+            if out:
+                cmd_time = time.time() - start_time
+                logger.info('Command %s.%s finished in %g seconds', cmd.module, cmd.name, cmd_time)
+        else:
+            # Fire the bot_command_not_found event (by default: self._command_not_found())
+            self._run_event_handlers('bot_command_not_found', msg, cmd_name)
+
+    def bot_message(self, msg, types=('chat', 'normal')):
+        """
+        Incoming message handler.
+        """
+        msg_type = msg['type']
+
+        if msg_type == 'error':
+            error = msg['error']
+            logger.error('Received error message from=%s to=%s: type="%s", condition="%s"',
+                         msg['from'], msg['to'], error['type'], error['condition'])
+
+        if msg_type not in types:
+            if msg_type != 'groupchat':  # Groupchat is handled by muc_message()
+                logger.warning('Unhandled %s message from %s: %s', msg_type, msg['from'], msg)
+            return
+
+        # Wrap around the Message object
+        msg = IncomingLudolphMessage.wrap_msg(msg)
+
+        # Fire the bot_message event (by default: self._run_command())
+        self._run_event_handlers('bot_message', msg)
+
+    def muc_message(self, msg):
+        """
+        MUC Incoming message handler.
+        """
+        if not self._muc_ready:
+            return
+
+        if msg['mucnick'] == self.nick:
+            return  # Loop protection
+
+        # Respond to the message only if the bots nickname is mentioned
+        # And only if we can get user's JID
+        nick = self.nick + ':'
+
+        if msg['body'].startswith(nick) and self.get_jid(msg):
+            msg['body'] = msg['body'][len(nick):].lstrip()
+            self.bot_message(msg, types=('groupchat',))
+        else:
+            # Fire the muc_message event (nothing by default)
+            self._run_event_handlers('muc_message', IncomingLudolphMessage.wrap_msg(msg))
+
+    def muc_user_online(self, presence):
         """
         Process an online presence stanza from a chat room.
         """
@@ -705,7 +812,6 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         if presence['from'] == self.room_jid:
             self._room_config()
             self.send_presence(pto=presence['from'], pnick=self.nick)
-            self.msg_send(self.room, '%s is here!' % self.nick, mtype='groupchat')
             self._muc_ready = True
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
@@ -737,10 +843,11 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             muc = presence['muc']
             logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is joining MUC room',
                         muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
-            self._jid_entered_room(muc['jid'].bare)
-            self.msg_send(presence['from'].bare, 'Hello %s!' % muc['nick'], mtype='groupchat')
+            self._update_room_users_last_seen(muc['jid'].bare)
+            # Fire the muc_user_online event (nothing by default)
+            self._run_event_handlers('muc_user_online', presence)
 
-    def muc_offline(self, presence):
+    def muc_user_offline(self, presence):
         """
         Process a offline presence stanza from a chat room.
         """
@@ -748,76 +855,14 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         muc = presence['muc']
         logger.info('User "%s" with nick "%s", role "%s" and affiliation "%s" is leaving MUC room',
                     muc['jid'], muc['nick'], muc['role'], muc['affiliation'])
-        self._jid_left_room(muc['jid'].bare)
-        self.msg_send(presence['from'].bare, 'Bye bye %s' % muc['nick'], mtype='groupchat')
-
-    def original_fallback_message(self, msg, cmd_name):
-        """
-        Fallback message handler called in case the command does not exist and no other fallback handler was registered.
-        """
-        self.msg_reply(msg, 'ERROR: **%s**: command not found' % cmd_name)
-    fallback_message = original_fallback_message
-
-    def message(self, msg, types=('chat', 'normal')):
-        """
-        Incoming message handler.
-        """
-        msg_type = msg['type']
-
-        if msg_type == 'error':
-            error = msg['error']
-            logger.error('Received error message from=%s to=%s: type="%s", condition="%s"',
-                         msg['from'], msg['to'], error['type'], error['condition'])
-
-        if msg_type not in types:
-            if msg_type != 'groupchat':  # Groupchat is handled by muc_message()
-                logger.warning('Unhandled %s message from %s: %s', msg_type, msg['from'], msg)
-            return
-
-        try:
-            cmd_name = msg.get('body', '').split()[0].strip()
-        except IndexError:
-            cmd_name = ''
-
-        # Wrap around the Message object
-        msg = IncomingLudolphMessage.wrap_msg(msg)
-        # Seek received text in available commands and get command
-        cmd = self.commands.get_command(cmd_name)
-
-        if cmd:
-            start_time = time.time()
-            # Get and run command
-            out = cmd.get_fun(self)(msg)
-
-            if out:
-                cmd_time = time.time() - start_time
-                logger.info('Command %s.%s finished in %g seconds', cmd.module, cmd.name, cmd_time)
-
-            return out
-        else:
-            return self.fallback_message(msg, cmd_name)
-
-    def muc_message(self, msg):
-        """
-        MUC Incoming message handler.
-        """
-        if not self._muc_ready:
-            return
-
-        if msg['mucnick'] == self.nick:
-            return
-
-        # Respond to the message only if the bots nickname is mentioned
-        # And only if we can get user's JID
-        nick = self.nick + ':'
-        if msg['body'].startswith(nick) and self.get_jid(msg):
-            msg['body'] = msg['body'][len(nick):].lstrip()
-            return self.message(msg, types=('groupchat',))
+        self._update_room_users_last_seen(muc['jid'].bare)
+        # Fire the muc_user_offline event (nothing by default)
+        self._run_event_handlers('muc_user_online', presence)
 
     # noinspection PyUnusedLocal
     def shutdown(self, signalnum, handler):
         """
-        Shutdown signal handler.
+        Shutdown signal handler (called from main.py).
         """
         logger.info('Requested shutdown (%s)', signalnum)
 
@@ -866,7 +911,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     def prereload(self):
         """
-        Cleanup during reload phase. Runs before plugin loading in main.
+        Cleanup during reload phase. Runs before plugin loading in main (called from main.py).
         """
         self.commands.reset()
 
@@ -884,7 +929,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     def reload(self, config, plugins=None):
         """
-        Reload bot configuration and plugins.
+        Reload bot configuration and plugins (called from main.py).
         """
         logger.info('Requested reload')
         self._reloaded = True

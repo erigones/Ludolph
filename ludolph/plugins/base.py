@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber bot
-Copyright (C) 2012-2015 Erigones, s. r. o.
+Copyright (C) 2012-2016 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the file LICENSE for copying permission.
@@ -43,14 +43,14 @@ class Base(LudolphPlugin):
 
         # Reset help command cache
         self._help_cache = None
-        # Override fallback message handler
-        self.xmpp.fallback_message = self._fallback_message
+        # Override default bot_command_not_found message handler
+        self.xmpp.register_event_handler('bot_command_not_found', self._command_not_found, clear=True)
 
     def __destroy__(self):
-        # Recover original fallback message handler
-        self.xmpp.fallback_message = self.xmpp.original_fallback_message
+        # Remove our bot_command_not_found event handler
+        self.xmpp.deregister_event_handler('bot_command_not_found', self._command_not_found)
 
-    def _fallback_message(self, msg, cmd_name):
+    def _command_not_found(self, msg, cmd_name):
         """Fallback message handler called in case the command does not exist"""
         self.xmpp.msg_reply(msg, 'Sorry, I don\'t understand __"%s"__\n'
                                  'Please type **help** for more info' % cmd_name)

@@ -44,6 +44,7 @@ class WebServer(ServerAdapter):
         from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
         from wsgiref.simple_server import make_server
 
+        # noinspection PyClassHasNoInit
         class CustomHandler(WSGIRequestHandler):
             def address_string(self):  # Prevent reverse DNS lookups
                 return self.client_address[0]
