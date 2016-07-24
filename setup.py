@@ -35,7 +35,7 @@ if sys.version_info[0] < 3:
     if sys.version_info[0] == 2 and sys.version_info[1] < 7:
         DEPS.append('ordereddict')
 else:
-    DEPS.append('dnspython3')
+    DEPS.append('dnspython>=1.13.0')
 
 CLASSIFIERS = [
     'Environment :: Console',
