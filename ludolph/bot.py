@@ -508,7 +508,7 @@ class LudolphBot(LudolphDBMixin):
 
         if clear:
             logger.info('Event [%s]: Removing all event handlers', event_name)
-            event_handlers.clear()
+            del event_handlers[:]
 
         logger.info('Event [%s]: Adding event handler "%s"', event_name, fun)
         event_handlers.append(fun)
