@@ -114,7 +114,7 @@ class IncomingLudolphMessage(Message):
     def load(cls, data):
         from ludolph.bot import get_xmpp
 
-        obj = cls(stream=get_xmpp())
+        obj = cls(stream=get_xmpp().client)
 
         # First set our custom attributes
         for i in cls._ludolph_attrs:
@@ -231,8 +231,8 @@ class OutgoingLudolphMessage(object):
         """
         Send a new message.
         """
-        msg = xmpp.make_message(mto, self.mbody, msubject=self.msubject, mtype=self.mtype, mhtml=self.mhtml,
-                                mfrom=mfrom, mnick=mnick)
+        msg = xmpp.client.make_message(mto, self.mbody, msubject=self.msubject, mtype=self.mtype, mhtml=self.mhtml,
+                                       mfrom=mfrom, mnick=mnick)
 
         if self.timestamp:
             msg['delay'].set_stamp(self.timestamp)

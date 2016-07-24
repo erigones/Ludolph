@@ -86,7 +86,7 @@ def get_xmpp():
     return PLUGINS[__name__]
 
 
-class LudolphBot(ClientXMPP, LudolphDBMixin):
+class LudolphBot(LudolphDBMixin):
     """
     Ludolph bot.
     """
@@ -115,8 +115,9 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
     cron = None
     persistent_attrs = ('room_users_invited', 'room_users_last_seen')
 
-    # noinspection PyUnusedLocal
-    def __init__(self, config, plugins=None, *args, **kwargs):
+    def __init__(self, config, plugins=None):
+        super(LudolphBot, self).__init__()
+
         self._event_handlers = {
             'bot_message': [self._run_command],
             'bot_command_not_found': [self._command_not_found],
@@ -136,41 +137,48 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         self._load_plugins(config, plugins, init=True)
 
         # Initialize the SleekXMPP client
-        super(LudolphBot, self).__init__(config.get('xmpp', 'username'), config.get('xmpp', 'password'))
-
-        # Auto-authorize is enabled by default. User subscriptions are
-        # controlled by self._handle_new_subscription
-        self.auto_authorize = True
+        self.client = client = ClientXMPP(config.get('xmpp', 'username'), config.get('xmpp', 'password'))
+        # These XMPP-related attributes and methods are expected to exist by plugins
+        self.client_roster = client.client_roster
+        self.boundjid = client.boundjid
 
         # Register XMPP plugins
-        self.register_plugin('xep_0030')  # Service Discovery
-        self.register_plugin('xep_0045')  # Multi-User Chat
-        self.register_plugin('xep_0198')  # Stream Management
-        self.register_plugin('xep_0199')  # XMPP Ping
-        self.register_plugin('xep_0203')  # Delayed Delivery
-        self.register_plugin('xep_0084')  # User Avatar
-        self.register_plugin('xep_0153')  # User Avatar vCard
+        client.register_plugin('xep_0030')  # Service Discovery
+        client.register_plugin('xep_0045')  # Multi-User Chat
+        client.register_plugin('xep_0198')  # Stream Management
+        client.register_plugin('xep_0199')  # XMPP Ping
+        client.register_plugin('xep_0203')  # Delayed Delivery
+        client.register_plugin('xep_0084')  # User Avatar
+        client.register_plugin('xep_0153')  # User Avatar vCard
+
+        # Auto-authorize is enabled by default. User subscriptions are controlled by self._handle_new_subscription
+        client.auto_authorize = True
 
         # Register event handlers
-        self.add_event_handler('session_start', self.session_start, threaded=True)
-        self.add_event_handler('message', self.bot_message, threaded=True)
+        # noinspection PyProtectedMember
+        client.del_event_handler('roster_subscription_request', client._handle_new_subscription)
+        client.add_event_handler('roster_subscription_request', self._handle_new_subscription)
+        client.add_event_handler('session_start', self._session_start)
+        client.add_event_handler('message', self._bot_message, threaded=True)
 
         if self.room:
-            self.muc = self.plugin['xep_0045']
-            self.add_event_handler('groupchat_message', self.muc_message, threaded=True)
-            self.add_event_handler('muc::%s::got_online' % self.room, self.muc_user_online, threaded=True)
-            self.add_event_handler('muc::%s::got_offline' % self.room, self.muc_user_offline, threaded=True)
+            self.muc = client.plugin['xep_0045']
+            client.add_event_handler('groupchat_message', self._muc_message, threaded=True)
+            client.add_event_handler('muc::%s::got_online' % self.room, self._muc_user_online, threaded=True)
+            client.add_event_handler('muc::%s::got_offline' % self.room, self._muc_user_offline, threaded=True)
 
         # Run post initialization methods for all plugins
         self._post_init_plugins()
 
         # Start the web server thread for processing HTTP requests
         if self.webserver:
-            self._start_thread('webserver', self.webserver.start, track=False)
+            # noinspection PyProtectedMember
+            client._start_thread('webserver', self.webserver.start, track=False)
 
         # Start the scheduler thread for running periodic cron jobs
         if self.cron:
-            self._start_thread('cron', self.cron.run, track=False)
+            # noinspection PyProtectedMember
+            client._start_thread('cron', self.cron.run, track=False)
 
         # Save start time
         self._start_time = time.time()
@@ -287,7 +295,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # need to use a different SSL version:
         if config.has_option('xmpp', 'sslv3') and config.getboolean('xmpp', 'sslv3'):
             # noinspection PyUnresolvedReferences
-            self.ssl_version = ssl.PROTOCOL_SSLv3
+            self.client.ssl_version = ssl.PROTOCOL_SSLv3
 
         # Users
         self.users.clear()
@@ -312,6 +320,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             self.room_jid = '%s/%s' % (self.room, self.nick)
         else:
             self.room = None
+            self.room_jid = None
 
         # MUC room invites sending
         if config.has_option('xmpp', 'room_invites'):
@@ -554,7 +563,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
             query.append(ET.Element(qitem, room_member))
 
-        iq = self.make_iq_set(query)
+        iq = self.client.make_iq_set(query)
         iq['to'] = self.room
         iq['from'] = self.boundjid
         iq.send()
@@ -686,32 +695,32 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
     def _handle_new_subscription(self, pres):
         """
-        xmpp.auto_authorize is True by default, which is fine. But we want to
-        restrict this to users only (if set). We do this by overriding the
-        automatic subscription mechanism.
+        client.auto_authorize is True by default, which is fine. But we want to restrict this to users only (if set).
+        We do this by overriding the automatic subscription mechanism.
         """
         user = pres['from']
 
         if not self.users or user in self.users:
             logger.info('Allowing user "%s" to auto subscribe', user)
-            return super(LudolphBot, self)._handle_new_subscription(pres)
+            # noinspection PyProtectedMember
+            self.client._handle_new_subscription(pres)
         else:
             logger.warning('User "%s" is not allowed to subscribe', user)
 
     # noinspection PyUnusedLocal
-    def session_start(self, event):
+    def _session_start(self, event):
         """
         Process the session_start event.
         """
-        self.get_roster()
-        self.roster_cleanup()
-        self.send_presence(pnick=self.nick)
+        self.client.get_roster()
+        self._roster_cleanup()
+        self.client.send_presence(pnick=self.nick)
 
         if self.room and self.muc:
             logger.info('Initializing multi-user chat room %s', self.room)
             self.muc.joinMUC(self.room, self.nick, maxhistory=self.maxhistory)
 
-    def roster_cleanup(self):
+    def _roster_cleanup(self):
         """
         Remove roster items with none subscription.
         """
@@ -723,11 +732,11 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         for i in tuple(roster.keys()):  # Copy for python 3
             if roster[i]['subscription'] == 'none' or (self.users and i not in self.users):
                 logger.warning('Roster item: %s (%s) - removing!', i, roster[i]['subscription'])
-                self.send_presence(pto=i, ptype='unsubscribe')
-                self.del_roster_item(i)
+                self.client.send_presence(pto=i, ptype='unsubscribe')
+                self.client.del_roster_item(i)
             elif roster[i]['subscription'] == 'to':
                 logger.info('Roster item: %s (%s) - sending presence subscription', i, roster[i]['subscription'])
-                self.send_presence_subscription(i)
+                self.client.send_presence_subscription(i)
             else:
                 logger.info('Roster item: %s (%s) - ok', i, roster[i]['subscription'])
 
@@ -735,7 +744,8 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         """
         Default bot_command_not_found event handler - called in case the command does not exist.
         """
-        self.msg_reply(msg, 'ERROR: **%s**: command not found' % cmd_name)
+        if self.xmpp.is_jid_user(self.xmpp.get_jid(msg)):
+            self.msg_reply(msg, 'ERROR: **%s**: command not found' % cmd_name)
 
     def _run_command(self, msg):
         """
@@ -761,7 +771,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             # Fire the bot_command_not_found event (by default: self._command_not_found())
             self._run_event_handlers('bot_command_not_found', msg, cmd_name)
 
-    def bot_message(self, msg, types=('chat', 'normal')):
+    def _bot_message(self, msg, types=('chat', 'normal')):
         """
         Incoming message handler.
         """
@@ -783,7 +793,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
         # Fire the bot_message event (by default: self._run_command())
         self._run_event_handlers('bot_message', msg)
 
-    def muc_message(self, msg):
+    def _muc_message(self, msg):
         """
         MUC Incoming message handler.
         """
@@ -799,19 +809,19 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
 
         if msg['body'].startswith(nick) and self.get_jid(msg):
             msg['body'] = msg['body'][len(nick):].lstrip()
-            self.bot_message(msg, types=('groupchat',))
+            self._bot_message(msg, types=('groupchat',))
         else:
             # Fire the muc_message event (nothing by default)
             self._run_event_handlers('muc_message', IncomingLudolphMessage.wrap_msg(msg))
 
-    def muc_user_online(self, presence):
+    def _muc_user_online(self, presence):
         """
         Process an online presence stanza from a chat room.
         """
         # Configure room and say hello from jabber bot if this is a presence stanza
         if presence['from'] == self.room_jid:
             self._room_config()
-            self.send_presence(pto=presence['from'], pnick=self.nick)
+            self.client.send_presence(pto=presence['from'], pnick=self.nick)
             self._muc_ready = True
             logger.info('People in MUC room: %s', ', '.join(self.muc.getRoster(self.room)))
 
@@ -847,7 +857,7 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             # Fire the muc_user_online event (nothing by default)
             self._run_event_handlers('muc_user_online', presence)
 
-    def muc_user_offline(self, presence):
+    def _muc_user_offline(self, presence):
         """
         Process a offline presence stanza from a chat room.
         """
@@ -901,10 +911,10 @@ class LudolphBot(ClientXMPP, LudolphDBMixin):
             logger.exception(e)
 
         try:
-            self.abort()
+            self.client.abort()
         except Exception as e:
             # Unhandled exception in SleekXMPP when socket is not connected and shutdown is requested
-            if not self.socket:
+            if not self.client.socket:
                 logger.exception(e)
                 raise SystemExit(99)
             raise

@@ -144,16 +144,17 @@ class Commands(LudolphPlugin):
         if self._pass_through_mode:
             logger.warning('You have enabled pass-through mode in the commands plugin. '
                            '_ALL_ bot commands will be passed to the operating system!')
-            # Override fallback message handler
+            # Override default bot_command_not_found message handler
             # noinspection PyUnresolvedReferences
-            self.xmpp.fallback_message = self.pass_through
+            self.xmpp.register_event_handler('bot_command_not_found', self.pass_through, clear=True)
             # No need for a "pass-through" command
             del self.xmpp.commands['pass-through']
 
     def __destroy__(self):
         if self._pass_through_mode:
-            # Recover original fallback message handler
-            self.xmpp.fallback_message = self.xmpp.original_fallback_message
+            # Remove our bot_command_not_found event handler
+            # noinspection PyUnresolvedReferences
+            self.xmpp.deregister_event_handler('bot_command_not_found', self.pass_through)
 
     # noinspection PyMethodMayBeStatic
     def _execute(self, msg, name, cmd, *args):

@@ -88,7 +88,7 @@ class Muc(LudolphPlugin):
 
     def _set_room_subject(self, text, mfrom=None):
         """Set room subject"""
-        msg = self.xmpp.Message()
+        msg = self.xmpp.client.Message()
         msg['to'] = self.xmpp.room
         msg['from'] = mfrom
         msg['type'] = 'groupchat'
