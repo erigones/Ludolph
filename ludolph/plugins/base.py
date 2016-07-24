@@ -52,8 +52,9 @@ class Base(LudolphPlugin):
 
     def _command_not_found(self, msg, cmd_name):
         """Fallback message handler called in case the command does not exist"""
-        self.xmpp.msg_reply(msg, 'Sorry, I don\'t understand __"%s"__\n'
-                                 'Please type **help** for more info' % cmd_name)
+        if self.xmpp.is_jid_user(self.xmpp.get_jid(msg)):
+            self.xmpp.msg_reply(msg, 'Sorry, I don\'t understand __"%s"__\n'
+                                     'Please type **help** for more info' % cmd_name)
 
     def _help_all(self):
         """Return list of all commands organized by plugins"""
@@ -218,7 +219,7 @@ class Base(LudolphPlugin):
             show = None
 
         try:
-            self.xmpp.send_presence(pstatus=status, pshow=show)
+            self.xmpp.client.send_presence(pstatus=status, pshow=show)
         except IqError as e:
             raise CommandError('Status update failed: __%s__' % getattr(e, 'condition', str(e)))
 
@@ -243,8 +244,8 @@ class Base(LudolphPlugin):
     def _roster_del(self, user):
         """Remove user from Ludolph's roster (admin only)"""
         if user in self.xmpp.client_roster:
-            self.xmpp.send_presence(pto=user, ptype='unsubscribe')
-            self.xmpp.del_roster_item(user)
+            self.xmpp.client.send_presence(pto=user, ptype='unsubscribe')
+            self.xmpp.client.del_roster_item(user)
 
             return 'User **%s** removed from roster' % user
         else:
@@ -329,20 +330,21 @@ class Base(LudolphPlugin):
 
         self.xmpp.msg_reply(msg, 'I have found the selected avatar, changing it might take few seconds...',
                             preserve_msg=True)
+        xep_0084 = self.xmpp.client.plugin['xep_0084']
         avatar_type = 'image/%s' % imghdr.what('', avatar)
-        avatar_id = self.xmpp.plugin['xep_0084'].generate_id(avatar)
+        avatar_id = xep_0084.generate_id(avatar)
         avatar_bytes = len(avatar)
 
         try:
             logger.debug('Publishing XEP-0084 avatar data')
-            self.xmpp.plugin['xep_0084'].publish_avatar(avatar)
+            xep_0084.publish_avatar(avatar)
         except XMPPError as e:
             logger.error('Could not publish XEP-0084 avatar: %s' % e.text)
             raise CommandError('Could not publish selected avatar')
 
         try:
             logger.debug('Publishing XEP-0153 avatar vCard data')
-            self.xmpp.plugin['xep_0153'].set_avatar(avatar=avatar, mtype=avatar_type)
+            self.xmpp.client.plugin['xep_0153'].set_avatar(avatar=avatar, mtype=avatar_type)
         except XMPPError as e:
             logger.error('Could not publish XEP-0153 vCard avatar: %s' % e.text)
             raise CommandError('Could not set vCard avatar')
@@ -351,7 +353,7 @@ class Base(LudolphPlugin):
 
         try:
             logger.debug('Advertise XEP-0084 avatar metadata')
-            self.xmpp['xep_0084'].publish_avatar_metadata([{
+            xep_0084.publish_avatar_metadata([{
                 'id': avatar_id,
                 'type': avatar_type,
                 'bytes': avatar_bytes
