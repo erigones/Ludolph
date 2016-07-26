@@ -127,6 +127,7 @@ class LudolphBot(LudolphDBMixin):
         }
         self.users = set()
         self.admins = set()
+        self.broadcast_blacklist = set()
         self.room_users = set()
         self.room_admins = set()
         self.room_users_invited = set()
@@ -306,6 +307,12 @@ class LudolphBot(LudolphDBMixin):
         self.admins.clear()
         self.admins.update(self.read_jid_array(xmpp_config, 'admins', users=self.users))
         logger.info('Current admins: %s', ', '.join(self.admins))
+
+        # Broadcast blacklist
+        self.broadcast_blacklist.clear()
+        self.broadcast_blacklist.update(self.read_jid_array(xmpp_config, 'broadcast_blacklist', admins=self.admins))
+        self.broadcast_blacklist.add(xmpp_config.get('username'))
+        logger.info('Broadcast blacklist: %s', ', '.join(self.broadcast_blacklist))
 
         # Admins vs. users
         if not self.admins.issubset(self.users):
@@ -1001,6 +1008,7 @@ class LudolphBot(LudolphDBMixin):
         msg = OutgoingLudolphMessage.create(mbody, **kwargs)
 
         for jid in self.client_roster:
-            msg.send(self, jid)
+            if jid not in self.broadcast_blacklist:
+                msg.send(self, jid)
 
-        return len(self.client_roster)
+        return len(self.client_roster) - len(self.broadcast_blacklist)
