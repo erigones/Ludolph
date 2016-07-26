@@ -92,6 +92,11 @@ admins =
 # Whether to send invites to new users to join the MUC room.
 # room_invites = True
 
+# Comma-separated list of user jabber IDs.
+# Users will not receive message that will be broadcasted to Ludolph's roster.
+# You can use @admins keyword here.
+broadcast_blacklist = 
+
 
 ###############################################################################
 # Ludolph Plugins. You can enable plugins by uncommenting a configuration section.
