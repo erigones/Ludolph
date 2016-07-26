@@ -207,7 +207,8 @@ class Base(LudolphPlugin):
 
         Usage: broadcast <message>
         """
-        return 'Message broadcasted to %dx users.' % self.xmpp.msg_broadcast(text)
+        return '**Message broadcasted to %dx users.** Users on broadcast blacklist: %s.' % \
+               (self.xmpp.msg_broadcast(text), ', '.join(self.xmpp.broadcast_blacklist))
 
     def _set_status(self, show, status=None):
         """Send presence status"""
