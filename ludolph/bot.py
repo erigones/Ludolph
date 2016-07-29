@@ -151,6 +151,7 @@ class LudolphBot(LudolphDBMixin):
         client.register_plugin('xep_0203')  # Delayed Delivery
         client.register_plugin('xep_0084')  # User Avatar
         client.register_plugin('xep_0153')  # User Avatar vCard
+        client.register_plugin('xep_0224')  # Attention
 
         # Auto-authorize is enabled by default. User subscriptions are controlled by self._handle_new_subscription
         client.auto_authorize = True
@@ -161,6 +162,7 @@ class LudolphBot(LudolphDBMixin):
         client.add_event_handler('roster_subscription_request', self._handle_new_subscription)
         client.add_event_handler('session_start', self._session_start)
         client.add_event_handler('message', self._bot_message, threaded=True)
+        client.add_event_handler('attention', self.handle_attention, threaded=True)
 
         if self.room:
             self.muc = client.plugin['xep_0045']
@@ -875,6 +877,9 @@ class LudolphBot(LudolphDBMixin):
         self._update_room_users_last_seen(muc['jid'].bare)
         # Fire the muc_user_offline event (nothing by default)
         self._run_event_handlers('muc_user_online', presence)
+
+    def handle_attention(self, msg):
+        self.msg_reply(msg, 'Whats up, buddy? If you are lost, type **help** to see what I am capable of...')
 
     # noinspection PyUnusedLocal
     def shutdown(self, signalnum, handler):

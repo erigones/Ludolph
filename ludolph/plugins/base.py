@@ -211,6 +211,16 @@ class Base(LudolphPlugin):
         return '**Message broadcasted to %dx users.** Users on broadcast blacklist: %s.' % \
                (self.xmpp.msg_broadcast(text), ', '.join(self.xmpp.broadcast_blacklist))
 
+    # noinspection PyUnusedLocal
+    @command
+    def attention(self, msg, jid, text=None):
+        """
+        Send XMPP attention to user/room.
+
+        Usage: attention <JID> <text>
+        """
+        return self.xmpp.plugin['xep_0224'].request_attention(jid, mbody=text)
+
     def _set_status(self, show, status=None):
         """Send presence status"""
         if show not in self._status_show_types:
