@@ -217,7 +217,7 @@ class Base(LudolphPlugin):
         """
         Send XMPP attention to user/room.
 
-        Usage: attention <JID> <text>
+        Usage: attention <JID> [text]
         """
         return self.xmpp.client.plugin['xep_0224'].request_attention(jid, mbody=text)
 
