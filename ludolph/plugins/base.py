@@ -219,7 +219,7 @@ class Base(LudolphPlugin):
 
         Usage: attention <JID> <text>
         """
-        return self.xmpp.plugin['xep_0224'].request_attention(jid, mbody=text)
+        return self.xmpp.client.plugin['xep_0224'].request_attention(jid, mbody=text)
 
     def _set_status(self, show, status=None):
         """Send presence status"""
