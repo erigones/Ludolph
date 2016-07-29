@@ -521,7 +521,7 @@ class LudolphBot(LudolphDBMixin):
 
         logger.info('Event [%s]: Adding event handler "%s"', event_name, fun)
         event_handlers.append(fun)
-        logger.debug('Event [%s]: Current event handlers: %s', event_handlers)
+        logger.debug('Event [%s]: Current event handlers: %s', event_name, event_handlers)
 
     def deregister_event_handler(self, event_name, fun):
         """
@@ -535,7 +535,7 @@ class LudolphBot(LudolphDBMixin):
 
         logger.info('Event [%s]: Removing event handler "%s"', event_name, fun)
         self._event_handlers[event_name] = [i for i in event_handlers if i != fun]
-        logger.debug('Event [%s]: Current event handlers: %s', event_handlers)
+        logger.debug('Event [%s]: Current event handlers: %s', event_name, event_handlers)
 
     def _room_members(self):
         """
