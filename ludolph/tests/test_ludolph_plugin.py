@@ -1,29 +1,31 @@
+"""
+Ludolph: Monitoring Jabber Bot
+Copyright (C) 2012-2016 Erigones, s. r. o.
+This file is part of Ludolph.
+
+See the LICENSE file for copying permission.
+"""
+
 import unittest
 from ludolph.plugins.plugin import LudolphPlugin
 
 
 class LudolphPluginTest(unittest.TestCase):
 
+    plugin = None
+
     def setUp(self):
-        pass
+        self.plugin = LudolphPlugin('xmpp', {'config': 'test'})
 
     def test_get_boolean_value(self):
-        plugin = LudolphPlugin('xmpp', {'config': 'test'})
-        self.assertEqual(plugin.get_boolean_value(False), False)
-        self.assertEqual(plugin.get_boolean_value('false'), False)
-        self.assertEqual(plugin.get_boolean_value('0'), False)
-        self.assertEqual(plugin.get_boolean_value('no'), False)
-        self.assertEqual(plugin.get_boolean_value('off'), False)
-        self.assertEqual(plugin.get_boolean_value(0), False)
-        self.assertEqual(plugin.get_boolean_value(''), False)
-        self.assertEqual(plugin.get_boolean_value(True), True)
-        self.assertEqual(plugin.get_boolean_value('true'), True)
-        self.assertEqual(plugin.get_boolean_value('1'), True)
-        self.assertEqual(plugin.get_boolean_value('yes'), True)
-        self.assertEqual(plugin.get_boolean_value('on'), True)
-        self.assertEqual(plugin.get_boolean_value(1), True)
-        self.assertEqual(plugin.get_boolean_value(' '), True)
+        for i in (False, 'false', '0', 'no', 'off', 0, ''):
+            self.assertEqual(self.plugin.get_boolean_value(i), False)
 
+        for i in (True, 'true', '1', 'yes', 'on', 1, '_____'):
+            self.assertEqual(self.plugin.get_boolean_value(i), True)
+
+    def test_get_version(self):
+        self.assertEqual(self.plugin.get_version(), '**Not implemented** by plugin author...')
 
 if __name__ == '__main__':
     unittest.main()
