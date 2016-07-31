@@ -23,7 +23,9 @@ class LudolphCommandsTest(unittest.TestCase):
         self.base = Base(xmpp, config)
 
     def test__roster_list(self):
-        self.assertEqual(self.base._roster_list(), 'friend2@test.com\tboth\nfriend1@test.com\tboth\nludolph@test.com\tboth')
+        roster = '\n'.join(['%s\t%s' % (i, self.base.xmpp.client_roster[i]['subscription'])
+                            for i in self.base.xmpp.client_roster])
+        self.assertEqual(self.base._roster_list(), roster)
 
 
 if __name__ == '__main__':
