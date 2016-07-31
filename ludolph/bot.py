@@ -313,7 +313,7 @@ class LudolphBot(LudolphDBMixin):
         # Broadcast blacklist
         self.broadcast_blacklist.clear()
         self.broadcast_blacklist.update(self.read_jid_array(xmpp_config, 'broadcast_blacklist', admins=self.admins))
-        self.broadcast_blacklist.add(xmpp_config.get('username'))
+        self.broadcast_blacklist.add(self.boundjid.bare)
         logger.info('Broadcast blacklist: %s', ', '.join(self.broadcast_blacklist))
 
         # Admins vs. users
