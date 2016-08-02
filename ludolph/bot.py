@@ -109,6 +109,7 @@ class LudolphBot(LudolphDBMixin):
     room_admin_role = ''
     muc = None
     nick = 'Ludolph'  # Warning: do not change the nick during runtime
+    boundjid = None
     xmpp = None
     maxhistory = '4096'
     webserver = None
@@ -142,6 +143,11 @@ class LudolphBot(LudolphDBMixin):
         # These XMPP-related attributes and methods are expected to exist by plugins
         self.client_roster = client.client_roster
         self.boundjid = client.boundjid
+
+        if self.boundjid and self.boundjid.bare:
+            self.broadcast_blacklist.add(self.boundjid.bare)
+        logger.info('Broadcast blacklist: %s', ', '.join(self.broadcast_blacklist))
+
 
         # Register XMPP plugins
         client.register_plugin('xep_0030')  # Service Discovery
@@ -313,7 +319,9 @@ class LudolphBot(LudolphDBMixin):
         # Broadcast blacklist
         self.broadcast_blacklist.clear()
         self.broadcast_blacklist.update(self.read_jid_array(xmpp_config, 'broadcast_blacklist', admins=self.admins))
-        self.broadcast_blacklist.add(self.boundjid.bare)
+
+        if self.boundjid and self.boundjid.bare:
+            self.broadcast_blacklist.add(self.boundjid.bare)
         logger.info('Broadcast blacklist: %s', ', '.join(self.broadcast_blacklist))
 
         # Admins vs. users
