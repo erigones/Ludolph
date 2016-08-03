@@ -109,7 +109,6 @@ class LudolphBot(LudolphDBMixin):
     room_admin_role = ''
     muc = None
     nick = 'Ludolph'  # Warning: do not change the nick during runtime
-    boundjid = None
     xmpp = None
     maxhistory = '4096'
     webserver = None
@@ -144,11 +143,6 @@ class LudolphBot(LudolphDBMixin):
         self.client_roster = client.client_roster
         self.boundjid = client.boundjid
 
-        if self.boundjid and self.boundjid.bare:
-            self.broadcast_blacklist.add(self.boundjid.bare)
-        logger.info('Broadcast blacklist: %s', ', '.join(self.broadcast_blacklist))
-
-
         # Register XMPP plugins
         client.register_plugin('xep_0030')  # Service Discovery
         client.register_plugin('xep_0045')  # Multi-User Chat
@@ -163,8 +157,6 @@ class LudolphBot(LudolphDBMixin):
         client.auto_authorize = True
 
         # Register event handlers
-        # noinspection PyProtectedMember
-        client.del_event_handler('roster_subscription_request', client._handle_new_subscription)
         client.add_event_handler('roster_subscription_request', self._handle_new_subscription)
         client.add_event_handler('session_start', self._session_start)
         client.add_event_handler('message', self._bot_message, threaded=True)
@@ -319,9 +311,6 @@ class LudolphBot(LudolphDBMixin):
         # Broadcast blacklist
         self.broadcast_blacklist.clear()
         self.broadcast_blacklist.update(self.read_jid_array(xmpp_config, 'broadcast_blacklist', admins=self.admins))
-
-        if self.boundjid and self.boundjid.bare:
-            self.broadcast_blacklist.add(self.boundjid.bare)
         logger.info('Broadcast blacklist: %s', ', '.join(self.broadcast_blacklist))
 
         # Admins vs. users
@@ -723,6 +712,7 @@ class LudolphBot(LudolphDBMixin):
             self.client._handle_new_subscription(pres)
         else:
             logger.warning('User "%s" is not allowed to subscribe', user)
+            self.client.del_roster_item(user)
 
     # noinspection PyUnusedLocal
     def _session_start(self, event):
@@ -1019,9 +1009,11 @@ class LudolphBot(LudolphDBMixin):
         Send message to all users in roster.
         """
         msg = OutgoingLudolphMessage.create(mbody, **kwargs)
+        i = 0
 
         for jid in self.client_roster:
-            if jid not in self.broadcast_blacklist:
+            if not (jid == self.boundjid.bare or jid in self.broadcast_blacklist):
                 msg.send(self, jid)
+                i += 1
 
-        return len(self.client_roster) - len(self.broadcast_blacklist)
+        return i
