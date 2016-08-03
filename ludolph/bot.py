@@ -110,7 +110,7 @@ class LudolphBot(LudolphDBMixin):
     muc = None
     nick = 'Ludolph'  # Warning: do not change the nick during runtime
     xmpp = None
-    maxhistory = '4096'
+    maxhistory = '16'
     webserver = None
     cron = None
     persistent_attrs = ('room_users_invited', 'room_users_last_seen')
@@ -699,6 +699,15 @@ class LudolphBot(LudolphDBMixin):
         """
         return not self.room_admins or jid in self.room_admins
 
+    @staticmethod
+    def is_msg_delayed(msg):
+        """
+        Return True if msg has a delay stanza with a timestamp.
+        """
+        delay = msg.get('delay', None)
+
+        return delay and delay.get_stamp()
+
     def _handle_new_subscription(self, pres):
         """
         client.auto_authorize is True by default, which is fine. But we want to restrict this to users only (if set).
@@ -794,6 +803,9 @@ class LudolphBot(LudolphDBMixin):
                 logger.warning('Unhandled %s message from %s: %s', msg_type, msg['from'], msg)
             return
 
+        if self.is_msg_delayed(msg):
+            return  # Ignore delayed messages
+
         # Wrap around the Message object
         msg = IncomingLudolphMessage.wrap_msg(msg)
 
@@ -809,6 +821,9 @@ class LudolphBot(LudolphDBMixin):
 
         if msg['mucnick'] == self.nick:
             return  # Loop protection
+
+        if self.is_msg_delayed(msg):
+            return  # Ignore delayed messages
 
         # Respond to the message only if the bots nickname is mentioned
         # And only if we can get user's JID
