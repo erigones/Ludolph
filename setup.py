@@ -24,7 +24,7 @@ def read_file(name):
 
 
 DEPS = [
-    'ludolph-zabbix>=1.1',
+    'ludolph-zabbix>=1.5',
     'sleekxmpp>=1.2.0',
     'bottle',
 ]
