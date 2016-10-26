@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+
+<service_bundle type='manifest' name='ludolph'>
+  <service name='application/ludolph' type='service' version='0'>
+
+        <dependency name='network' grouping='require_all' restart_on='none' type='service'>
+                <service_fmri value='svc:/milestone/network:default'/>
+        </dependency>
+
+        <dependency name='filesystem-local' grouping='require_all' restart_on='none' type='service'>
+                <service_fmri value='svc:/system/filesystem/local:default'/>
+        </dependency>
+
+        <exec_method type='method' name='start' exec='%{daemon/bin}' timeout_seconds='60'>
+        </exec_method>
+
+        <exec_method type='method' name='stop' exec=':kill' timeout_seconds='60'>
+        </exec_method>
+
+        <exec_method type='method' name='refresh' exec=':kill -HUP' timeout_seconds='60'>
+        </exec_method>
+
+        <instance name='default' enabled='true'>
+                <method_context working_directory='/data/ludolph/'>
+                        <method_credential user='ludolph' group='ludolph' />
+                        <method_environment>
+                                <envvar name='PYTHONPATH' value='/data/ludolph' />
+                                <envvar name='VIRTUAL_ENV' value='/data/ludolph/envs' />
+                                <envvar name='PATH' value='/data/ludolph/envs/bin:/usr/local/bin:/opt/local/bin:/usr/bin:/bin' />
+                        </method_environment>
+                </method_context>
+                <property_group name='daemon' type='application'>
+                        <propval name='bin' type='astring' value='/data/ludolph/envs/bin/ludolph' />
+                </property_group>
+        </instance>
+
+        <instance name='python3' enabled='false'>
+                <method_context working_directory='/data/ludolph/'>
+                        <method_credential user='ludolph' group='ludolph' />
+                        <method_environment>
+                                <envvar name='PYTHONPATH' value='/data/ludolph' />
+                                <envvar name='VIRTUAL_ENV' value='/data/ludolph/envs3' />
+                                <envvar name='PATH' value='/data/ludolph/envs3/bin:/usr/local/bin:/opt/local/bin:/usr/bin:/bin' />
+                        </method_environment>
+                </method_context>
+                <property_group name='daemon' type='application'>
+                        <propval name='bin' type='astring' value='/data/ludolph/envs3/bin/ludolph' />
+                </property_group>
+        </instance>
+
+        <stability value='Evolving' />
+
+  </service>
+</service_bundle>
+
