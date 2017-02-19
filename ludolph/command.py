@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2016 Erigones, s. r. o.
+Copyright (C) 2012-2017 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -163,6 +163,7 @@ class Commands(dict):
         if cmdstr in self.all():
             cmd = self[cmdstr]
         else:
+            # noinspection PyTypeChecker
             for key in self.all():
                 if key.startswith(cmdstr):
                     cmd = self[key]
@@ -198,7 +199,13 @@ def command(func=None, stream_output=False, reply_output=True, user_required=Tru
             return None
 
         # Fetch command parameters (the method must accept at least two positional arguments - self and msg)
-        arg_spec = inspect.getargspec(fun)
+        try:  # inspect.getargspec() is Deprecated since python 3.0
+            # noinspection PyDeprecation
+            getargspec = inspect.getargspec
+        except AttributeError:
+            getargspec = inspect.getfullargspec
+
+        arg_spec = getargspec(fun)
 
         if len(arg_spec.args) < 2:
             logger.critical('Command "%s" from plugin "%s" is missing required arguments', name, fun.__module__)
