@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2016 Erigones, s. r. o.
+Copyright (C) 2012-2017 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -15,6 +15,7 @@ class LudolphPluginTest(unittest.TestCase):
     plugin = None
 
     def setUp(self):
+        # noinspection PyTypeChecker
         self.plugin = LudolphPlugin('xmpp', {'config': 'test'})
 
     def test_get_boolean_value(self):

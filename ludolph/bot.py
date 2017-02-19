@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2016 Erigones, s. r. o.
+Copyright (C) 2012-2017 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -265,11 +265,11 @@ class LudolphBot(LudolphDBMixin):
                         if kwd in keywords:
                             jids.update(keywords[kwd])
                         else:
-                            logger.warn('Skipping invalid keyword "%s" from setting "%s"', jid, option)
+                            logger.warning('Skipping invalid keyword "%s" from setting "%s"', jid, option)
                     else:
                         jids.add(jid)
                 else:
-                    logger.warn('Skipping invalid JID "%s" from setting "%s"', jid, option)
+                    logger.warning('Skipping invalid JID "%s" from setting "%s"', jid, option)
 
         return jids
 
@@ -902,7 +902,7 @@ class LudolphBot(LudolphDBMixin):
         logger.info('Requested shutdown (%s)', signalnum)
 
         if self.shutting_down:
-            logger.warn('Shutdown is already in progress...')
+            logger.warning('Shutdown is already in progress...')
             return
 
         self.shutting_down = True

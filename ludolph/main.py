@@ -1,6 +1,6 @@
 """
 Ludolph: Monitoring Jabber Bot
-Copyright (C) 2012-2016 Erigones, s. r. o.
+Copyright (C) 2012-2017 Erigones, s. r. o.
 This file is part of Ludolph.
 
 See the LICENSE file for copying permission.
@@ -14,10 +14,10 @@ import logging
 from collections import namedtuple
 
 try:
-    # noinspection PyCompatibility
+    # noinspection PyCompatibility,PyUnresolvedReferences
     from configparser import RawConfigParser
 except ImportError:
-    # noinspection PyCompatibility
+    # noinspection PyCompatibility,PyUnresolvedReferences
     from ConfigParser import RawConfigParser
 
 try:
@@ -126,9 +126,17 @@ The example file is located in: %s\n\n""" % (
     # noinspection PyShadowingNames
     def load_config(fp, reopen=False):
         config = RawConfigParser()
+
         if reopen:
             fp = open(fp.name)
-        config.readfp(fp)  # TODO: Deprecated since python 3.2
+
+        try:  # config.readfp() is Deprecated since python 3.2
+            # noinspection PyDeprecation
+            read_file = config.readfp
+        except AttributeError:
+            read_file = config.read_file
+
+        read_file(fp)
         fp.close()
         return config
     config = load_config(cfg_fp)
@@ -247,7 +255,7 @@ The example file is located in: %s\n\n""" % (
         # noinspection PyUnusedLocal,PyShadowingNames
         def sighup(signalnum, handler):
             if xmpp.reloading:
-                logger.warn('Reload already in progress')
+                logger.warning('Reload already in progress')
             else:
                 xmpp.reloading = True
 
