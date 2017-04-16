@@ -14,6 +14,7 @@ from datetime import datetime
 from sleekxmpp import ClientXMPP
 from sleekxmpp.xmlstream import ET
 from sleekxmpp.exceptions import IqError
+from sleekxmpp.jid import JID
 
 try:
     from collections import OrderedDict
@@ -146,6 +147,7 @@ class LudolphBot(LudolphDBMixin):
         # Register XMPP plugins
         client.register_plugin('xep_0030')  # Service Discovery
         client.register_plugin('xep_0045')  # Multi-User Chat
+        client.register_plugin('xep_0071')  # XHTML-IM
         client.register_plugin('xep_0198')  # Stream Management
         client.register_plugin('xep_0199')  # XMPP Ping
         client.register_plugin('xep_0203')  # Delayed Delivery
@@ -609,6 +611,19 @@ class LudolphBot(LudolphDBMixin):
             logger.error('Could not configure MUC room member list. Error was: %s (condition=%s, etype=%s)',
                          e.text, e.condition, e.etype)
 
+    @staticmethod
+    def _sleekxmpp_fix_jid(jid):
+        """
+        SleekXMPP MUC plugin (xep_0045.py) has changed and return string instead of object. Backward compatible fix!
+
+        Looks like the xep_0045.py is using getStanzaValues() in handle_groupchat_presence and get_stanza_values got
+        changed in https://github.com/fritzy/SleekXMPP/commit/79f3c1ac8f1aa0b099958e824dc53c17daf9849f
+        """
+        if isinstance(jid, JID):
+            return jid
+        else:
+            return JID(jid)
+
     def _get_room_member(self, jid):
         """
         Return MUC room member object according to user's bare Jabber ID.
@@ -616,7 +631,7 @@ class LudolphBot(LudolphDBMixin):
         for nick in self.muc.rooms[self.room]:
             entry = self.muc.rooms[self.room][nick]
 
-            if entry is not None and entry['jid'].bare == jid:
+            if entry is not None and self._sleekxmpp_fix_jid(entry['jid']).bare == jid:
                 return entry
 
         raise KeyError('User with jabber ID "%s" is not listed on the room member list' % jid)
@@ -671,7 +686,7 @@ class LudolphBot(LudolphDBMixin):
             jid = msg['from']
 
         if bare and jid:
-            return jid.bare
+            return self._sleekxmpp_fix_jid(jid).bare
 
         return jid
 
