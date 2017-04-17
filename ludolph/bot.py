@@ -162,7 +162,10 @@ class LudolphBot(LudolphDBMixin):
         client.add_event_handler('roster_subscription_request', self._handle_new_subscription)
         client.add_event_handler('session_start', self._session_start)
         client.add_event_handler('message', self._bot_message, threaded=True)
-        client.add_event_handler('attention', self.handle_attention, threaded=True)
+        client.add_event_handler('got_online', self._user_online, threaded=True)
+        client.add_event_handler('got_offline', self._user_offline, threaded=True)
+        client.add_event_handler('changed_status', self._user_changed_status, threaded=True)
+        client.add_event_handler('attention', self._handle_attention, threaded=True)
 
         if self.room:
             self.muc = client.plugin['xep_0045']
@@ -714,6 +717,45 @@ class LudolphBot(LudolphDBMixin):
         """
         return not self.room_admins or jid in self.room_admins
 
+    def get_jid_resource(self, jid):
+        """
+        Return a client's resource with the highest priority if a bare JID is in roster, otherwise return None.
+        The Return value is always a tuple: ('resource name', {'priority' 10, 'status': 'blah', 'show': 'away'}).
+        """
+        jid = self._sleekxmpp_fix_jid(jid)
+
+        if jid.bare in self.client_roster:
+            buddy = self.client_roster[jid]
+            logger.debug('User "%s has following resources: %s', jid, buddy.resources)
+
+            if buddy.resources:
+                if jid.resource:  # A full JID was provided and we already know the resource name
+                    if jid.resource in buddy.resources:
+                        return jid.resource, buddy.resources[jid.resource]
+                else:
+                    return max(buddy.resources.items(), key=lambda x: x[1].get('priority', 0))
+
+        return None, None
+
+    def get_jid_status(self, jid):
+        """
+        Return a status if a bare JID is in roster, otherwise return None.
+        """
+        resource, options = self.get_jid_resource(jid)
+
+        if resource:
+            return options.get('show')
+
+        return None
+
+    def has_jid_status(self, jid, status):
+        """
+        Return True if bare JID is in roster and has a specific status.
+        """
+        # We don't really support resources and are using a bare Jabber ID for sending messages. So let us
+        # decide whether a user has a specific status based on the status of the client with the highest priority.
+        return self.get_jid_status(jid) == status
+
     @staticmethod
     def is_msg_delayed(msg):
         """
@@ -827,6 +869,29 @@ class LudolphBot(LudolphDBMixin):
         # Fire the bot_message event (by default: self._run_command())
         self._run_event_handlers('bot_message', msg)
 
+    def _user_online(self, presence):
+        """
+        Process an online presence stanza from a JID.
+        """
+        logger.info('User "%s" got online (%s)', presence['from'], presence.get_type())
+
+        if presence['from'].bare == self.boundjid.bare:  # Display roster if the bot gets online
+            self._roster_cleanup()
+
+    # noinspection PyMethodMayBeStatic
+    def _user_offline(self, presence):
+        """
+        Process an online presence stanza from a JID.
+        """
+        logger.info('User "%s" got offline (%s)', presence['from'], presence.get_type())
+
+    # noinspection PyMethodMayBeStatic
+    def _user_changed_status(self, presence):
+        """
+        Process an status changed presence stanza from a JID.
+        """
+        logger.info('User "%s" changed status to %s', presence['from'], presence.get_type())
+
     def _muc_message(self, msg):
         """
         MUC Incoming message handler.
@@ -906,7 +971,7 @@ class LudolphBot(LudolphDBMixin):
         # Fire the muc_user_offline event (nothing by default)
         self._run_event_handlers('muc_user_online', presence)
 
-    def handle_attention(self, msg):
+    def _handle_attention(self, msg):
         self.msg_reply(msg, 'Whats up, buddy? If you are lost, type **help** to see what I am capable of...')
 
     # noinspection PyUnusedLocal
