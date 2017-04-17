@@ -1081,7 +1081,6 @@ class LudolphBot(LudolphDBMixin):
         """
         return OutgoingLudolphMessage.create(mbody, **kwargs).send(self, mto, mfrom=mfrom, mnick=mnick)
 
-    # noinspection PyMethodMayBeStatic
     def msg_reply(self, msg, mbody, preserve_msg=False, **kwargs):
         """
         Set message reply text and html, and send it.
@@ -1101,7 +1100,7 @@ class LudolphBot(LudolphDBMixin):
         defaults = {'mtype': msg.get('mtype', None), 'msubject': msg.get('subject', None)}
         defaults.update(kwargs)
 
-        return OutgoingLudolphMessage.create(msg['body'], **kwargs).send(self, msg['from'], mfrom=msg['to'])
+        return OutgoingLudolphMessage.create(msg['body'], **defaults).send(self, msg['from'], mfrom=msg['to'])
 
     def msg_broadcast(self, mbody, **kwargs):
         """
