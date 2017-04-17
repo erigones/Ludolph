@@ -803,7 +803,11 @@ class LudolphBot(LudolphDBMixin):
         # Remove users with none subscription from roster
         # Also remove users that are not in users setting (if set)
         for i in tuple(roster.keys()):  # Copy for python 3
-            if roster[i]['subscription'] == 'none' or (self.users and i not in self.users):
+            if i == self.boundjid.bare:
+                logger.info('Roster item %s (%s) - ignoring myself', i, roster[i]['subscription'])
+            elif self.room and i == self.room:
+                logger.info('Roster item %s (%s) - ignoring my room', i, roster[i]['subscription'])
+            elif roster[i]['subscription'] == 'none' or (self.users and i not in self.users):
                 logger.warning('Roster item: %s (%s) - removing!', i, roster[i]['subscription'])
                 self.client.send_presence(pto=i, ptype='unsubscribe')
                 self.client.del_roster_item(i)
