@@ -115,6 +115,7 @@ class LudolphBot(LudolphDBMixin):
     webserver = None
     cron = None
     persistent_attrs = ('room_users_invited', 'room_users_last_seen')
+    drop_messages_to_dnd_users = False
 
     def __init__(self, config, plugins=None):
         super(LudolphBot, self).__init__()
@@ -383,6 +384,12 @@ class LudolphBot(LudolphDBMixin):
         # Room users vs. room_users_invited
         if self.room_users_invited:
             self.room_users_invited.intersection_update(self.room_users)
+
+        # Drop messages to users with DND status?
+        if config.has_option('xmpp', 'drop_messages_to_dnd_users'):
+            self.drop_messages_to_dnd_users = config.getboolean('xmpp', 'drop_messages_to_dnd_users')
+        else:
+            self.drop_messages_to_dnd_users = LudolphBot.drop_messages_to_dnd_users
 
         # Web server (any change in configuration requires restart)
         if init and not self.webserver:
@@ -1079,6 +1086,10 @@ class LudolphBot(LudolphDBMixin):
         """
         Create message and send it.
         """
+        if self.drop_messages_to_dnd_users and self.has_jid_status(mto, 'dnd'):
+            logger.warning('Dropping message for user "%s" because user status=dnd', mto)
+            return False
+
         return OutgoingLudolphMessage.create(mbody, **kwargs).send(self, mto, mfrom=mfrom, mnick=mnick)
 
     def msg_reply(self, msg, mbody, preserve_msg=False, **kwargs):
@@ -1110,8 +1121,11 @@ class LudolphBot(LudolphDBMixin):
         i = 0
 
         for jid in self.client_roster:
-            if not (jid == self.boundjid.bare or jid in self.broadcast_blacklist):
-                msg.send(self, jid)
-                i += 1
+            if not (jid == self.boundjid.bare or (self.room and jid == self.room) or jid in self.broadcast_blacklist):
+                if self.drop_messages_to_dnd_users and self.has_jid_status(jid, 'dnd'):
+                    logger.warning('Dropping broadcast message for user "%s" because user status=dnd', jid)
+                else:
+                    msg.send(self, jid)
+                    i += 1
 
         return i
