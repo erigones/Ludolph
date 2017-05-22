@@ -892,7 +892,7 @@ class LudolphBot(LudolphDBMixin):
     # noinspection PyMethodMayBeStatic
     def _user_offline(self, presence):
         """
-        Process an online presence stanza from a JID.
+        Process an offline presence stanza from a JID.
         """
         logger.info('User "%s" got offline (%s)', presence['from'], presence.get_type())
 
