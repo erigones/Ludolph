@@ -90,12 +90,15 @@ admins =
 #room_admin_role =
 
 # Whether to send invites to new users to join the MUC room.
-# room_invites = True
+#room_invites = True
 
 # Comma-separated list of user jabber IDs.
 # Users will not receive message that will be broadcasted to Ludolph's roster.
 # You can use @admins keyword here.
-broadcast_blacklist = 
+#broadcast_blacklist =
+
+# Whether to skip sending of messages to users who have a DND status set (default: false)
+#drop_messages_to_dnd_users = false
 
 
 ###############################################################################

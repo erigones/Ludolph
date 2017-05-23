@@ -115,6 +115,7 @@ class LudolphBot(LudolphDBMixin):
     webserver = None
     cron = None
     persistent_attrs = ('room_users_invited', 'room_users_last_seen')
+    drop_messages_to_dnd_users = False
 
     def __init__(self, config, plugins=None):
         super(LudolphBot, self).__init__()
@@ -162,7 +163,10 @@ class LudolphBot(LudolphDBMixin):
         client.add_event_handler('roster_subscription_request', self._handle_new_subscription)
         client.add_event_handler('session_start', self._session_start)
         client.add_event_handler('message', self._bot_message, threaded=True)
-        client.add_event_handler('attention', self.handle_attention, threaded=True)
+        client.add_event_handler('got_online', self._user_online, threaded=True)
+        client.add_event_handler('got_offline', self._user_offline, threaded=True)
+        client.add_event_handler('changed_status', self._user_changed_status, threaded=True)
+        client.add_event_handler('attention', self._handle_attention, threaded=True)
 
         if self.room:
             self.muc = client.plugin['xep_0045']
@@ -380,6 +384,12 @@ class LudolphBot(LudolphDBMixin):
         # Room users vs. room_users_invited
         if self.room_users_invited:
             self.room_users_invited.intersection_update(self.room_users)
+
+        # Drop messages to users with DND status?
+        if config.has_option('xmpp', 'drop_messages_to_dnd_users'):
+            self.drop_messages_to_dnd_users = config.getboolean('xmpp', 'drop_messages_to_dnd_users')
+        else:
+            self.drop_messages_to_dnd_users = LudolphBot.drop_messages_to_dnd_users
 
         # Web server (any change in configuration requires restart)
         if init and not self.webserver:
@@ -714,6 +724,45 @@ class LudolphBot(LudolphDBMixin):
         """
         return not self.room_admins or jid in self.room_admins
 
+    def get_jid_resource(self, jid):
+        """
+        Return a client's resource with the highest priority if a bare JID is in roster, otherwise return None.
+        The Return value is always a tuple: ('resource name', {'priority' 10, 'status': 'blah', 'show': 'away'}).
+        """
+        jid = self._sleekxmpp_fix_jid(jid)
+
+        if jid.bare in self.client_roster:
+            buddy = self.client_roster[jid]
+            logger.debug('User "%s has following resources: %s', jid, buddy.resources)
+
+            if buddy.resources:
+                if jid.resource:  # A full JID was provided and we already know the resource name
+                    if jid.resource in buddy.resources:
+                        return jid.resource, buddy.resources[jid.resource]
+                else:
+                    return max(buddy.resources.items(), key=lambda x: x[1].get('priority', 0))
+
+        return None, None
+
+    def get_jid_status(self, jid):
+        """
+        Return a status if a bare JID is in roster, otherwise return None.
+        """
+        resource, options = self.get_jid_resource(jid)
+
+        if resource:
+            return options.get('show')
+
+        return None
+
+    def has_jid_status(self, jid, status):
+        """
+        Return True if bare JID is in roster and has a specific status.
+        """
+        # We don't really support resources and are using a bare Jabber ID for sending messages. So let us
+        # decide whether a user has a specific status based on the status of the client with the highest priority.
+        return self.get_jid_status(jid) == status
+
     @staticmethod
     def is_msg_delayed(msg):
         """
@@ -761,7 +810,11 @@ class LudolphBot(LudolphDBMixin):
         # Remove users with none subscription from roster
         # Also remove users that are not in users setting (if set)
         for i in tuple(roster.keys()):  # Copy for python 3
-            if roster[i]['subscription'] == 'none' or (self.users and i not in self.users):
+            if i == self.boundjid.bare:
+                logger.info('Roster item %s (%s) - ignoring myself', i, roster[i]['subscription'])
+            elif self.room and i == self.room:
+                logger.info('Roster item %s (%s) - ignoring my room', i, roster[i]['subscription'])
+            elif roster[i]['subscription'] == 'none' or (self.users and i not in self.users):
                 logger.warning('Roster item: %s (%s) - removing!', i, roster[i]['subscription'])
                 self.client.send_presence(pto=i, ptype='unsubscribe')
                 self.client.del_roster_item(i)
@@ -826,6 +879,29 @@ class LudolphBot(LudolphDBMixin):
 
         # Fire the bot_message event (by default: self._run_command())
         self._run_event_handlers('bot_message', msg)
+
+    def _user_online(self, presence):
+        """
+        Process an online presence stanza from a JID.
+        """
+        logger.info('User "%s" got online (%s)', presence['from'], presence.get_type())
+
+        if presence['from'].bare == self.boundjid.bare:  # Display roster if the bot gets online
+            self._roster_cleanup()
+
+    # noinspection PyMethodMayBeStatic
+    def _user_offline(self, presence):
+        """
+        Process an offline presence stanza from a JID.
+        """
+        logger.info('User "%s" got offline (%s)', presence['from'], presence.get_type())
+
+    # noinspection PyMethodMayBeStatic
+    def _user_changed_status(self, presence):
+        """
+        Process an status changed presence stanza from a JID.
+        """
+        logger.info('User "%s" changed status to %s', presence['from'], presence.get_type())
 
     def _muc_message(self, msg):
         """
@@ -906,7 +982,7 @@ class LudolphBot(LudolphDBMixin):
         # Fire the muc_user_offline event (nothing by default)
         self._run_event_handlers('muc_user_online', presence)
 
-    def handle_attention(self, msg):
+    def _handle_attention(self, msg):
         self.msg_reply(msg, 'Whats up, buddy? If you are lost, type **help** to see what I am capable of...')
 
     # noinspection PyUnusedLocal
@@ -1010,9 +1086,12 @@ class LudolphBot(LudolphDBMixin):
         """
         Create message and send it.
         """
+        if self.drop_messages_to_dnd_users and self.has_jid_status(mto, 'dnd'):
+            logger.warning('Dropping message for user "%s" because user status=dnd', mto)
+            return False
+
         return OutgoingLudolphMessage.create(mbody, **kwargs).send(self, mto, mfrom=mfrom, mnick=mnick)
 
-    # noinspection PyMethodMayBeStatic
     def msg_reply(self, msg, mbody, preserve_msg=False, **kwargs):
         """
         Set message reply text and html, and send it.
@@ -1032,7 +1111,7 @@ class LudolphBot(LudolphDBMixin):
         defaults = {'mtype': msg.get('mtype', None), 'msubject': msg.get('subject', None)}
         defaults.update(kwargs)
 
-        return OutgoingLudolphMessage.create(msg['body'], **kwargs).send(self, msg['from'], mfrom=msg['to'])
+        return OutgoingLudolphMessage.create(msg['body'], **defaults).send(self, msg['from'], mfrom=msg['to'])
 
     def msg_broadcast(self, mbody, **kwargs):
         """
@@ -1042,8 +1121,11 @@ class LudolphBot(LudolphDBMixin):
         i = 0
 
         for jid in self.client_roster:
-            if not (jid == self.boundjid.bare or jid in self.broadcast_blacklist):
-                msg.send(self, jid)
-                i += 1
+            if not (jid == self.boundjid.bare or (self.room and jid == self.room) or jid in self.broadcast_blacklist):
+                if self.drop_messages_to_dnd_users and self.has_jid_status(jid, 'dnd'):
+                    logger.warning('Dropping broadcast message for user "%s" because user status=dnd', jid)
+                else:
+                    msg.send(self, jid)
+                    i += 1
 
         return i

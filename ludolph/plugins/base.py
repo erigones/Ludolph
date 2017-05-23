@@ -209,7 +209,7 @@ class Base(LudolphPlugin):
 
         Usage: broadcast <message>
         """
-        return '**Message broadcasted to %dx users.** Users on broadcast blacklist: %s.' % \
+        return '**Message broadcasted to %d users.** Users on broadcast blacklist: %s' % \
                (self.xmpp.msg_broadcast(text), ', '.join(self.xmpp.broadcast_blacklist))
 
     # noinspection PyUnusedLocal
