@@ -58,7 +58,7 @@ setup(
     description='Monitoring Jabber Bot',
     long_description=read_file('README.rst'),
     author='Erigones',
-    author_email='erigones [at] erigones.com',
+    author_email='erigones@erigones.com',
     url='https://github.com/erigones/Ludolph/',
     license='BSD',
     packages=['ludolph'],
