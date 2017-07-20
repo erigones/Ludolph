@@ -1086,7 +1086,7 @@ class LudolphBot(LudolphDBMixin):
         """
         Create message and send it.
         """
-        if self.drop_messages_to_dnd_users and self.has_jid_status(mto, 'dnd'):
+        if self.drop_messages_to_dnd_users and mto != self.room and self.has_jid_status(mto, 'dnd'):
             logger.warning('Dropping message for user "%s" because user status=dnd', mto)
             return False
 
