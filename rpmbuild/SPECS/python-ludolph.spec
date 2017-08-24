@@ -12,7 +12,6 @@ BuildArch:      noarch
  
 BuildRequires:  python2-devel
 BuildRequires:  python2-setuptools
-BuildRequires:  systemd
 
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
@@ -40,7 +39,6 @@ Summary:        %{summary}
 Requires:       python2-sleekxmpp
 Requires:       python2-bottle
 Requires:       python2-dns
-Requires:       systemd
 %description -n python2-%{pypi_name}
 Monitoring Jabber Bot with Zabbix support, completely written in Python.
 
@@ -64,6 +62,7 @@ Requires:       python3-sleekxmpp
 Requires:       python3-bottle
 Requires:       python3-dns
 Requires:       systemd
+Provides:       %{pypi_name} = %{version}-%{release}
 %description -n python3-%{pypi_name}
 Monitoring Jabber Bot with Zabbix support, completely written in Python.
 
@@ -95,31 +94,37 @@ rm %{buildroot}/%{_bindir}/*
 
 %py3_install
 
-install -p -D -m 644 init.d/ludolph.service %{buildroot}%{_unitdir}/ludolph.service
+install -p -D -m 644 init.d/%{pypi_name}.service %{buildroot}%{_unitdir}/%{pypi_name}.service
+install -p -D -m 644 init.d/%{pypi_name}.conf %{buildroot}%{_tmpfilesdir}/%{pypi_name}.conf
 
-%post
-%systemd_post ludolph.service
+%check
+%{__python2} setup.py test
+%{__python3} setup.py test
 
-%preun
-%systemd_preun ludolph.service
+%post -n python3-%{pypi_name}
+%systemd_post %{pypi_name}.service
+%tmpfiles_create %{pypi_name}.conf
 
-%postun
-%systemd_postun ludolph.service
+%preun -n python3-%{pypi_name}
+%systemd_preun %{pypi_name}.service
+
+%postun -n python3-%{pypi_name}
+%systemd_postun %{pypi_name}.service
 
 %files -n python2-%{pypi_name}
 %license LICENSE
 %doc README.rst
-%ghost %config(noreplace) %{_sysconfdir}/ludolph.cfg
-%{_unitdir}/ludolph.service
 %{python2_sitelib}/%{pypi_name}
 %{python2_sitelib}/%{pypi_name}-%{version}-py?.?.egg-info
 
 %files -n python3-%{pypi_name}
 %license LICENSE
 %doc README.rst
-%{_bindir}/ludolph
-%ghost %config(noreplace) %{_sysconfdir}/ludolph.cfg
-%{_unitdir}/ludolph.service
+%{_bindir}/%{pypi_name}
+%ghost %config(noreplace) %{_sysconfdir}/%{pypi_name}.cfg
+%ghost %dir %{_localstatedir}/run/%{pypi_name}
+%{_tmpfilesdir}/%{pypi_name}.conf
+%{_unitdir}/%{pypi_name}.service
 %{python3_sitelib}/%{pypi_name}
 %{python3_sitelib}/%{pypi_name}-%{version}-py?.?.egg-info
 
