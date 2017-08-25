@@ -12,9 +12,17 @@ BuildArch:      noarch
  
 BuildRequires:  python2-devel
 BuildRequires:  python2-setuptools
+BuildRequires:  python2-nose
+BuildRequires:  python2-sleekxmpp
+BuildRequires:  python2-bottle
+BuildRequires:  python2-dns
 
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
+BuildRequires:  python3-nose
+BuildRequires:  python3-sleekxmpp
+BuildRequires:  python3-bottle
+BuildRequires:  python3-dns
 BuildRequires:  systemd
 
 %description
@@ -98,8 +106,8 @@ install -p -D -m 644 init.d/%{pypi_name}.service %{buildroot}%{_unitdir}/%{pypi_
 install -p -D -m 644 init.d/%{pypi_name}.conf %{buildroot}%{_tmpfilesdir}/%{pypi_name}.conf
 
 %check
-%{__python2} setup.py test
-%{__python3} setup.py test
+%{__python2} -m nose
+%{__python3} -m nose
 
 %post -n python3-%{pypi_name}
 %systemd_post %{pypi_name}.service
