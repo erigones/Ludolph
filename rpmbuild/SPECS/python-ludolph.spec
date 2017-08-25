@@ -48,7 +48,9 @@ Requires:       python2-sleekxmpp
 Requires:       python2-bottle
 Requires:       python2-dns
 %description -n python2-%{pypi_name}
-Monitoring Jabber Bot with Zabbix support, completely written in Python.
+Python 2 module with Ludolph, Monitoring Jabber Bot with Zabbix support.
+
+Use the python3-ludolph package to get the actual application and service.
 
 Features
 * Simple and modular design
